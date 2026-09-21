@@ -187,12 +187,13 @@ const ShrijalVoice = (() => {
         if (voices.length > 0) selectBestIndianFemaleVoice(voices);
     }
 
-    // Siri-like natural voices, best first (Apple Siri -> Windows natural -> Google natural)
+    // Siri-like natural voices, best first. Only ONE voice is ever used (no picker):
+    // Apple Siri -> Google natural female -> Windows natural female.
     const SIRI_LIKE_NAMES = [
         'samantha', 'siri',
-        'zira',
         'google us english', 'google uk english female',
-        'hazel', 'victoria', 'karen', 'susan', 'moira', 'tessa', 'fiona',
+        'zira', 'hazel',
+        'victoria', 'karen', 'susan', 'moira', 'tessa', 'fiona',
         'salli', 'joanna', 'ivy', 'kimberly', 'alice', 'melina'
     ];
 
@@ -321,9 +322,9 @@ const ShrijalVoice = (() => {
             const voice = getVoiceForLanguage(speakLang);
             if (voice) utterance.voice = voice;
             utterance.lang = speakLang;
-            // Siri-like delivery: calm steady pace, bright friendly pitch
-            utterance.rate = 0.98;
-            utterance.pitch = 1.25;
+            // Fixed Siri-like delivery: calm steady pace, bright warm pitch
+            utterance.rate = 0.96;
+            utterance.pitch = 1.28;
             utterance.volume = 1;
 
             utterance.onstart = () => {
