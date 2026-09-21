@@ -105,6 +105,9 @@
                         <button class="shrijal-send-btn" id="sendBtn" aria-label="Send message" onclick="sendChat()">➤</button>
                     </div>
                     <button class="shrijal-voice-toggle" id="voiceToggle" aria-label="Toggle voice responses">🔇 Voice</button>
+                    <select class="shrijal-voice-toggle" id="voiceSelect" aria-label="Choose assistant voice" title="Choose assistant voice" style="max-width:150px;">
+                        <option value="">Auto voice</option>
+                    </select>
                 </div>
             </div>
         </div>
@@ -176,9 +179,41 @@
             document.getElementById('micBtn').addEventListener('click', function() { toggleRecording(); });
             document.getElementById('voiceToggle').addEventListener('click', function() { toggleVoice(); });
             document.getElementById('shrijalOrb').addEventListener('click', function() { toggleRecording(); });
+            initVoicePicker();
 
             setTimeout(function() { showPersonalizedGreeting(); }, 500);
         });
+
+        // Voice picker: list device voices, let user choose Siri-like voice with instant preview
+        function initVoicePicker() {
+            var sel = document.getElementById('voiceSelect');
+            if (!sel) return;
+            var fill = function() {
+                var voices = ShrijalVoice.getAvailableVoices();
+                if (!voices.length) return;
+                var current = sel.value || ShrijalVoice.getPreferredVoiceName() || '';
+                sel.innerHTML = '<option value="">Auto voice</option>';
+                voices.forEach(function(v) {
+                    var opt = document.createElement('option');
+                    opt.value = v.name;
+                    opt.textContent = v.name + ' (' + v.lang + ')';
+                    sel.appendChild(opt);
+                });
+                if (current) sel.value = current;
+                var active = ShrijalVoice.getActiveVoiceName();
+                if (active) sel.title = 'Speaking voice: ' + active;
+            };
+            fill();
+            if (window.speechSynthesis) {
+                try { window.speechSynthesis.onvoiceschanged = fill; } catch (e) {}
+                setTimeout(fill, 1000);
+            }
+            sel.addEventListener('change', function() {
+                ShrijalVoice.setPreferredVoiceName(sel.value);
+                if (!ShrijalVoice.getVoiceMode()) ShrijalVoice.enableVoiceMode();
+                ShrijalVoice.speakText(window._shrijalGreeting || 'Hi, I am Shrijal, your AI medical assistant.');
+            });
+        }
 
         function showPersonalizedGreeting() {
             if (ShrijalVoice.isGreetingShown()) return;

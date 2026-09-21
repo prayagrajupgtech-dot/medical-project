@@ -29,6 +29,8 @@ const ShrijalVoice = (() => {
     let speakResolve = null;
     let recognitionSupported = false;
     let lastReportContext = null;
+    let preferredVoiceName = '';
+    try { preferredVoiceName = localStorage.getItem('shrijal_voice_name') || ''; } catch (e) {}
 
     // ── User Name Helpers ─────────────────────────────────────────────────────
 
@@ -249,6 +251,12 @@ const ShrijalVoice = (() => {
         const voices = synthesis.getVoices();
         const shortLang = (langCode || 'en-IN').split('-')[0];
 
+        // User's manual pick always wins (if still available)
+        if (preferredVoiceName) {
+            const chosen = voices.find(x => x.name === preferredVoiceName);
+            if (chosen) return chosen;
+        }
+
         let v = pickNaturalVoice(voices, x => x.lang === langCode);
         if (v) return v;
         v = pickNaturalVoice(voices, x => x.lang && x.lang.startsWith(shortLang));
@@ -313,9 +321,9 @@ const ShrijalVoice = (() => {
             const voice = getVoiceForLanguage(speakLang);
             if (voice) utterance.voice = voice;
             utterance.lang = speakLang;
-            // Siri-like delivery: steady pace, bright friendly pitch
-            utterance.rate = 1.02;
-            utterance.pitch = 1.12;
+            // Siri-like delivery: calm steady pace, bright friendly pitch
+            utterance.rate = 0.98;
+            utterance.pitch = 1.25;
             utterance.volume = 1;
 
             utterance.onstart = () => {
@@ -549,6 +557,29 @@ const ShrijalVoice = (() => {
 
     function setOrbState(state) { onOrbStateChange(state); }
 
+    // ── Manual voice picker (persisted) ─────────────────────────────────────
+
+    function getAvailableVoices() {
+        if (!synthesis) return [];
+        try { return synthesis.getVoices() || []; } catch (e) { return []; }
+    }
+
+    function setPreferredVoiceName(name) {
+        preferredVoiceName = name || '';
+        try {
+            if (preferredVoiceName) localStorage.setItem('shrijal_voice_name', preferredVoiceName);
+            else localStorage.removeItem('shrijal_voice_name');
+        } catch (e) {}
+        if (synthesis) selectBestIndianFemaleVoice(synthesis.getVoices());
+    }
+
+    function getPreferredVoiceName() { return preferredVoiceName; }
+
+    function getActiveVoiceName() {
+        const v = getVoiceForLanguage(currentLanguage);
+        return v ? v.name : '';
+    }
+
     return {
         init,
         speakText,
@@ -588,7 +619,11 @@ const ShrijalVoice = (() => {
         isRecognitionSupported,
         setReportContext,
         getReportContext,
-        hasReportContext
+        hasReportContext,
+        getAvailableVoices,
+        setPreferredVoiceName,
+        getPreferredVoiceName,
+        getActiveVoiceName
     };
 })();
 
