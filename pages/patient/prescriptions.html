@@ -1,0 +1,144 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prescriptions - AI Doctor Assistant</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Admin Header -->
+    <header class="admin-header">
+        <div class="container">
+            <div class="admin-header-content">
+                <div class="admin-brand">
+                    <img src="/favicon.png" alt="AI Doctor Assistant">
+                    <span>AI Doctor Assistant - <span data-i18n="app_name">AI Doctor Assistant</span> - <span data-i18n="patient_portal">Patient Portal</span></span>
+                </div>
+                <div class="admin-user">
+                    <span id="userDisplay">John Doe</span>
+                    <button class="btn btn-sm btn-outline" onclick="logout()"><span data-i18n="logout">Logout</span></button>
+                    <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+<!-- Navigation Tabs -->
+    <nav class="admin-nav" aria-label="Main navigation">
+        <div class="container">
+            <button class="admin-nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul>
+                <li><a href="/patient/dashboard" data-nav="dashboard" data-i18n="dashboard">Dashboard</a></li>
+                <li><a href="/patient/doctors" data-nav="doctors" data-i18n="doctors">Doctors</a></li>
+                <li><a href="/patient/appointments" data-nav="appointments" data-i18n="appointments">Appointments</a></li>
+                <li><a href="/patient/consultations" data-nav="consultations" data-i18n="consultations">Consultations</a></li>
+                <li><a href="/patient/reports" data-nav="reports" data-i18n="reports">Reports</a></li>
+                <li><a href="/patient/prescriptions" data-nav="prescriptions" class="active" aria-current="page" data-i18n="prescriptions">Prescriptions</a></li>
+                <li><a href="/patient/messages" data-nav="messages" data-i18n="messages">Messages</a></li>
+                <li><a href="/patient/profile" data-nav="profile" data-i18n="profile">Profile</a></li>
+                <li><a href="/patient/settings" data-nav="settings" data-i18n="settings">Settings</a></li>
+                <li><a href="/patient/ai-assistant" class="admin-nav-item" data-page="ai-assistant" data-i18n="ai_assistant">
+                    <span class="admin-nav-icon">🤖</span>
+                    <span class="admin-nav-label">AI Assistant</span>
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Prescriptions Section -->
+    <section class="admin-section">
+        <div class="container">
+            <div class="dashboard-welcome">
+                <h1><span data-i18n="my_prescriptions">My Prescriptions</span></h1>
+                <p data-i18n="prescriptions_desc">View your current and past prescriptions</p>
+            </div>
+            
+            <div class="admin-card">
+                <table class="admin-table" id="prescriptionsTable">
+                    <thead>
+                        <tr>
+                            <th><span data-i18n="date">Date</span></th>
+                            <th><span data-i18n="medication">Medication</span></th>
+                            <th><span data-i18n="dosage">Dosage</span></th>
+                            <th><span data-i18n="frequency">Frequency</span></th>
+                            <th><span data-i18n="duration">Duration</span></th>
+                            <th><span data-i18n="status">Status</span></th>
+                            <th><span data-i18n="actions">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="prescriptionsList">
+                    </tbody>
+                </table>
+                <div id="noPrescriptions" style="padding: 30px; text-align: center; display: none;">
+                    <p style="color: #64748b;"><span data-i18n="no_data">No prescriptions found.</span></p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+<script src="/js/i18n.js?v=2.2"></script>
+<script src="/js/main.js?v=2.1"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!bootPage('prescriptions', ['patient'])) return;
+
+            showSkeleton(document.getElementById('prescriptionsList'), 3, 7);
+            loadPrescriptions();
+        });
+
+        async function loadPrescriptions() {
+            try {
+                const user = getUser();
+                const prescriptions = await api('/patients/' + user.id + '/prescriptions');
+                renderList(prescriptions);
+            } catch (err) {
+                document.getElementById('prescriptionsList').innerHTML = '';
+                showErrorState(document.getElementById('prescriptionsState'), 'Unable to load prescriptions. Please try again.', 'loadPrescriptions');
+            }
+        }
+
+        function renderList(prescriptions) {
+            const t = function(key) { return typeof ShrijalI18n !== 'undefined' ? ShrijalI18n.t(key) : key; };
+            const tbody = document.getElementById('prescriptionsList');
+            const state = document.getElementById('prescriptionsState');
+            tbody.innerHTML = '';
+            state.innerHTML = '';
+
+            if (!prescriptions.length) {
+                showEmptyState(state, t('no_data'));
+                return;
+            }
+
+            tbody.innerHTML = prescriptions.map(p => {
+                const statusClass = p.status === 'active' ? 'status-confirmed' :
+                                   p.status === 'completed' ? 'status-success' : 'status-pending';
+                return `
+                    <tr>
+                        <td>${formatDate(p.created_at)}</td>
+                        <td>${escapeHtml(p.medication_name)}</td>
+                        <td>${escapeHtml(p.dosage || 'N/A')}</td>
+                        <td>${escapeHtml(p.frequency || 'N/A')}</td>
+                        <td>${escapeHtml(p.duration || 'N/A')}</td>
+                        <td><span class="status-badge ${statusClass}" style="text-transform: capitalize;">${escapeHtml(p.status || 'active')}</span></td>
+                        <td>
+                            <button class="btn btn-sm btn-outline" onclick="viewPrescription(${p.id})">${t('view')}</button>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function viewPrescription(id) {
+            const token = getToken();
+            window.open('/api/prescriptions/' + id + '/pdf?token=' + encodeURIComponent(token), '_blank');
+        }
+    </script>
+</body>
+</html>
+
+

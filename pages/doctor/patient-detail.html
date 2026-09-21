@@ -1,0 +1,239 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Profile - AI Doctor Assistant</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <script>
+        // Immediate auth guard (runs before the page renders)
+        if (!localStorage.getItem('token')) { window.location.replace('/login'); }
+    </script>
+    <!-- Admin Header -->
+    <header class="admin-header">
+        <div class="container">
+            <div class="admin-header-content">
+                <div class="admin-brand">
+                    <img src="/favicon.png" alt="AI Doctor Assistant">
+                    <span>AI Doctor Assistant - Dashboard</span>
+                </div>
+                <div class="admin-user">
+                    <span id="userDisplay">Dr. Sarah Johnson</span>
+                    <button class="btn btn-sm btn-outline" onclick="logout(this)"><span data-i18n="logout">Logout</span></button>
+                    <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">??</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="admin-nav" aria-label="Main navigation">
+        <div class="container">
+            <button class="admin-nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul>
+                <li><a href="/doctor/dashboard" data-nav="dashboard" data-i18n="dashboard">Dashboard</a></li>
+                <li><a href="/doctor/patients" data-nav="patients" class="active" aria-current="page" data-i18n="patients">Patients</a></li>
+                <li><a href="/doctor/consultations" data-nav="consultations" data-i18n="consultations">Consultations</a></li>
+                <li><a href="/doctor/appointments" data-nav="appointments" data-i18n="appointments">Appointments</a></li>
+                <li><a href="/doctor/messages" data-nav="messages" data-i18n="messages">Messages</a></li>
+                <li><a href="/doctor/reports" data-nav="reports" data-i18n="reports">Reports</a></li>
+                <li><a href="/doctor/profile" data-nav="profile" data-i18n="profile">Profile</a></li>
+                <li><a href="/doctor/settings" data-nav="settings" data-i18n="settings">Settings</a></li>
+                <li><a href="/doctor/ai-assistant" class="admin-nav-item" data-page="ai-assistant" data-i18n="ai_assistant">
+                    <span class="admin-nav-icon">??</span>
+                    <span class="admin-nav-label">AI Assistant</span>
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Patient Profile Section -->
+    <section class="admin-section">
+        <div class="container">
+            <div id="profileContent">
+                <div class="state-block"><span class="spinner" aria-hidden="true"></span><p>Loading patient profile...</p></div>
+            </div>
+        </div>
+    </section>
+
+    <script src="/js/main.js?v=2.1"></script>
+    <script>
+        let patientUserId = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!bootPage('patients', ['doctor', 'admin'])) return;
+
+            const params = new URLSearchParams(window.location.search);
+            patientUserId = window.location.pathname.split('/').pop();
+            if (!patientUserId) patientUserId = params.get('id');
+
+            if (!patientUserId) {
+                window.location.href = '/doctor/patients';
+                return;
+            }
+            loadProfile();
+        });
+
+        function loadProfile() {
+            const container = document.getElementById('profileContent');
+            container.innerHTML = '<div class="state-block"><span class="spinner" aria-hidden="true"></span><p>Loading patient profile...</p></div>';
+
+            api('/patients/' + patientUserId + '/profile')
+                .then(data => renderProfile(data))
+                .catch(err => {
+                    container.innerHTML = '';
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'admin-card';
+                    wrapper.innerHTML = '<div class="state-block state-error"><p>Unable to load patient profile. ' + escapeHtml(err.message) + '</p><button type="button" class="btn btn-sm btn-outline retry-btn">Retry</button></div>';
+                    container.appendChild(wrapper);
+                    wrapper.querySelector('.retry-btn').addEventListener('click', loadProfile);
+                });
+        }
+
+        function renderProfile(data) {
+            const p = data.patient || {};
+            const history = data.medical_history || [];
+            const consultations = data.consultations || [];
+            const reports = data.reports || [];
+            const prescriptions = data.prescriptions || [];
+            const age = p.date_of_birth ? calcAge(p.date_of_birth) : null;
+
+            const container = document.getElementById('profileContent');
+            container.innerHTML = `
+                <div class="admin-card">
+                    <div class="d-flex justify-between align-center" style="flex-wrap: wrap; gap: 12px;">
+                        <div>
+                            <h1 style="font-size: 1.5rem; margin-bottom: 4px;">${escapeHtml(p.full_name || 'Patient')}</h1>
+                            <p class="text-muted">${escapeHtml(p.email || '')}${p.phone ? ' &middot; ' + escapeHtml(p.phone) : ''}${age ? ' &middot; ' + age + ' years old' : ''}</p>
+                        </div>
+                        <div class="table-actions">
+                            <a href="/doctor/consultations?new_patient=${patientUserId}" class="btn btn-sm btn-primary">Start Consultation</a>
+                            <a href="/doctor/messages?to=${patientUserId}" class="btn btn-sm btn-outline">Send Message</a>
+                            <a href="/doctor/patients" class="btn btn-sm btn-outline">&larr; Back to Patients</a>
+                        </div>
+                    </div>
+
+                    <div class="detail-tabs" role="tablist" aria-label="Patient details">
+                        <button type="button" class="tab-btn active" data-tab="overview" onclick="switchTab('overview', this)">Overview</button>
+                        <button type="button" class="tab-btn" data-tab="history" onclick="switchTab('history', this)">Medical History (${history.length})</button>
+                        <button type="button" class="tab-btn" data-tab="consultations" onclick="switchTab('consultations', this)">Appointments (${consultations.length})</button>
+                        <button type="button" class="tab-btn" data-tab="reports" onclick="switchTab('reports', this)">Reports (${reports.length})</button>
+                        <button type="button" class="tab-btn" data-tab="prescriptions" onclick="switchTab('prescriptions', this)">Prescriptions (${prescriptions.length})</button>
+                    </div>
+
+                    <div class="detail-panel active" id="panel-overview">
+                        <div class="profile-grid">
+                            <div class="profile-field"><label>Date of Birth</label><p>${escapeHtml(p.date_of_birth || 'N/A')}</p></div>
+                            <div class="profile-field"><label>Gender</label><p>${escapeHtml((p.gender || 'N/A').charAt(0).toUpperCase() + (p.gender || 'n/a').slice(1))}</p></div>
+                            <div class="profile-field"><label>Blood Type</label><p>${escapeHtml(p.blood_type || 'N/A')}</p></div>
+                            <div class="profile-field"><label>Height / Weight</label><p>${p.height ? escapeHtml(p.height) + ' cm' : 'N/A'} / ${p.weight ? escapeHtml(p.weight) + ' kg' : 'N/A'}</p></div>
+                            <div class="profile-field"><label>Phone</label><p>${escapeHtml(p.phone || 'N/A')}</p></div>
+                            <div class="profile-field"><label>Email</label><p>${escapeHtml(p.email || 'N/A')}</p></div>
+                            <div class="profile-field"><label>Address</label><p>${escapeHtml(p.address || 'N/A')}</p></div>
+                            <div class="profile-field"><label>Emergency Contact</label><p>${escapeHtml(p.emergency_contact || 'N/A')}</p></div>
+                            <div class="profile-field"><label>Allergies</label><p>${escapeHtml(p.allergies || 'No known allergies')}</p></div>
+                            <div class="profile-field"><label>Chronic Conditions</label><p>${escapeHtml(p.chronic_conditions || 'None documented')}</p></div>
+                            <div class="profile-field"><label>Current Medications</label><p>${escapeHtml(p.current_medications || 'None')}</p></div>
+                        </div>
+                    </div>
+
+                    <div class="detail-panel" id="panel-history">
+                        ${history.length === 0 ? '<div class="state-block state-empty"><p>No medical history recorded.</p></div>' : `
+                        <div class="table-container">
+                            <table class="admin-table">
+                                <thead><tr><th>Condition</th><th>Diagnosed</th><th>Severity</th><th>Notes</th></tr></thead>
+                                <tbody>
+                                    ${history.map(h => `
+                                        <tr>
+                                            <td><strong>${escapeHtml(h.condition_name)}</strong></td>
+                                            <td>${escapeHtml(h.diagnosed_date || 'N/A')}</td>
+                                            <td>${escapeHtml(h.severity || 'N/A')}</td>
+                                            <td>${escapeHtml(h.notes || '—')}</td>
+                                        </tr>`).join('')}
+                                </tbody>
+                            </table>
+                        </div>`}
+                    </div>
+
+                    <div class="detail-panel" id="panel-consultations">
+                        ${consultations.length === 0 ? '<div class="state-block state-empty"><p>No appointments or consultations yet.</p></div>' : `
+                        <div class="table-container">
+                            <table class="admin-table">
+                                <thead><tr><th>Date</th><th>Time</th><th>Reason / Symptoms</th><th>Status</th><th>Actions</th></tr></thead>
+                                <tbody>
+                                    ${consultations.map(c => `
+                                        <tr>
+                                            <td>${formatDate(c.date)}</td>
+                                            <td>${formatTime(c.appointment_time)}</td>
+                                            <td>${escapeHtml((c.reason || c.symptoms || '—').substring(0, 50))}</td>
+                                            <td>${statusBadge(c.status)}</td>
+                                            <td><a href="/doctor/consultations?id=${c.id}" class="btn btn-sm btn-outline">View</a></td>
+                                        </tr>`).join('')}
+                                </tbody>
+                            </table>
+                        </div>`}
+                    </div>
+
+                    <div class="detail-panel" id="panel-reports">
+                        ${reports.length === 0 ? '<div class="state-block state-empty"><p>No reports uploaded for this patient.</p></div>' : `
+                        <div class="table-container">
+                            <table class="admin-table">
+                                <thead><tr><th>File</th><th>Type</th><th>Uploaded</th><th>Actions</th></tr></thead>
+                                <tbody>
+                                    ${reports.map(r => `
+                                        <tr>
+                                            <td>${escapeHtml(r.file_name)}</td>
+                                            <td>${escapeHtml(r.report_type || 'N/A')}</td>
+                                            <td>${formatDate(r.created_at)}</td>
+                                            <td><a href="/uploads/${escapeHtml(r.file_path.split(/[\\\\/]/).pop())}" target="_blank" rel="noopener" class="btn btn-sm btn-outline">Open</a></td>
+                                        </tr>`).join('')}
+                                </tbody>
+                            </table>
+                        </div>`}
+                    </div>
+
+                    <div class="detail-panel" id="panel-prescriptions">
+                        ${prescriptions.length === 0 ? '<div class="state-block state-empty"><p>No prescriptions issued for this patient.</p></div>' : `
+                        <div class="table-container">
+                            <table class="admin-table">
+                                <thead><tr><th>Medication</th><th>Dosage</th><th>Frequency</th><th>Duration</th><th>Status</th></tr></thead>
+                                <tbody>
+                                    ${prescriptions.map(pr => `
+                                        <tr>
+                                            <td><strong>${escapeHtml(pr.medication_name)}</strong></td>
+                                            <td>${escapeHtml(pr.dosage || 'N/A')}</td>
+                                            <td>${escapeHtml(pr.frequency || 'N/A')}</td>
+                                            <td>${escapeHtml(pr.duration || 'N/A')}</td>
+                                            <td>${statusBadge(pr.status)}</td>
+                                        </tr>`).join('')}
+                                </tbody>
+                            </table>
+                        </div>`}
+                    </div>
+                </div>
+            `;
+        }
+
+        function switchTab(tabName, btn) {
+            document.querySelectorAll('.detail-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.detail-panel').forEach(p => p.classList.remove('active'));
+            btn.classList.add('active');
+            const panel = document.getElementById('panel-' + tabName);
+            if (panel) panel.classList.add('active');
+        }
+
+        function calcAge(dob) {
+            const birth = new Date(dob);
+            if (isNaN(birth.getTime())) return null;
+            const diff = Date.now() - birth.getTime();
+            return Math.floor(diff / (1000 * 60 * 60 * 24 * 365.25));
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,188 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Reports - AI Doctor Assistant</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Admin Header -->
+    <header class="admin-header">
+        <div class="container">
+            <div class="admin-header-content">
+                <div class="admin-brand">
+                    <img src="/favicon.png" alt="AI Doctor Assistant">
+                    <span>AI Doctor Assistant - <span data-i18n="app_name">AI Doctor Assistant</span> - <span data-i18n="patient_portal">Patient Portal</span></span>
+                </div>
+                <div class="admin-user">
+                    <span id="userDisplay">John Doe</span>
+                    <button class="btn btn-sm btn-outline" onclick="logout()"><span data-i18n="logout">Logout</span></button>
+                    <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+<!-- Navigation Tabs -->
+    <nav class="admin-nav" aria-label="Main navigation">
+        <div class="container">
+            <button class="admin-nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul>
+                <li><a href="/patient/dashboard" data-nav="dashboard" data-i18n="dashboard">Dashboard</a></li>
+                <li><a href="/patient/doctors" data-nav="doctors" data-i18n="doctors">Doctors</a></li>
+                <li><a href="/patient/appointments" data-nav="appointments" data-i18n="appointments">Appointments</a></li>
+                <li><a href="/patient/consultations" data-nav="consultations" data-i18n="consultations">Consultations</a></li>
+                <li><a href="/patient/reports" data-nav="reports" class="active" aria-current="page" data-i18n="reports">Reports</a></li>
+                <li><a href="/patient/prescriptions" data-nav="prescriptions" data-i18n="prescriptions">Prescriptions</a></li>
+                <li><a href="/patient/messages" data-nav="messages" data-i18n="messages">Messages</a></li>
+                <li><a href="/patient/profile" data-nav="profile" data-i18n="profile">Profile</a></li>
+                <li><a href="/patient/settings" data-nav="settings" data-i18n="settings">Settings</a></li>
+                <li><a href="/patient/ai-assistant" class="admin-nav-item" data-page="ai-assistant" data-i18n="ai_assistant">
+                    <span class="admin-nav-icon">🤖</span>
+                    <span class="admin-nav-label">AI Assistant</span>
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Reports Section -->
+    <section class="admin-section">
+        <div class="container">
+            <div class="dashboard-welcome">
+                <h1><span data-i18n="my_reports">My Medical Reports</span></h1>
+                <p data-i18n="reports_desc">View all your uploaded medical reports and analysis</p>
+            </div>
+            
+            <div class="admin-card">
+                <table class="admin-table" id="reportsTable">
+                    <thead>
+                        <tr>
+                            <th><span data-i18n="date">Date</span></th>
+                            <th><span data-i18n="report_type">Report Type</span></th>
+                            <th><span data-i18n="file">File</span></th>
+                            <th><span data-i18n="analysis">AI Analysis</span></th>
+                            <th><span data-i18n="actions">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="reportsList">
+                    </tbody>
+                </table>
+                <div id="noReports" style="padding: 30px; text-align: center; display: none;">
+                    <p style="color: #64748b;"><span data-i18n="no_data">No reports found.</span></p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Report Modal -->
+    <div class="modal" id="reportModal">
+        <div class="modal-content modal-lg">
+            <div class="modal-header">
+                <h3 id="modalReportTitle"><span data-i18n="report">Report Details</span></h3>
+                <button class="btn btn-sm btn-outline" onclick="hideModal('reportModal')" style="float: right;">×</button>
+            </div>
+            <div class="modal-body" id="modalReportBody">
+            </div>
+        </div>
+    </div>
+
+<script src="/js/i18n.js?v=2.2"></script>
+<script src="/js/main.js?v=2.1"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!bootPage('reports', ['patient'])) return;
+            loadReports();
+        });
+
+        async function loadReports() {
+            const t = function(key) { return typeof ShrijalI18n !== 'undefined' ? ShrijalI18n.t(key) : key; };
+            const user = getUser();
+            const state = document.getElementById('noReports');
+            const tbody = document.getElementById('reportsList');
+
+            try {
+                const reports = await api(`/patients/${user.id}/reports`);
+                tbody.innerHTML = '';
+                state.innerHTML = '';
+                state.style.display = 'none';
+                if (reports.length === 0) {
+                    state.style.display = 'block';
+                    state.innerHTML = `<p style="color: #64748b;">${t('no_data')}</p>`;
+                    return;
+                }
+                tbody.innerHTML = reports.map(r => {
+                    const reportTypeLabels = {
+                        'blood_test': t('blood_test'),
+                        'xray': t('xray'),
+                        'ct_scan': t('ct_scan'),
+                        'mri': t('mri'),
+                        'ultrasound': t('ultrasound'),
+                        'other': t('other')
+                    };
+                    return `
+                        <tr>
+                            <td>${formatDate(r.created_at)}</td>
+                            <td>${reportTypeLabels[r.report_type] || escapeHtml(r.report_type)}</td>
+                            <td>${escapeHtml(r.file_name)}</td>
+                            <td>
+                                ${r.ai_analysis ? 
+                                    `<span class="status-badge status-confirmed">${t('completed')}</span>` : 
+                                    `<span class="status-badge status-pending">${t('pending')}</span>`
+                                }
+                            </td>
+                            <td>
+                                <a href="/uploads/${r.file_path.replace('uploads/', '')}" target="_blank" class="btn btn-sm btn-outline">${t('view')}</a>
+                                ${r.ai_analysis ? `<button class="btn btn-sm btn-outline" onclick="viewReport(${r.id})">${t('details')}</button>` : ''}
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            } catch (err) {
+                tbody.innerHTML = '';
+                state.style.display = 'block';
+                state.innerHTML = `<p style="color: #dc2626;">Unable to load reports. Please try again.</p>
+                    <button class="btn btn-primary btn-sm" onclick="loadReports()">${t('try_again')}</button>`;
+            }
+        }
+        
+        function viewReport(id) {
+            const t = function(key) { return typeof ShrijalI18n !== 'undefined' ? ShrijalI18n.t(key) : key; };
+            const user = getUser();
+            api(`/patients/${user.id}/reports`)
+            .then(reports => {
+                const report = reports.find(r => r.id === id);
+                if (report) {
+                    document.getElementById('modalReportTitle').textContent = report.file_name;
+                    let analysisHtml = '';
+                    if (report.ai_analysis) {
+                        try {
+                            const analysis = typeof report.ai_analysis === 'string' ? JSON.parse(report.ai_analysis) : report.ai_analysis;
+                            analysisHtml = `<h4>${t('analysis')}</h4><p>${analysis}</p>`;
+                        } catch(e) {
+                            analysisHtml = `<h4>${t('analysis')}</h4><p>${report.ai_analysis}</p>`;
+                        }
+                    }
+                    if (report.important_values) {
+                        try {
+                            const values = typeof report.important_values === 'string' ? JSON.parse(report.important_values) : report.important_values;
+                            if (Array.isArray(values) && values.length > 0) {
+                                analysisHtml += `<h4 style="margin-top: 15px;">${t('important')}</h4><ul>${values.map(v => `<li>${v.name || v.value}: ${typeof v === 'object' && v.value ? v.value : v}</li>`).join('')}</ul>`;
+                            }
+                        } catch(e) {}
+                    }
+                    document.getElementById('modalReportBody').innerHTML = analysisHtml;
+                    showModal('reportModal');
+                }
+            })
+            .catch(err => showToast(err.message, 'error'));
+        }
+    </script>
+</body>
+</html>
+
+

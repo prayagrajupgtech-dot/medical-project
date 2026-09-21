@@ -1,0 +1,561 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Management - AI Doctor Assistant</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="admin-header-content">
+                <div class="admin-brand">
+                    <img src="/favicon.png" alt="AI Doctor Assistant">
+                    <span>AI Doctor Assistant - Admin Panel</span>
+                </div>
+<div class="admin-user">
+    <span id="userDisplay">Administrator</span>
+    <button class="btn btn-sm btn-outline" onclick="logout()"><span data-i18n="logout">Logout</span></button>
+    <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button>
+        🌙
+    </button>
+</div>
+            </div>
+        </div>
+    </header>
+
+    <nav class="admin-nav" aria-label="Main navigation">
+        <div class="container">
+            <button class="admin-nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul>
+                <li><a href="/admin/dashboard" data-nav="dashboard" data-i18n="dashboard">Dashboard</a></li>
+                <li><a href="/admin/doctors" data-nav="doctors" data-i18n="doctors">Doctors</a></li>
+                <li><a href="/admin/patients" data-nav="patients" class="active" aria-current="page" data-i18n="patients">Patients</a></li>
+                <li><a href="/admin/appointments" data-nav="appointments" data-i18n="appointments">Appointments</a></li>
+                <li><a href="/admin/consultations" data-nav="consultations" data-i18n="consultations">Consultations</a></li>
+                <li><a href="/admin/messages" data-nav="messages" data-i18n="messages">Messages</a></li>
+                <li><a href="/admin/reports" data-nav="reports" data-i18n="reports">Reports</a></li>
+                <li><a href="/admin/audit-logs" data-nav="audit-logs" data-i18n="audit-logs">Audit Logs</a></li>
+                <li><a href="/admin/profile" data-nav="profile" data-i18n="profile">Profile</a></li>
+                <li><a href="/admin/settings" data-nav="settings" data-i18n="settings">Settings</a></li>
+                <li><a href="/admin/knowledge-base" data-nav="knowledge-base" data-i18n="knowledge-base">Knowledge Base</a></li>
+                <li><a href="/admin/ai-assistant" class="admin-nav-item" data-page="ai-assistant" data-i18n="ai_assistant">
+                    <span class="admin-nav-icon">🤖</span>
+                    <span class="admin-nav-label">AI Assistant</span>
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="admin-section">
+        <div class="container">
+            <div class="dashboard-welcome">
+                <h1>Patient Management</h1>
+                <p>Manage all registered patients on the platform</p>
+            </div>
+
+            <div class="admin-card">
+                <div class="toolbar" role="search">
+                    <input type="search" id="searchInput" class="form-control search-input" placeholder="Search by name, email, username or phone..." aria-label="Search patients">
+                    <select id="statusFilter" class="form-control" aria-label="Filter by status" style="max-width:150px;">
+                        <option value="">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="blocked">Blocked</option>
+                        <option value="deactivated">Deactivated</option>
+                        <option value="deleted">Deleted</option>
+                    </select>
+                    <select id="sortSelect" class="form-control" aria-label="Sort patients" style="max-width:200px;">
+                        <option value="created_at|desc">Newest First</option>
+                        <option value="created_at|asc">Oldest First</option>
+                        <option value="name|asc">Name A-Z</option>
+                        <option value="appointments|desc">Most Appointments</option>
+                    </select>
+                </div>
+
+                <div class="toolbar" style="margin-top:10px; justify-content:flex-start; gap:12px;">
+                    <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;cursor:pointer;">
+                        <input type="checkbox" id="selectAllHeader" aria-label="Select all patients on this page">
+                        <span id="selectionInfo">0 selected</span>
+                    </label>
+                    <button class="btn btn-sm btn-outline" id="bulkDeactivateBtn" onclick="confirmBulkDeactivate()" disabled>Bulk Deactivate</button>
+                </div>
+
+                <div class="table-container">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th style="width:36px;"></th>
+                                <th>Photo</th>
+                                <th>Patient</th>
+                                <th>Email/Username</th>
+                                <th>Phone</th>
+                                <th>Age</th>
+                                <th>Gender</th>
+                                <th>Registered</th>
+                                <th>Appointments</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="patientsList"></tbody>
+                    </table>
+                    <div id="patientsState"></div>
+                </div>
+
+                <div class="pagination" id="pagination"></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- View Patient Modal -->
+    <div class="modal" id="viewModal" role="dialog" aria-modal="true" aria-labelledby="viewTitle">
+        <div class="modal-content modal-lg" style="max-width: 640px; max-height: 85vh; overflow-y: auto; text-align: left;">
+            <div class="modal-header">
+                <h3 id="viewTitle">Patient Details</h3>
+                <button class="btn btn-sm btn-outline" onclick="hideModal('viewModal')" aria-label="Close">×</button>
+            </div>
+            <div class="modal-body" id="viewDetails">
+                <div class="state-block"><span class="spinner" aria-hidden="true"></span><p>Loading...</p></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Block Patient Modal -->
+    <div class="modal" id="blockModal" role="dialog" aria-modal="true" aria-labelledby="blockTitle">
+        <div class="modal-content" style="max-width: 460px; text-align: left;">
+            <div class="modal-header">
+                <h3 id="blockTitle">Block Patient</h3>
+                <button class="btn btn-sm btn-outline" onclick="hideModal('blockModal')" aria-label="Close">×</button>
+            </div>
+            <div class="modal-body">
+                <p id="blockMessage">Are you sure you want to block this patient?</p>
+                <div class="form-group">
+                    <label for="blockReason">Reason for blocking (optional)</label>
+                    <textarea id="blockReason" rows="3" class="form-control" placeholder="e.g. Abusive behaviour, fraudulent activity..."></textarea>
+                </div>
+                <p class="doctor-meta">Blocking does not delete any medical records. Existing data remains stored securely.</p>
+            </div>
+            <div class="modal-actions" style="justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="hideModal('blockModal')">Cancel</button>
+                <button class="btn btn-danger" id="blockBtn" onclick="confirmBlock()">Block Patient</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Unblock Patient Modal -->
+    <div class="modal" id="unblockModal" role="dialog" aria-modal="true" aria-labelledby="unblockTitle">
+        <div class="modal-content" style="max-width: 460px; text-align: left;">
+            <div class="modal-header">
+                <h3 id="unblockTitle">Unblock Patient</h3>
+                <button class="btn btn-sm btn-outline" onclick="hideModal('unblockModal')" aria-label="Close">×</button>
+            </div>
+            <div class="modal-body">
+                <p id="unblockMessage">Are you sure you want to unblock this patient?</p>
+            </div>
+            <div class="modal-actions" style="justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="hideModal('unblockModal')">Cancel</button>
+                <button class="btn btn-primary" id="unblockBtn" onclick="confirmUnblock()">Unblock Patient</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Deactivate / Reactivate / Restore / Bulk (shared) Modal -->
+    <div class="modal" id="actionModal" role="dialog" aria-modal="true" aria-labelledby="actionTitle">
+        <div class="modal-content" style="max-width: 460px; text-align: left;">
+            <div class="modal-header">
+                <h3 id="actionTitle">Confirm Action</h3>
+                <button class="btn btn-sm btn-outline" onclick="hideModal('actionModal')" aria-label="Close">×</button>
+            </div>
+            <div class="modal-body">
+                <p id="actionMessage">Are you sure?</p>
+                <div class="form-group">
+                    <label for="actionReason">Reason (optional)</label>
+                    <textarea id="actionReason" rows="3" class="form-control" placeholder="Reason for this action..."></textarea>
+                </div>
+            </div>
+            <div class="modal-actions" style="justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="hideModal('actionModal')">Cancel</button>
+                <button class="btn btn-primary" id="actionBtn" onclick="confirmAction()">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Patient Modal (requires typing DELETE) -->
+    <div class="modal" id="deleteModal" role="dialog" aria-modal="true" aria-labelledby="deleteTitle">
+        <div class="modal-content" style="max-width: 460px; text-align: left;">
+            <div class="modal-header">
+                <h3 id="deleteTitle">Delete Account</h3>
+                <button class="btn btn-sm btn-outline" onclick="hideModal('deleteModal')" aria-label="Close">×</button>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--danger); font-weight: 600;">You are about to permanently delete:</p>
+                <p id="deleteMessage"></p>
+                <p class="doctor-meta">This action anonymizes the account (&#34;Deleted User&#34;). Historical medical records are retained for compliance and safety.</p>
+                <div class="form-group">
+                    <label for="deleteConfirm">Type <strong>DELETE</strong> to confirm</label>
+                    <input type="text" id="deleteConfirm" class="form-control" autocomplete="off" placeholder="DELETE">
+                </div>
+            </div>
+            <div class="modal-actions" style="justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="hideModal('deleteModal')">Cancel</button>
+                <button class="btn btn-danger" id="deleteBtn" onclick="confirmDelete()" disabled>Permanently Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/i18n.js?v=2.2"></script>
+    <script src="/js/main.js?v=2.1"></script>
+    <script>
+        let currentPage = 1;
+        let totalPages = 1;
+        let pendingId = null;
+        let selectedIds = new Set();
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!bootPage('patients', ['admin'])) return;
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const status = urlParams.get('status');
+            if (status) document.getElementById('statusFilter').value = status;
+
+            loadPatients();
+
+            document.getElementById('searchInput').addEventListener('input', debounce(loadPatients, 350));
+            document.getElementById('statusFilter').addEventListener('change', () => { currentPage = 1; loadPatients(); });
+            document.getElementById('sortSelect').addEventListener('change', () => { currentPage = 1; loadPatients(); });
+
+            document.getElementById('selectAllHeader').addEventListener('change', function () {
+                document.querySelectorAll('.row-select').forEach(cb => {
+                    cb.checked = this.checked;
+                    if (this.checked) selectedIds.add(Number(cb.dataset.id));
+                    else selectedIds.delete(Number(cb.dataset.id));
+                });
+                updateSelectionInfo();
+            });
+
+            document.getElementById('deleteConfirm').addEventListener('input', function () {
+                document.getElementById('deleteBtn').disabled = this.value !== 'DELETE';
+            });
+        });
+
+        function debounce(fn, ms) {
+            let t;
+            return function () { clearTimeout(t); t = setTimeout(fn, ms); };
+        }
+
+        function buildQuery(page) {
+            const params = new URLSearchParams();
+            const search = document.getElementById('searchInput').value.trim();
+            if (search) params.set('search', search);
+            const status = document.getElementById('statusFilter').value;
+            if (status) params.set('status', status);
+            const sort = document.getElementById('sortSelect').value.split('|');
+            params.set('sort', sort[0]);
+            params.set('order', sort[1]);
+            params.set('page', page);
+            params.set('limit', 10);
+            return params.toString();
+        }
+
+        async function loadPatients() {
+            const tbody = document.getElementById('patientsList');
+            const state = document.getElementById('patientsState');
+            showSkeleton(tbody, 5, 10);
+            state.innerHTML = '';
+            document.getElementById('pagination').innerHTML = '';
+            try {
+                const data = await api('/admin/patients?' + buildQuery(currentPage));
+                totalPages = Math.max(1, Math.ceil(data.total / 10));
+                if (currentPage > totalPages) { currentPage = totalPages; return loadPatients(); }
+                renderPatients(data.patients);
+                renderPagination();
+            } catch (err) {
+                tbody.innerHTML = '';
+                showErrorState(state, 'Unable to load patients. ' + err.message, 'loadPatients');
+            }
+        }
+
+        function calcAge(dob) {
+            if (!dob) return 'N/A';
+            const d = new Date(dob);
+            if (isNaN(d.getTime())) return 'N/A';
+            const diff = Date.now() - d.getTime();
+            return Math.floor(diff / (365.25 * 24 * 3600 * 1000));
+        }
+
+        function renderPatients(patients) {
+            const tbody = document.getElementById('patientsList');
+            const state = document.getElementById('patientsState');
+            tbody.innerHTML = ''; state.innerHTML = '';
+
+            if (!patients.length) {
+                showEmptyState(state, 'No patients found.');
+                return;
+            }
+
+            tbody.innerHTML = patients.map(p => {
+                const photo = avatarHtml(p.full_name, p.photo, 'sm');
+                const actions = [];
+                actions.push(`<button class="btn btn-sm btn-outline" onclick="viewPatient(${p.id})">View</button>`);
+                if (p.accountStatus === 'deleted') {
+                    actions.push(`<button class="btn btn-sm btn-outline" onclick="openAction('restore', ${p.id}, '${escapeHtml(p.full_name)}', 'Restore Patient')">Restore</button>`);
+                } else {
+                    if (p.accountStatus === 'blocked') {
+                        actions.push(`<button class="btn btn-sm btn-outline" onclick="openUnblock(${p.id}, '${escapeHtml(p.full_name)}')">Unblock</button>`);
+                        actions.push(`<button class="btn btn-sm btn-outline" onclick="openAction('deactivate', ${p.id}, '${escapeHtml(p.full_name)}', 'Deactivate Patient')">Deactivate</button>`);
+                    } else if (p.accountStatus === 'deactivated') {
+                        actions.push(`<button class="btn btn-sm btn-outline" onclick="openAction('reactivate', ${p.id}, '${escapeHtml(p.full_name)}', 'Reactivate Patient')">Reactivate</button>`);
+                        actions.push(`<button class="btn btn-sm btn-ghost-danger" onclick="openBlock(${p.id}, '${escapeHtml(p.full_name)}')">Block</button>`);
+                    } else {
+                        actions.push(`<button class="btn btn-sm btn-ghost-danger" onclick="openBlock(${p.id}, '${escapeHtml(p.full_name)}')">Block</button>`);
+                        actions.push(`<button class="btn btn-sm btn-outline" onclick="openAction('deactivate', ${p.id}, '${escapeHtml(p.full_name)}', 'Deactivate Patient')">Deactivate</button>`);
+                    }
+                    actions.push(`<button class="btn btn-sm btn-ghost-danger" onclick="openDelete(${p.id}, '${escapeHtml(p.full_name)}', '${escapeHtml(p.email || '')}')">Delete</button>`);
+                }
+                return `<tr>
+                    <td><input type="checkbox" class="row-select" data-id="${p.id}" aria-label="Select ${escapeHtml(p.full_name || 'patient')}" ${selectedIds.has(p.id) ? 'checked' : ''}></td>
+                    <td><a href="#" onclick="viewPatient(${p.id}); return false;" aria-label="View details of ${escapeHtml(p.full_name || 'patient')}">${photo}</a></td>
+                    <td><strong>${escapeHtml(p.full_name || 'N/A')}</strong></td>
+                    <td>${escapeHtml(p.email || '')}<br><small>${escapeHtml(p.username || '')}</small></td>
+                    <td>${escapeHtml(p.phone || 'N/A')}</td>
+                    <td>${calcAge(p.date_of_birth)}</td>
+                    <td>${p.gender ? escapeHtml(p.gender.charAt(0).toUpperCase() + p.gender.slice(1)) : 'N/A'}</td>
+                    <td>${formatDate(p.created_at)}</td>
+                    <td>${p.appointment_count || 0}</td>
+                    <td>${accountBadge(p.accountStatus)}</td>
+                    <td><div class="table-actions">${actions.join('')}</div></td>
+                </tr>`;
+            }).join('');
+
+            document.querySelectorAll('.row-select').forEach(cb => {
+                cb.addEventListener('change', function () {
+                    if (this.checked) selectedIds.add(Number(this.dataset.id));
+                    else selectedIds.delete(Number(this.dataset.id));
+                    updateSelectionInfo();
+                });
+            });
+            updateSelectionInfo();
+        }
+
+        function renderPagination() {
+            const el = document.getElementById('pagination');
+            if (totalPages <= 1) { el.innerHTML = ''; return; }
+            let html = `<button class="page-btn" onclick="goPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>&laquo; Prev</button>`;
+            for (let i = 1; i <= totalPages; i++) {
+                html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="goPage(${i})">${i}</button>`;
+            }
+            html += `<button class="page-btn" onclick="goPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>Next &raquo;</button>`;
+            el.innerHTML = html;
+        }
+
+        function goPage(page) {
+            if (page < 1 || page > totalPages) return;
+            currentPage = page;
+            loadPatients();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        async function viewPatient(id) {
+            showModal('viewModal');
+            document.getElementById('viewDetails').innerHTML = '<div class="state-block"><span class="spinner" aria-hidden="true"></span><p>Loading...</p></div>';
+            try {
+                const data = await api('/admin/users/' + id);
+                const p = data.user;
+                document.getElementById('viewDetails').innerHTML = `
+                    <div class="profile-summary" style="margin-bottom:16px;">
+                        ${avatarHtml(p.full_name, p.photo, 'lg')}
+                        <div>
+                            <h3>${escapeHtml(p.full_name)}</h3>
+                            <div class="doctor-meta">${escapeHtml(p.email)} &middot; @${escapeHtml(p.username)}</div>
+                            <div class="doctor-meta">${accountBadge(p.accountStatus)}</div>
+                        </div>
+                    </div>
+                    <div class="detail-grid">
+                        <div class="detail-item"><label>Phone</label><div class="detail-value">${escapeHtml(p.phone || 'N/A')}</div></div>
+                        <div class="detail-item"><label>Age</label><div class="detail-value">${calcAge(p.date_of_birth)}</div></div>
+                        <div class="detail-item"><label>Gender</label><div class="detail-value">${p.gender ? escapeHtml(p.gender.charAt(0).toUpperCase() + p.gender.slice(1)) : 'N/A'}</div></div>
+                        <div class="detail-item"><label>Blood Group</label><div class="detail-value">${escapeHtml(p.blood_type || 'N/A')}</div></div>
+                        <div class="detail-item"><label>Height</label><div class="detail-value">${p.height ? p.height + ' cm' : 'N/A'}</div></div>
+                        <div class="detail-item"><label>Weight</label><div class="detail-value">${p.weight ? p.weight + ' kg' : 'N/A'}</div></div>
+                        <div class="detail-item"><label>Address</label><div class="detail-value">${escapeHtml(p.address || 'N/A')}</div></div>
+                        <div class="detail-item"><label>Emergency Contact</label><div class="detail-value">${escapeHtml(p.emergency_contact || 'N/A')}</div></div>
+                        <div class="detail-item"><label>Appointments</label><div class="detail-value">${p.appointment_count || 0}</div></div>
+                        <div class="detail-item"><label>Completed</label><div class="detail-value">${p.completed_count || 0}</div></div>
+                        <div class="detail-item"><label>Reports</label><div class="detail-value">${p.report_count || 0}</div></div>
+                        <div class="detail-item"><label>Registered</label><div class="detail-value">${formatDateTime(p.created_at)}</div></div>
+                        <div class="detail-item"><label>Last Login</label><div class="detail-value">${p.lastLoginAt ? formatDateTime(p.lastLoginAt) : 'Never'}</div></div>
+                        ${p.accountStatus === 'blocked' ? `<div class="detail-item"><label>Blocked At</label><div class="detail-value">${formatDateTime(p.blockedAt)}</div></div>
+                        <div class="detail-item"><label>Block Reason</label><div class="detail-value">${escapeHtml(p.blockReason || 'No reason given')}</div></div>` : ''}
+                        ${p.accountStatus === 'deleted' ? `<div class="detail-item"><label>Deleted At</label><div class="detail-value">${formatDateTime(p.deletedAt)}</div></div>
+                        <div class="detail-item"><label>Deleted By</label><div class="detail-value">User #${escapeHtml(p.deletedBy || 'N/A')}</div></div>` : ''}
+                    </div>`;
+            } catch (err) {
+                document.getElementById('viewDetails').innerHTML = `<div class="state-box" role="alert"><p>${escapeHtml(err.message)}</p></div>`;
+            }
+        }
+
+        function openBlock(id, name) {
+            pendingId = id;
+            document.getElementById('blockMessage').textContent = 'Are you sure you want to block ' + name + '?';
+            document.getElementById('blockReason').value = '';
+            showModal('blockModal');
+        }
+
+        function openUnblock(id, name) {
+            pendingId = id;
+            document.getElementById('unblockMessage').textContent = 'Are you sure you want to unblock ' + name + '?';
+            showModal('unblockModal');
+        }
+
+        async function confirmBlock() {
+            const btn = document.getElementById('blockBtn');
+            btn.disabled = true;
+            btn.textContent = 'Blocking patient...';
+            try {
+                await api('/admin/patients/' + pendingId + '/block', 'PUT', { reason: document.getElementById('blockReason').value });
+                showToast('Patient blocked successfully.');
+                hideModal('blockModal');
+                await loadPatients();
+                btn.disabled = false;
+                btn.textContent = 'Block Patient';
+            } catch (err) {
+                showToast(err.message, 'error');
+                btn.disabled = false;
+                btn.textContent = 'Block Patient';
+            }
+        }
+
+        async function confirmUnblock() {
+            const btn = document.getElementById('unblockBtn');
+            btn.disabled = true;
+            btn.textContent = 'Unblocking patient...';
+            try {
+                await api('/admin/patients/' + pendingId + '/unblock', 'PUT');
+                showToast('Patient unblocked successfully.');
+                hideModal('unblockModal');
+                await loadPatients();
+                btn.disabled = false;
+                btn.textContent = 'Unblock Patient';
+            } catch (err) {
+                showToast(err.message, 'error');
+                btn.disabled = false;
+                btn.textContent = 'Unblock Patient';
+            }
+        }
+
+        function updateSelectionInfo() {
+            const info = document.getElementById('selectionInfo');
+            const btn = document.getElementById('bulkDeactivateBtn');
+            info.textContent = selectedIds.size + ' selected';
+            btn.disabled = selectedIds.size === 0;
+            const header = document.getElementById('selectAllHeader');
+            const visible = document.querySelectorAll('.row-select');
+            if (header) header.checked = visible.length > 0 && [...visible].every(cb => cb.checked);
+        }
+
+        function openAction(action, id, name, title) {
+            pendingId = id;
+            pendingAction = action;
+            const labels = {
+                deactivate: { title: 'Deactivate Patient', msg: 'Deactivate ' + name + '? The patient will not be able to log in or use the platform until reactivated.', btn: 'Deactivate Patient' },
+                reactivate: { title: 'Reactivate Patient', msg: 'Reactivate ' + name + '? The patient will be able to log in again.', btn: 'Reactivate Patient' },
+                restore: { title: 'Restore Patient', msg: 'Restore ' + name + '? The account will be set to active and its identity restored.', btn: 'Restore Patient' }
+            };
+            const cfg = labels[action];
+            document.getElementById('actionTitle').textContent = cfg.title;
+            document.getElementById('actionMessage').textContent = cfg.msg;
+            document.getElementById('actionBtn').textContent = cfg.btn;
+            document.getElementById('actionReason').value = '';
+            showModal('actionModal');
+        }
+
+        async function confirmAction() {
+            const btn = document.getElementById('actionBtn');
+            const original = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Processing...';
+            const reason = document.getElementById('actionReason').value;
+            try {
+                if (pendingAction === 'deactivate') {
+                    await api('/admin/users/' + pendingId + '/deactivate', 'PATCH', { reason, roleLabel: 'Patient' });
+                    showToast('Patient account deactivated successfully.');
+                } else if (pendingAction === 'reactivate') {
+                    await api('/admin/users/' + pendingId + '/reactivate', 'PATCH', { reason, roleLabel: 'Patient' });
+                    showToast('Patient account reactivated successfully.');
+                } else if (pendingAction === 'restore') {
+                    await api('/admin/users/' + pendingId + '/restore', 'POST', { reason });
+                    showToast('Patient account restored successfully.');
+                } else if (pendingAction === 'bulk-deactivate') {
+                    const res = await api('/admin/users/bulk-deactivate', 'POST', { ids: [...selectedIds] });
+                    showToast(res.message || 'Patient accounts deactivated successfully.');
+                    selectedIds.clear();
+                }
+                hideModal('actionModal');
+                await loadPatients();
+            } catch (err) {
+                showToast(err.message, 'error');
+            } finally {
+                btn.disabled = false;
+                btn.textContent = original;
+            }
+        }
+
+        function confirmBulkDeactivate() {
+            if (selectedIds.size === 0) { showToast('No patients selected.', 'error'); return; }
+            pendingId = null;
+            pendingAction = 'bulk-deactivate';
+            document.getElementById('actionTitle').textContent = 'Bulk Deactivate';
+            document.getElementById('actionMessage').textContent = 'Deactivate ' + selectedIds.size + ' selected patient account(s)? They will not be able to log in until reactivated.';
+            document.getElementById('actionBtn').textContent = 'Deactivate Accounts';
+            document.getElementById('actionReason').value = '';
+            showModal('actionModal');
+        }
+
+        function openDelete(id, name, email) {
+            pendingId = id;
+            document.getElementById('deleteMessage').innerHTML = 'Name: <strong>' + escapeHtml(name) + '</strong><br>Role: Patient<br>Email: ' + escapeHtml(email || 'N/A');
+            document.getElementById('deleteConfirm').value = '';
+            document.getElementById('deleteBtn').disabled = true;
+            showModal('deleteModal');
+        }
+
+        async function confirmDelete() {
+            const btn = document.getElementById('deleteBtn');
+            btn.disabled = true;
+            btn.textContent = 'Deleting...';
+            try {
+                const result = await api('/admin/users/' + pendingId, 'DELETE', { reason: 'Permanently deleted by admin' });
+                showToast(result.message);
+                hideModal('deleteModal');
+                selectedIds.delete(pendingId);
+                updateSelectionInfo();
+                await loadPatients();
+            } catch (err) {
+                const msg = err.message || 'Failed to delete account';
+                // Provide friendly messages based on error type
+                if (msg.includes('403')) {
+                    showToast('You are not authorized to delete this account.', 'error');
+                } else if (msg.includes('404')) {
+                    showToast('User not found.', 'error');
+                } else if (msg.includes('409')) {
+                    showToast('This account cannot be deleted - it may already be deleted or has dependencies.', 'error');
+                } else {
+                    showToast(msg, 'error');
+                }
+                btn.disabled = true;
+                btn.textContent = 'Permanently Delete';
+            }
+        }
+
+        function accountBadge(status) {
+            const cls = 'status-' + (status || 'active');
+            return `<span class="status-badge ${cls}" style="text-transform: capitalize;">${escapeHtml(status || 'active')}</span>`;
+        }
+    </script>
+</body>
+</html>

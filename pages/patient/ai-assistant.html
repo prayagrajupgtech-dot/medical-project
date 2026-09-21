@@ -1,0 +1,818 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Assistant - AI Doctor Assistant</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/shrijal.css?v=2.1">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="admin-header-content">
+                <div class="admin-brand">
+                    <img src="/favicon.png" alt="AI Doctor Assistant">
+                    <span>AI Doctor Assistant - <span data-i18n="app_name">AI Doctor Assistant</span> - <span data-i18n="patient_portal">Patient Portal</span></span>
+                </div>
+                <div class="admin-user">
+                    <span id="userDisplay">Patient</span>
+                    <button class="btn btn-sm btn-outline" onclick="logout()"><span data-i18n="logout">Logout</span></button>
+                    <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <nav class="admin-nav" aria-label="Main navigation">
+        <div class="container">
+            <button class="admin-nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul>
+                <li><a href="/patient/dashboard" data-nav="dashboard" data-i18n="dashboard">Dashboard</a></li>
+                <li><a href="/patient/doctors" data-nav="doctors" data-i18n="doctors">Doctors</a></li>
+                <li><a href="/patient/appointments" data-nav="appointments" data-i18n="appointments">Appointments</a></li>
+                <li><a href="/patient/consultations" data-nav="consultations" data-i18n="consultations">Consultations</a></li>
+                <li><a href="/patient/reports" data-nav="reports" data-i18n="reports">Reports</a></li>
+                <li><a href="/patient/prescriptions" data-nav="prescriptions" data-i18n="prescriptions">Prescriptions</a></li>
+                <li><a href="/patient/messages" data-nav="messages" data-i18n="messages">Messages</a></li>
+                <li><a href="/patient/profile" data-nav="profile" data-i18n="profile">Profile</a></li>
+                <li><a href="/patient/settings" data-nav="settings" data-i18n="settings">Settings</a></li>
+                <li><a href="/patient/ai-assistant" data-nav="ai-assistant" class="active" aria-current="page" data-i18n="ai-assistant">AI Assistant</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="admin-section">
+        <div class="container">
+            <div class="shrijal-chat-panel" id="shrijalPanel">
+                <!-- Header -->
+                <div class="shrijal-chat-header">
+                    <div class="shrijal-header-avatar">🩺</div>
+                    <div class="shrijal-header-info">
+                        <h3><span data-i18n="ai_medical_assistant">AI Medical Assistant</span></h3>
+                        <p><span data-i18n="ai_medical_assistant">AI Medical Assistant</span></p>
+                    </div>
+                    <div class="shrijal-header-status">
+                        <span><span data-i18n="online">Online</span></span>
+                    </div>
+                </div>
+                
+                <!-- State indicator -->
+                <div class="shrijal-state" id="shrijalState"></div>
+                
+                <!-- Voice waveform -->
+                <div class="shrijal-waveform" id="shrijalWaveform">
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                    <div class="bar"></div>
+                </div>
+                
+                <!-- Messages -->
+                <div class="shrijal-messages" id="shrijalMessages">
+                    <!-- Welcome screen shown initially -->
+                    <div class="shrijal-welcome" id="shrijalWelcome">
+                        <div class="ai-medical-core">
+                            <div class="ai-side-lines ai-side-left">
+                                <svg viewBox="0 0 200 60" preserveAspectRatio="none"><path class="ai-flow-line" d="M0,30 Q50,10 100,30 T200,30" /><path class="ai-flow-line ai-flow-line-2" d="M0,20 Q50,40 100,20 T200,20" /><path class="ai-flow-line ai-flow-line-3" d="M0,40 Q50,25 100,40 T200,40" /></svg>
+                            </div>
+                            <div class="ai-orbit-container">
+                                <div class="ai-orbit-ring ai-orbit-outer"></div>
+                                <div class="ai-orbit-ring ai-orbit-mid"></div>
+                                <div class="ai-orbit-ring ai-orbit-inner"></div>
+                                <div class="ai-center-glow"></div>
+                                <div class="ai-scanner-light"></div>
+                                <img src="/images/brand-logo.svg" alt="Shrijal AI Medical Assistant" class="ai-medical-logo" id="shrijalOrb">
+                            </div>
+                            <div class="ai-side-lines ai-side-right">
+                                <svg viewBox="0 0 200 60" preserveAspectRatio="none"><path class="ai-flow-line" d="M0,30 Q50,10 100,30 T200,30" /><path class="ai-flow-line ai-flow-line-2" d="M0,20 Q50,40 100,20 T200,20" /><path class="ai-flow-line ai-flow-line-3" d="M0,40 Q50,25 100,40 T200,40" /></svg>
+                            </div>
+                        </div>
+                        <h2 id="shrijalWelcomeTitle">Hi! I'm Shrijal 👋</h2>
+                        <p>I'm your AI Medical Assistant. I can help you understand reports, explain symptoms, and guide your health questions.</p>
+                        <p style="font-size:0.78rem;color:var(--gray);margin-top:-8px;">I'm an AI assistant — always consult a qualified doctor for medical decisions.</p>
+                        <div class="shrijal-quick-actions">
+                            <button class="shrijal-quick-btn" onclick="shrijalQuickAction('report')"><span data-i18n="analyze_report">Analyze a Report</span></button>
+                            <button class="shrijal-quick-btn" onclick="shrijalQuickAction('explain')"><span data-i18n="explain_my_report">Explain My Report</span></button>
+                            <button class="shrijal-quick-btn" onclick="shrijalQuickAction('symptoms')"><span data-i18n="understand_symptoms">Understand Symptoms</span></button>
+                            <button class="shrijal-quick-btn" onclick="shrijalQuickAction('question')"><span data-i18n="ask_question">Ask a Question</span></button>
+                            <button class="shrijal-quick-btn" onclick="shrijalQuickAction('summarize')"><span data-i18n="summarize_report">Summarize Report</span></button>
+                            <button class="shrijal-quick-btn" onclick="shrijalQuickAction('talk')"><span data-i18n="talk_to_shrijal">Talk to Shrijal</span></button>
+                        </div>
+                    </div>
+
+                    <!-- Upload sections (inside messages) -->
+                    <div class="shrijal-upload-section" id="shrijalUploads" style="display:none;">
+                        <div class="shrijal-upload-card">
+                            <h3>📄 Medical Report</h3>
+                            <div class="shrijal-upload-dropzone" id="reportDropzone">
+                                <div class="drop-icon">📋</div>
+                                <h4>Drop report here or click to upload</h4>
+                                <p>PDF, JPG, PNG (Max 10MB)</p>
+                                <input type="file" id="reportFileInput" accept=".pdf,.jpg,.jpeg,.png" style="display:none">
+                            </div>
+                            <div class="shrijal-upload-preview hidden" id="reportPreview">
+                                <img id="reportPreviewImg" src="" alt="">
+                                <div style="flex:1;">
+                                    <strong id="reportFileName"></strong>
+                                    <p id="reportFileSize" style="font-size:0.8rem;color:var(--gray);margin:2px 0;"></p>
+                                </div>
+                                <button class="shrijal-quick-btn" onclick="clearShrijalFile('report')" style="padding:6px 12px;font-size:0.78rem;">Remove</button>
+                                <button class="shrijal-quick-btn" onclick="uploadShrijalFile('report')" style="padding:6px 12px;font-size:0.78rem;border-color:var(--shrijal-primary);color:var(--shrijal-primary);">Analyze</button>
+                            </div>
+                        </div>
+                        <div class="shrijal-upload-card">
+                            <h3>📷 Symptom Photo</h3>
+                            <div class="shrijal-upload-dropzone" id="photoDropzone">
+                                <div class="drop-icon">📷</div>
+                                <h4>Drop photo here or click to upload</h4>
+                                <p>JPG, PNG only (Max 5MB)</p>
+                                <input type="file" id="photoFileInput" accept=".jpg,.jpeg,.png" style="display:none">
+                            </div>
+                            <div class="shrijal-upload-preview hidden" id="photoPreview">
+                                <img id="photoPreviewImg" src="" alt="">
+                                <div style="flex:1;">
+                                    <strong id="photoFileName"></strong>
+                                    <p id="photoFileSize" style="font-size:0.8rem;color:var(--gray);margin:2px 0;"></p>
+                                </div>
+                                <button class="shrijal-quick-btn" onclick="clearShrijalFile('photo')" style="padding:6px 12px;font-size:0.78rem;">Remove</button>
+                                <button class="shrijal-quick-btn" onclick="uploadShrijalFile('photo')" style="padding:6px 12px;font-size:0.78rem;border-color:var(--shrijal-primary);color:var(--shrijal-primary);">Analyze</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Voice bar (shown during voice interaction) -->
+                <div class="shrijal-voice-bar" id="shrijalVoiceBar" style="display:none;">
+                    <span class="voice-label">Voice:</span>
+                    <span class="voice-status" id="shrijalVoiceStatus">Ready</span>
+                    <div class="shrijal-waveform" id="shrijalVoiceWaveform" style="opacity:1;">
+                        <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
+                    </div>
+                </div>
+                
+                <!-- Input area -->
+                <div class="shrijal-input-area">
+                    <button class="shrijal-voice-toggle" id="voiceToggleBtn" onclick="toggleVoiceMode()" data-i18n-title="voice_on" title="Voice On">
+                        🔊 Voice
+                    </button>
+                    <div class="shrijal-input-wrapper">
+                        <textarea id="shrijalInput" rows="1" data-i18n-placeholder="type_health_question" placeholder="Ask about your health..." aria-label="Chat message input"></textarea>
+                        <button class="shrijal-send-btn" onclick="sendShrijalChat()" id="shrijalSendBtn" aria-label="Send message">➤</button>
+                    </div>
+                    <button class="shrijal-mic-btn" id="shrijalMicBtn" onclick="toggleRecording()" data-i18n-aria="ai_assistant" aria-label="AI Assistant" title="Hold to talk">🎙</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script src="/js/main.js?v=2.1"></script>
+    <script src="/js/language-detection.js?v=2.1"></script>
+    <script src="/js/voice-service.js?v=2.1"></script>
+    <script>
+        const shrijalConversation = [];
+        let pendingFiles = { report: null, photo: null };
+        let shrijalReportContext = null;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            if (!bootPage('ai-assistant', ['patient'])) return;
+
+            // Get user's preferred language from account
+            var user = null;
+            try { user = JSON.parse(localStorage.getItem('user')); } catch(e) {}
+            var preferredLocale = (user && user.preferredLocale) || 'en-IN';
+            var preferredLang = (user && user.preferredLanguage) || 'en';
+
+            ShrijalVoice.init({
+                preferredLocale: preferredLocale,
+                preferredLanguage: preferredLang,
+                onStateChange: function(state, text) {
+                    setShrijalState(state, text);
+                    const micBtn = document.getElementById('shrijalMicBtn');
+                    const voiceBtn = document.getElementById('voiceToggleBtn');
+                    if (state === 'listening') {
+                        if (micBtn) micBtn.classList.add('recording');
+                        showVoiceBar(text);
+                        document.getElementById('shrijalWaveform').classList.add('active', 'listening');
+                        document.getElementById('shrijalWaveform').classList.remove('speaking');
+                    } else if (state === 'speaking') {
+                        if (micBtn) micBtn.classList.remove('recording');
+                        showVoiceBar(text);
+                        document.getElementById('shrijalWaveform').classList.add('active', 'speaking');
+                        document.getElementById('shrijalWaveform').classList.remove('listening');
+                    } else if (state === 'thinking') {
+                        if (micBtn) micBtn.classList.remove('recording');
+                        showVoiceBar(text);
+                    } else {
+                        if (micBtn) micBtn.classList.remove('recording');
+                        hideVoiceBar();
+                        document.getElementById('shrijalWaveform').classList.remove('active', 'speaking', 'listening');
+                    }
+                },
+                onTranscript: function(transcript, isFinal) {
+                    document.getElementById('shrijalInput').value = transcript;
+                    if (isFinal) {
+                        ShrijalVoice.updateConversationLanguage(transcript);
+                        setShrijalState('thinking', 'Shrijal is thinking...');
+                        setTimeout(function() { sendShrijalChat(); }, 300);
+                    }
+                },
+                onVoiceModeChange: function(enabled) {
+                    const btn = document.getElementById('voiceToggleBtn');
+                    btn.classList.toggle('active', enabled);
+                    btn.textContent = enabled ? '\uD83D\uDD0A Voice ON' : '\uD83D\uDD07 Voice OFF';
+                    updateVoiceBtnLabel(enabled);
+                },
+                onOrbStateChange: function(state) {
+                    setOrbState(state);
+                }
+            });
+
+            setupShrijalDragDrop('reportDropzone', 'reportFileInput', 'report');
+            setupShrijalDragDrop('photoDropzone', 'photoFileInput', 'photo');
+
+            const input = document.getElementById('shrijalInput');
+            input.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendShrijalChat();
+                }
+            });
+            input.addEventListener('input', function() {
+                this.style.height = 'auto';
+                this.style.height = Math.min(this.scrollHeight, 100) + 'px';
+            });
+
+            setTimeout(function() {
+                var orb = document.getElementById('shrijalOrb');
+                if (orb) orb.style.animationPlayState = 'running';
+                showPersonalizedGreeting();
+            }, 500);
+        });
+
+        function showPersonalizedGreeting() {
+            if (ShrijalVoice.isGreetingShown()) return;
+            var name = ShrijalVoice.getCurrentUserDisplayName();
+            var role = ShrijalVoice.getCurrentUserRole();
+            var lang = ShrijalVoice.getCurrentLanguage();
+            var greeting = ShrijalVoice.buildShrijalGreeting(name, role, lang);
+            ShrijalVoice.setGreetingShown(true);
+
+            var titleEl = document.getElementById('shrijalWelcomeTitle');
+            if (titleEl) titleEl.textContent = greeting;
+
+            if (ShrijalVoice.getVoiceMode()) {
+                ShrijalVoice.speakText(greeting);
+            }
+        }
+
+        function updateVoiceBtnLabel(enabled) {
+            var btn = document.getElementById('voiceToggleBtn');
+            if (!btn) return;
+            btn.textContent = enabled ? '\uD83D\uDD0A Voice ON' : '\uD83D\uDD07 Voice OFF';
+        }
+
+        function toggleRecording() {
+            if (!ShrijalVoice.isRecognitionSupported()) {
+                showShrijalMessage('Speech recognition is not supported in your browser. Please try Chrome or Edge.', 'assistant');
+                return;
+            }
+            if (ShrijalVoice.getIsRecording()) {
+                ShrijalVoice.stopListening();
+            } else {
+                if (!ShrijalVoice.getVoiceMode()) {
+                    ShrijalVoice.enableVoiceMode();
+                }
+                ShrijalVoice.startListening();
+            }
+        }
+
+        function toggleVoiceMode() {
+            ShrijalVoice.toggleVoiceMode();
+            if (ShrijalVoice.getVoiceMode()) {
+                ShrijalVoice.startListening();
+            }
+        }
+
+        function setOrbState(state) {
+            var container = document.querySelector('.ai-orbit-container');
+            if (!container) return;
+            container.className = 'ai-orbit-container';
+            if (state) container.classList.add(state);
+            if (ShrijalVoice.getVoiceMode() && !state) {
+                container.classList.add('voice-active');
+            }
+        }
+
+        function setShrijalState(state, text) {
+            var el = document.getElementById('shrijalState');
+            if (!el) return;
+            el.className = 'shrijal-state' + (state ? ' active' : '');
+            el.textContent = text || '';
+        }
+
+        function showVoiceBar(status) {
+            var bar = document.getElementById('shrijalVoiceBar');
+            var statusEl = document.getElementById('shrijalVoiceStatus');
+            if (bar) bar.style.display = 'flex';
+            if (statusEl) statusEl.textContent = status;
+        }
+
+        function hideVoiceBar() {
+            var bar = document.getElementById('shrijalVoiceBar');
+            if (bar) bar.style.display = 'none';
+        }
+
+        function showShrijalMessage(content, role, isEmergency) {
+            const container = document.getElementById('shrijalMessages');
+            const welcome = document.getElementById('shrijalWelcome');
+            if (welcome) welcome.style.display = 'none';
+            
+            const div = document.createElement('div');
+            div.className = 'shrijal-msg ' + role + (isEmergency ? ' emergency' : '');
+            div.innerHTML = content;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+            return div;
+        }
+
+        function addShrijalTyping() {
+            const container = document.getElementById('shrijalMessages');
+            const div = document.createElement('div');
+            div.className = 'shrijal-msg assistant';
+            div.id = 'shrijalTyping';
+            div.innerHTML = '<div class="shrijal-typing"><span></span><span></span><span></span></div>';
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function removeShrijalTyping() {
+            const el = document.getElementById('shrijalTyping');
+            if (el) el.remove();
+        }
+
+        function formatShrijalResponse(text) {
+            let html = text;
+            html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            html = html.replace(/\n/g, '<br>');
+            html = html.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+            html += '<div class="disclaimer">⚕️ I\'m Shrijal, an AI medical assistant. This is general health information only. Always consult a qualified healthcare professional.</div>';
+            return html;
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        async function sendShrijalChat() {
+            var input = document.getElementById('shrijalInput');
+            var message = input.value.trim();
+            if (!message) return;
+
+            var voiceCmd = ShrijalVoice.checkVoiceCommand(message);
+            if (voiceCmd) {
+                handleVoiceCommand(voiceCmd);
+                return;
+            }
+
+            ShrijalVoice.updateConversationLanguage(message);
+
+            showShrijalMessage('<div class="msg-label">You</div>' + escapeHtml(message), 'user');
+            shrijalConversation.push({ role: 'user', content: message });
+            input.value = '';
+            input.style.height = 'auto';
+
+            setOrbState('thinking');
+            setShrijalState('thinking', 'Shrijal is thinking...');
+            addShrijalTyping();
+
+            try {
+                var token = localStorage.getItem('token');
+                var response = await fetch('/api/ai/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + token,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: message,
+                        role: 'patient',
+                        conversation: shrijalConversation.slice(-10),
+                        conversationLanguage: ShrijalVoice.getCurrentLanguage().split('-')[0],
+                        conversationLocale: ShrijalVoice.getCurrentLanguage(),
+                        reportContext: shrijalReportContext || null
+                    })
+                });
+
+                if (!response.ok) throw new Error('Failed to get response');
+                var data = await response.json();
+
+                removeShrijalTyping();
+                setOrbState('');
+                setShrijalState('', '');
+
+                var isEmergency = data.emergency || data.is_emergency;
+                var responseText = data.response || data.message || 'I could not process your request.';
+                showShrijalMessage(formatShrijalResponse(responseText), 'assistant', isEmergency);
+                shrijalConversation.push({ role: 'assistant', content: responseText });
+
+                // Handle language switch request
+                if (data.languageSwitch) {
+                    var langMap = {
+                        'hi': 'hi-IN', 'ta': 'ta-IN', 'bn': 'bn-IN', 'mr': 'mr-IN',
+                        'te': 'te-IN', 'gu': 'gu-IN', 'kn': 'kn-IN', 'ml': 'ml-IN',
+                        'pa': 'pa-IN', 'or': 'or-IN', 'as': 'as-IN', 'ur': 'ur-IN', 'ne': 'ne-IN'
+                    };
+                    var newLocale = langMap[data.languageSwitch] || 'en-IN';
+                    ShrijalVoice.setLanguage(newLocale);
+                    var langName = data.languageName || data.languageSwitch;
+                    showShrijalMessage('<div class="msg-label">System</div>\u2728 Language switched to <strong>' + langName + '</strong>. Shrijal will now respond in ' + langName + '.', 'assistant');
+                }
+
+                ShrijalVoice.setLastResponse(responseText);
+                ShrijalVoice.speakText(responseText);
+            } catch(err) {
+                removeShrijalTyping();
+                setOrbState('');
+                setShrijalState('', '');
+                showShrijalMessage('<div class="msg-label">System</div>Sorry, I encountered an error: ' + escapeHtml(err.message) + '. Please try again.', 'assistant');
+            }
+        }
+
+        function handleVoiceCommand(cmd) {
+            switch(cmd.action) {
+                case 'stop':
+                    ShrijalVoice.stopSpeaking();
+                    ShrijalVoice.stopListening();
+                    setOrbState('');
+                    setShrijalState('', '');
+                    hideVoiceBar();
+                    break;
+                case 'clear':
+                    clearShrijalChat();
+                    break;
+                case 'read_last':
+                    var last = ShrijalVoice.getLastResponse();
+                    if (last) ShrijalVoice.speakText(last);
+                    else showShrijalMessage('No previous response to read.', 'assistant');
+                    break;
+                case 'repeat':
+                    var lastResp = ShrijalVoice.getLastResponse();
+                    if (lastResp) ShrijalVoice.speakText(lastResp);
+                    else showShrijalMessage('No previous response to repeat.', 'assistant');
+                    break;
+                case 'introduce':
+                    var name = ShrijalVoice.getCurrentUserDisplayName();
+                    var role = ShrijalVoice.getCurrentUserRole();
+                    var lang = ShrijalVoice.getCurrentLanguage();
+                    var intro = ShrijalVoice.buildShrijalGreeting(name, role, lang);
+                    showShrijalMessage(formatShrijalResponse(intro), 'assistant');
+                    ShrijalVoice.speakText(intro);
+                    break;
+                case 'start_listening':
+                    if (!ShrijalVoice.getVoiceMode()) ShrijalVoice.enableVoiceMode();
+                    ShrijalVoice.startListening();
+                    break;
+                case 'speak_slower':
+                    showShrijalMessage('Speaking slower now.', 'assistant');
+                    break;
+                case 'explain_report':
+                    if (shrijalReportContext) {
+                        var input = document.getElementById('shrijalInput');
+                        input.value = 'Please explain my uploaded medical report in simple terms. Describe what each test result means, what is normal, and what is abnormal.';
+                        sendShrijalChat();
+                    } else {
+                        var msg = 'Please upload or analyze a medical report first, then I can explain it.';
+                        showShrijalMessage(formatShrijalResponse(msg), 'assistant');
+                        ShrijalVoice.speakText(msg);
+                    }
+                    break;
+                case 'summarize_report':
+                    if (shrijalReportContext) {
+                        var input = document.getElementById('shrijalInput');
+                        input.value = 'Please summarize my medical report. Give me a brief overview of the key findings.';
+                        sendShrijalChat();
+                    } else {
+                        var msg = 'Please upload or analyze a medical report first, then I can summarize it.';
+                        showShrijalMessage(formatShrijalResponse(msg), 'assistant');
+                        ShrijalVoice.speakText(msg);
+                    }
+                    break;
+                case 'read_report':
+                    if (shrijalReportContext) {
+                        var input = document.getElementById('shrijalInput');
+                        input.value = 'Please read out the key information from my medical report.';
+                        sendShrijalChat();
+                    } else {
+                        var msg = 'Please upload or analyze a medical report first, then I can read it to you.';
+                        showShrijalMessage(formatShrijalResponse(msg), 'assistant');
+                        ShrijalVoice.speakText(msg);
+                    }
+                    break;
+                case 'analyze_abnormal':
+                    if (shrijalReportContext) {
+                        var input = document.getElementById('shrijalInput');
+                        input.value = 'Which values in my report are abnormal? What do the abnormal values mean?';
+                        sendShrijalChat();
+                    } else {
+                        var msg = 'Please upload or analyze a medical report first, then I can check for abnormal values.';
+                        showShrijalMessage(formatShrijalResponse(msg), 'assistant');
+                        ShrijalVoice.speakText(msg);
+                    }
+                    break;
+                case 'doctor_points':
+                    if (shrijalReportContext) {
+                        var input = document.getElementById('shrijalInput');
+                        input.value = 'What should I discuss with my doctor based on this report? What questions should I ask?';
+                        sendShrijalChat();
+                    } else {
+                        var msg = 'Please upload or analyze a medical report first, then I can suggest what to discuss with your doctor.';
+                        showShrijalMessage(formatShrijalResponse(msg), 'assistant');
+                        ShrijalVoice.speakText(msg);
+                    }
+                    break;
+            }
+        }
+
+        function clearShrijalChat() {
+            const container = document.getElementById('shrijalMessages');
+            container.innerHTML = '';
+            shrijalConversation.length = 0;
+            
+            container.innerHTML = `
+                <div class="shrijal-welcome" id="shrijalWelcome">
+                    <div class="ai-medical-core">
+                        <div class="ai-side-lines ai-side-left">
+                            <svg viewBox="0 0 200 60" preserveAspectRatio="none"><path class="ai-flow-line" d="M0,30 Q50,10 100,30 T200,30" /><path class="ai-flow-line ai-flow-line-2" d="M0,20 Q50,40 100,20 T200,20" /><path class="ai-flow-line ai-flow-line-3" d="M0,40 Q50,25 100,40 T200,40" /></svg>
+                        </div>
+                        <div class="ai-orbit-container">
+                            <div class="ai-orbit-ring ai-orbit-outer"></div>
+                            <div class="ai-orbit-ring ai-orbit-mid"></div>
+                            <div class="ai-orbit-ring ai-orbit-inner"></div>
+                            <div class="ai-center-glow"></div>
+                            <div class="ai-scanner-light"></div>
+                            <img src="/images/brand-logo.svg" alt="Shrijal AI Medical Assistant" class="ai-medical-logo" id="shrijalOrb">
+                        </div>
+                        <div class="ai-side-lines ai-side-right">
+                            <svg viewBox="0 0 200 60" preserveAspectRatio="none"><path class="ai-flow-line" d="M0,30 Q50,10 100,30 T200,30" /><path class="ai-flow-line ai-flow-line-2" d="M0,20 Q50,40 100,20 T200,20" /><path class="ai-flow-line ai-flow-line-3" d="M0,40 Q50,25 100,40 T200,40" /></svg>
+                        </div>
+                    </div>
+                    <h2 id="shrijalWelcomeTitle">Hi! I'm Shrijal 👋</h2>
+                    <p>Chat cleared. I can help you understand reports, explain symptoms, and guide your health questions.</p>
+                    <div class="shrijal-quick-actions">
+                        <button class="shrijal-quick-btn" onclick="shrijalQuickAction('report')"><span data-i18n="analyze_report">Analyze a Report</span></button>
+                        <button class="shrijal-quick-btn" onclick="shrijalQuickAction('explain')"><span data-i18n="explain_my_report">Explain My Report</span></button>
+                        <button class="shrijal-quick-btn" onclick="shrijalQuickAction('symptoms')"><span data-i18n="understand_symptoms">Understand Symptoms</span></button>
+                        <button class="shrijal-quick-btn" onclick="shrijalQuickAction('question')"><span data-i18n="ask_question">Ask a Question</span></button>
+                        <button class="shrijal-quick-btn" onclick="shrijalQuickAction('summarize')"><span data-i18n="summarize_report">Summarize Report</span></button>
+                        <button class="shrijal-quick-btn" onclick="shrijalQuickAction('talk')"><span data-i18n="talk_to_shrijal">Talk to Shrijal</span></button>
+                    </div>
+                </div>
+
+                <div class="shrijal-upload-section" id="shrijalUploads" style="display:none;">
+                    <div class="shrijal-upload-card">
+                        <h3>📄 Medical Report</h3>
+                        <div class="shrijal-upload-dropzone" id="reportDropzone">
+                            <div class="drop-icon">📋</div>
+                            <h4>Drop report here or click to upload</h4>
+                            <p>PDF, JPG, PNG (Max 10MB)</p>
+                            <input type="file" id="reportFileInput" accept=".pdf,.jpg,.jpeg,.png" style="display:none">
+                        </div>
+                        <div class="shrijal-upload-preview hidden" id="reportPreview">
+                            <img id="reportPreviewImg" src="" alt="">
+                            <div style="flex:1;">
+                                <strong id="reportFileName"></strong>
+                                <p id="reportFileSize" style="font-size:0.8rem;color:var(--gray);margin:2px 0;"></p>
+                            </div>
+                            <button class="shrijal-quick-btn" onclick="clearShrijalFile('report')" style="padding:6px 12px;font-size:0.78rem;">Remove</button>
+                            <button class="shrijal-quick-btn" onclick="uploadShrijalFile('report')" style="padding:6px 12px;font-size:0.78rem;border-color:var(--shrijal-primary);color:var(--shrijal-primary);">Analyze</button>
+                        </div>
+                    </div>
+                    <div class="shrijal-upload-card">
+                        <h3>📷 Symptom Photo</h3>
+                        <div class="shrijal-upload-dropzone" id="photoDropzone">
+                            <div class="drop-icon">📷</div>
+                            <h4>Drop photo here or click to upload</h4>
+                            <p>JPG, PNG only (Max 5MB)</p>
+                            <input type="file" id="photoFileInput" accept=".jpg,.jpeg,.png" style="display:none">
+                        </div>
+                        <div class="shrijal-upload-preview hidden" id="photoPreview">
+                            <img id="photoPreviewImg" src="" alt="">
+                            <div style="flex:1;">
+                                <strong id="photoFileName"></strong>
+                                <p id="photoFileSize" style="font-size:0.8rem;color:var(--gray);margin:2px 0;"></p>
+                            </div>
+                            <button class="shrijal-quick-btn" onclick="clearShrijalFile('photo')" style="padding:6px 12px;font-size:0.78rem;">Remove</button>
+                            <button class="shrijal-quick-btn" onclick="uploadShrijalFile('photo')" style="padding:6px 12px;font-size:0.78rem;border-color:var(--shrijal-primary);color:var(--shrijal-primary);">Analyze</button>
+                        </div>
+                    </div>
+                </div>`;
+
+            setupShrijalDragDrop('reportDropzone', 'reportFileInput', 'report');
+            setupShrijalDragDrop('photoDropzone', 'photoFileInput', 'photo');
+        }
+
+        function shrijalQuickAction(action) {
+            const input = document.getElementById('shrijalInput');
+            switch(action) {
+                case 'talk':
+                    toggleRecording();
+                    break;
+                case 'report':
+                    var uploads = document.getElementById('shrijalUploads');
+                    if (uploads) {
+                        uploads.style.display = 'block';
+                        var dropzone = document.getElementById('reportDropzone');
+                        if (dropzone) dropzone.click();
+                    }
+                    break;
+                case 'explain':
+                    input.value = 'Please explain my medical report in simple terms';
+                    input.focus();
+                    sendShrijalChat();
+                    break;
+                case 'symptoms':
+                    input.value = 'I want to describe my symptoms';
+                    input.focus();
+                    break;
+                case 'question':
+                    input.value = '';
+                    input.placeholder = 'Ask Shrijal a health question...';
+                    input.focus();
+                    break;
+                case 'summarize':
+                    input.value = 'Please summarize my medical report';
+                    input.focus();
+                    sendShrijalChat();
+                    break;
+            }
+        }
+
+        function setupShrijalDragDrop(dropzoneId, inputId, type) {
+            const dropzone = document.getElementById(dropzoneId);
+            const input = document.getElementById(inputId);
+            if (!dropzone || !input) return;
+            
+            dropzone.addEventListener('click', () => input.click());
+            ['dragenter','dragover'].forEach(e => dropzone.addEventListener(e, ev => { ev.preventDefault(); dropzone.classList.add('dragover'); }));
+            ['dragleave','drop'].forEach(e => dropzone.addEventListener(e, ev => { ev.preventDefault(); dropzone.classList.remove('dragover'); }));
+            dropzone.addEventListener('drop', e => { if (e.dataTransfer.files[0]) handleShrijalFile(e.dataTransfer.files[0], type); });
+            input.addEventListener('change', function() { if (this.files[0]) handleShrijalFile(this.files[0], type); });
+        }
+
+        function handleShrijalFile(file, type) {
+            const maxSize = type === 'photo' ? 5 * 1024 * 1024 : 10 * 1024 * 1024;
+            const allowedTypes = type === 'photo' 
+                ? ['image/jpeg', 'image/png'] 
+                : ['application/pdf', 'image/jpeg', 'image/png'];
+            
+            if (!allowedTypes.includes(file.type)) {
+                showShrijalMessage('Please upload ' + (type === 'photo' ? 'JPG or PNG' : 'PDF, JPG, or PNG') + ' files only.', 'assistant');
+                return;
+            }
+            if (file.size > maxSize) {
+                showShrijalMessage('File size must be under ' + (type === 'photo' ? '5MB' : '10MB') + '.', 'assistant');
+                return;
+            }
+            
+            pendingFiles[type] = file;
+            const preview = document.getElementById(type + 'Preview');
+            const img = document.getElementById(type + 'PreviewImg');
+            const name = document.getElementById(type + 'FileName');
+            const size = document.getElementById(type + 'FileSize');
+            
+            name.textContent = file.name;
+            size.textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+            
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = e => { img.src = e.target.result; img.style.display = 'block'; };
+                reader.readAsDataURL(file);
+            } else {
+                img.style.display = 'none';
+            }
+            preview.classList.remove('hidden');
+        }
+
+        function clearShrijalFile(type) {
+            pendingFiles[type] = null;
+            document.getElementById(type + 'Preview').classList.add('hidden');
+            document.getElementById(type + 'FileInput').value = '';
+        }
+
+        async function uploadShrijalFile(type) {
+            const file = pendingFiles[type];
+            if (!file) return;
+            
+            const label = type === 'photo' ? 'Symptom Photo' : 'Medical Report';
+            showShrijalMessage('<div class="msg-label">You</div>Uploading ' + label + ': ' + escapeHtml(file.name), 'user');
+            
+            document.getElementById('shrijalUploads').style.display = 'none';
+            setOrbState('thinking');
+            setShrijalState('thinking', 'Shrijal is analyzing your ' + label.toLowerCase() + '...');
+            addShrijalTyping();
+            
+            const endpoint = type === 'photo' ? '/api/ai/analyze-photo' : '/api/ai/analyze-report';
+            const formData = new FormData();
+            formData.append(type === 'photo' ? 'photo' : 'report', file);
+            
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + token },
+                    body: formData
+                });
+                
+                if (!response.ok) throw new Error('Upload failed');
+                const data = await response.json();
+                
+                removeShrijalTyping();
+                setOrbState('');
+                setShrijalState('', '');
+                
+                let responseText = '';
+                
+                // Show extracted report data if available
+                if (data.ocr && data.ocr.extractedData && data.ocr.extractedData.tests && data.ocr.extractedData.tests.length > 0) {
+                    shrijalReportContext = {
+                        reportType: data.ocr.extractedData.reportType || 'Medical Report',
+                        tests: data.ocr.extractedData.tests,
+                        ocrText: data.ocr.text || '',
+                        timestamp: Date.now()
+                    };
+                    ShrijalVoice.setReportContext(shrijalReportContext);
+
+                    const ext = data.ocr.extractedData;
+                    responseText += '**Extracted Report**';
+                    if (ext.reportType) responseText += ' — ' + ext.reportType;
+                    responseText += '\n\n';
+                    
+                    for (const test of ext.tests) {
+                        const statusIcon = test.status === 'normal' ? '✅' : test.status === 'high' ? '⬆️' : test.status === 'low' ? '⬇️' : '❓';
+                        responseText += statusIcon + ' **' + test.name + '**: ' + test.value + ' ' + test.unit;
+                        if (test.referenceRange) responseText += ' (Ref: ' + test.referenceRange + ')';
+                        responseText += '\n';
+                    }
+                    responseText += '\n';
+                    
+                    // Show OCR quality info
+                    if (data.ocr.quality) {
+                        responseText += '*Image quality: ' + data.ocr.quality.quality + ' (OCR confidence: ' + Math.round(data.ocr.confidence) + '%)*\n\n';
+                    }
+                }
+                
+                if (data.analysis) {
+                    if (data.analysis.findings && data.analysis.findings.length > 0) {
+                        responseText += '**Analysis:**\n\n';
+                        for (const f of data.analysis.findings) {
+                            responseText += '- **' + f.name + '**: ' + f.value + ' ' + f.unit + ' (' + f.status.toUpperCase() + ')\n';
+                            responseText += '  ' + f.explanation + '\n\n';
+                        }
+                    }
+                    if (data.analysis.explanation) responseText += data.analysis.explanation + '\n\n';
+                    if (data.analysis.concerns && data.analysis.concerns.length > 0) {
+                        responseText += '**Things to discuss with your doctor:**\n';
+                        for (const c of data.analysis.concerns) responseText += '- ' + c + '\n';
+                        responseText += '\n';
+                    }
+                    if (data.analysis.questionsForDoctor && data.analysis.questionsForDoctor.length > 0) {
+                        responseText += '**Questions for your doctor:**\n';
+                        for (const q of data.analysis.questionsForDoctor) responseText += '- ' + q + '\n';
+                        responseText += '\n';
+                    }
+                }
+                
+                // If no structured data was found but we got raw OCR text
+                if ((!data.analysis || !data.analysis.findings || data.analysis.findings.length === 0) && data.ocr && data.ocr.text) {
+                    responseText += '**What I read from the image:**\n\n';
+                    responseText += data.ocr.text.substring(0, 800) + '\n\n';
+                    if (data.ocr.confidence < 50) {
+                        responseText += '*The image quality made it difficult to read some values clearly. Please consider uploading a clearer photo.*\n\n';
+                    }
+                }
+                
+                responseText += 'Please share these results with your healthcare provider for personalized guidance.';
+                
+                showShrijalMessage(formatShrijalResponse(responseText), 'assistant');
+                shrijalConversation.push({ role: 'assistant', content: responseText });
+                ShrijalVoice.setLastResponse(responseText);
+                ShrijalVoice.speakText(responseText);
+                clearShrijalFile(type);
+            } catch(err) {
+                removeShrijalTyping();
+                setOrbState('');
+                setShrijalState('', '');
+                showShrijalMessage('Sorry, I had trouble analyzing the file: ' + escapeHtml(err.message) + '. Please try again.', 'assistant');
+            }
+        }
+    </script>
+</body>
+</html>

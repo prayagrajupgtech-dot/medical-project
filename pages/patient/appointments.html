@@ -1,0 +1,399 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Appointments - AI Doctor Assistant</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="admin-header-content">
+                <div class="admin-brand">
+                    <img src="/favicon.png" alt="AI Doctor Assistant">
+                    <span>AI Doctor Assistant - <span data-i18n="app_name">AI Doctor Assistant</span> - <span data-i18n="patient_portal">Patient Portal</span></span>
+                </div>
+                <div class="admin-user">
+                    <span id="userDisplay">Patient</span>
+                    <button class="btn btn-sm btn-outline" onclick="logout()"><span data-i18n="logout">Logout</span></button>
+                    <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <nav class="admin-nav" aria-label="Main navigation">
+        <div class="container">
+            <button class="admin-nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul>
+                <li><a href="/patient/dashboard" data-nav="dashboard" data-i18n="dashboard">Dashboard</a></li>
+                <li><a href="/patient/doctors" data-nav="doctors" data-i18n="doctors">Doctors</a></li>
+                <li><a href="/patient/appointments" data-nav="appointments" class="active" aria-current="page" data-i18n="appointments">Appointments</a></li>
+                <li><a href="/patient/consultations" data-nav="consultations" data-i18n="consultations">Consultations</a></li>
+                <li><a href="/patient/reports" data-nav="reports" data-i18n="reports">Reports</a></li>
+                <li><a href="/patient/prescriptions" data-nav="prescriptions" data-i18n="prescriptions">Prescriptions</a></li>
+                <li><a href="/patient/messages" data-nav="messages" data-i18n="messages">Messages</a></li>
+                <li><a href="/patient/profile" data-nav="profile" data-i18n="profile">Profile</a></li>
+                <li><a href="/patient/settings" data-nav="settings" data-i18n="settings">Settings</a></li>
+                <li><a href="/patient/ai-assistant" class="admin-nav-item" data-page="ai-assistant" data-i18n="ai_assistant">
+                    <span class="admin-nav-icon">🤖</span>
+                    <span class="admin-nav-label">AI Assistant</span>
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="admin-section">
+        <div class="container">
+            <div class="dashboard-welcome">
+                <div class="d-flex justify-between align-center" style="flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <h1><span data-i18n="my_appointments">My Appointments</span></h1>
+                        <p data-i18n="own_appointments_only">Only your own appointments are shown here</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="showBookModal()"><span data-i18n="book_appointment">+ Book Appointment</span></button>
+                </div>
+            </div>
+
+            <div class="admin-card">
+                <div class="filter-tabs" role="tablist" aria-label="Filter appointments">
+                    <button class="filter-tab active" data-status="" onclick="setFilter(this)"><span data-i18n="all">All</span></button>
+                    <button class="filter-tab" data-status="upcoming" onclick="setFilter(this)"><span data-i18n="upcoming">Upcoming</span></button>
+                    <button class="filter-tab" data-status="pending" onclick="setFilter(this)"><span data-i18n="pending">Pending</span></button>
+                    <button class="filter-tab" data-status="seen" onclick="setFilter(this)"><span data-i18n="seen">Seen</span></button>
+                    <button class="filter-tab" data-status="accepted" onclick="setFilter(this)"><span data-i18n="accepted">Accepted</span></button>
+                    <button class="filter-tab" data-status="completed" onclick="setFilter(this)"><span data-i18n="completed">Completed</span></button>
+                    <button class="filter-tab" data-status="rejected" onclick="setFilter(this)"><span data-i18n="rejected">Rejected</span></button>
+                    <button class="filter-tab" data-status="cancelled" onclick="setFilter(this)"><span data-i18n="cancelled">Cancelled</span></button>
+                </div>
+                <div class="table-container">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th><span data-i18n="doctor">Doctor</span></th>
+                                <th><span data-i18n="specialty">Specialty</span></th>
+                                <th><span data-i18n="date">Date</span></th>
+                                <th><span data-i18n="time">Time</span></th>
+                                <th><span data-i18n="description">Reason</span></th>
+                                <th><span data-i18n="status">Status</span></th>
+                                <th><span data-i18n="actions">Actions</span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="appointmentsList"></tbody>
+                    </table>
+                    <div id="appointmentsState"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Book Appointment Modal -->
+    <div class="modal" id="bookModal" role="dialog" aria-modal="true" aria-labelledby="bookTitle">
+        <div class="modal-content" style="max-width: 520px; text-align: left;">
+            <div class="modal-header">
+                <h3 id="bookTitle"><span data-i18n="book_appointment">Book Appointment</span></h3>
+                <button class="btn btn-sm btn-outline" onclick="hideModal('bookModal')" aria-label="Close">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="bookDoctor"><span data-i18n="doctor">Doctor</span></label>
+                    <select id="bookDoctor" class="form-control" aria-label="Doctor"></select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="bookDate"><span data-i18n="date">Date</span></label>
+                        <input type="date" id="bookDate" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="bookTime"><span data-i18n="time">Time</span></label>
+                        <input type="time" id="bookTime" class="form-control">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="bookReason"><span data-i18n="description">Reason</span></label>
+                    <textarea id="bookReason" rows="3" class="form-control" placeholder="Reason for appointment"></textarea>
+                </div>
+            </div>
+            <div class="modal-actions" style="justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="hideModal('bookModal')"><span data-i18n="cancel">Cancel</span></button>
+                <button class="btn btn-primary" id="bookBtn" onclick="bookAppointment()"><span data-i18n="book_appointment">Request Appointment</span></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reschedule Modal -->
+    <div class="modal" id="rescheduleModal" role="dialog" aria-modal="true" aria-labelledby="reschedTitle">
+        <div class="modal-content" style="max-width: 480px; text-align: left;">
+            <div class="modal-header">
+                <h3 id="reschedTitle"><span data-i18n="reschedule">Reschedule Appointment</span></h3>
+                <button class="btn btn-sm btn-outline" onclick="hideModal('rescheduleModal')" aria-label="Close">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="reschedDate"><span data-i18n="date">New Date</span></label>
+                    <input type="date" id="reschedDate" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="reschedTime"><span data-i18n="time">New Time</span></label>
+                    <input type="time" id="reschedTime" class="form-control">
+                </div>
+            </div>
+            <div class="modal-actions" style="justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="hideModal('rescheduleModal')"><span data-i18n="cancel">Cancel</span></button>
+                <button class="btn btn-primary" id="reschedBtn" onclick="saveReschedule()"><span data-i18n="save">Save</span></button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/i18n.js?v=2.2"></script>
+    <script src="/js/main.js?v=2.1"></script>
+    <script>
+        let currentFilter = '';
+        let allAppointments = [];
+        let rescheduleId = null;
+        let pollTimer = null;
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!bootPage('appointments', ['patient'])) return;
+
+            showSkeleton(document.getElementById('appointmentsList'), 4, 7);
+            loadAppointments();
+            loadDoctors();
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const filter = urlParams.get('filter');
+            if (filter) {
+                const tab = document.querySelector('.filter-tab[data-status="' + filter + '"]');
+                if (tab) setFilter(tab);
+            }
+            const book = urlParams.get('book');
+            if (book) {
+                loadDoctors().then(() => {
+                    const preferred = localStorage.getItem('pat_preferred_doctor_id');
+                    const sel = document.getElementById('bookDoctor');
+                    if (preferred && sel) sel.value = preferred;
+                    showBookModal();
+                });
+            }
+
+            startPolling();
+            window.addEventListener('beforeunload', stopPolling);
+            document.addEventListener('visibilitychange', function () {
+                if (document.hidden) stopPolling(); else startPolling();
+            });
+        });
+
+        function startPolling() {
+            if (pollTimer) return;
+            pollTimer = setInterval(() => { loadAppointments(true); }, 25000);
+        }
+        function stopPolling() {
+            if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+        }
+
+        async function loadAppointments(silent) {
+            try {
+                allAppointments = await api('/patients/me/appointments');
+                renderList();
+            } catch (err) {
+                if (silent) return;
+                document.getElementById('appointmentsList').innerHTML = '';
+                showErrorState(document.getElementById('appointmentsState'), 'Unable to load appointments. ' + err.message, 'loadAppointments');
+            }
+        }
+
+        function setFilter(btn) {
+            currentFilter = btn.getAttribute('data-status');
+            document.querySelectorAll('.filter-tab').forEach(t => t.classList.toggle('active', t === btn));
+            renderList();
+        }
+
+        function renderList() {
+            const t = function(key) { return typeof ShrijalI18n !== 'undefined' ? ShrijalI18n.t(key) : key; };
+            const tbody = document.getElementById('appointmentsList');
+            const state = document.getElementById('appointmentsState');
+            tbody.innerHTML = '';
+            state.innerHTML = '';
+
+            let list = allAppointments;
+            const today = new Date().toISOString().split('T')[0];
+            if (currentFilter === 'upcoming') {
+                list = list.filter(a => a.date >= today && ['pending', 'seen', 'accepted', 'in_progress'].includes(a.status));
+            } else if (currentFilter) {
+                list = list.filter(a => a.status === currentFilter);
+            }
+
+            if (!list.length) {
+                showEmptyState(state, currentFilter ? t('no_appointments_found') : t('no_appointments_found'));
+                return;
+            }
+
+            tbody.innerHTML = list.map(a => {
+                const open = ['pending', 'seen', 'accepted'].includes(a.status);
+                return `
+                <tr>
+                    <td>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            ${avatarHtml(a.doctor_name, a.doctor_photo, 'sm')}
+                            <strong>${escapeHtml(a.doctor_name || t('doctor'))}</strong>
+                        </div>
+                    </td>
+                    <td>${escapeHtml(a.doctor.specialty || 'N/A')}</td>
+                    <td>${formatDate(a.date)}</td>
+                    <td>${escapeHtml(a.appointment_time || 'N/A')}</td>
+                    <td>${escapeHtml(a.reason || 'N/A')}</td>
+                    <td>${statusBadge(a.status)}</td>
+                    <td>
+                        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                            <button class="btn btn-sm btn-outline" onclick="viewAppointment(${a.id})">${t('view')}</button>
+                            ${open ? `
+                                <button class="btn btn-sm btn-outline" onclick="openReschedule(${a.id})">${t('reschedule')}</button>
+                                <button class="btn btn-sm btn-ghost-danger" onclick="cancelAppointment(${a.id})">${t('cancel')}</button>
+                            ` : ''}
+                            ${a.status === 'in_progress' ? `<a href="/patient/consultations?id=${a.id}" class="btn btn-sm btn-primary">${t('consultation')}</a>` : ''}
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        async function viewAppointment(id) {
+            try {
+                const a = await api('/appointments/' + id);
+                showModal('bookModal');
+                document.getElementById('bookTitle').textContent = 'Appointment Details';
+                const doctorSel = document.getElementById('bookDoctor');
+                doctorSel.innerHTML = `<option value="${a.doctor_id}">${escapeHtml(a.doctor_name)}</option>`;
+                document.getElementById('bookDate').value = (a.date || '').slice(0, 10);
+                document.getElementById('bookTime').value = a.appointment_time || '';
+                document.getElementById('bookReason').value = a.reason || '';
+                document.getElementById('bookReason').disabled = true;
+                document.getElementById('bookDate').disabled = true;
+                document.getElementById('bookTime').disabled = true;
+                document.getElementById('bookDoctor').disabled = true;
+                document.getElementById('bookBtn').style.display = 'none';
+                const closeBtn = document.createElement('button');
+                closeBtn.className = 'btn btn-secondary';
+                closeBtn.textContent = 'Close';
+                closeBtn.onclick = function () {
+                    hideModal('bookModal');
+                    document.getElementById('bookReason').disabled = false;
+                    document.getElementById('bookDate').disabled = false;
+                    document.getElementById('bookTime').disabled = false;
+                    document.getElementById('bookDoctor').disabled = false;
+                    document.getElementById('bookBtn').style.display = '';
+                    document.getElementById('bookTitle').textContent = 'Book Appointment';
+                    document.getElementById('bookReason').value = '';
+                    closeBtn.remove();
+                };
+                document.querySelector('#bookModal .modal-actions').appendChild(closeBtn);
+                if (a.rejection_reason) {
+                    showToast('Rejected: ' + a.rejection_reason, 'error', 6000);
+                }
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+
+        function openReschedule(id) {
+            rescheduleId = id;
+            const appt = allAppointments.find(a => a.id === id);
+            document.getElementById('reschedDate').value = appt ? (appt.date || '').slice(0, 10) : '';
+            document.getElementById('reschedTime').value = appt ? (appt.appointment_time || '') : '';
+            showModal('rescheduleModal');
+        }
+
+        async function saveReschedule() {
+            const btn = document.getElementById('reschedBtn');
+            const date = document.getElementById('reschedDate').value;
+            if (!date) {
+                showToast('Please choose a new date', 'error');
+                return;
+            }
+            btn.disabled = true;
+            try {
+                await api('/appointments/' + rescheduleId, 'PUT', {
+                    appointment_date: date,
+                    appointment_time: document.getElementById('reschedTime').value
+                });
+                showToast('Appointment rescheduled');
+                hideModal('rescheduleModal');
+                await loadAppointments(true);
+                btn.disabled = false;
+            } catch (err) {
+                showToast(err.message, 'error');
+                btn.disabled = false;
+            }
+        }
+
+        async function cancelAppointment(id) {
+            if (!confirm('Cancel this appointment?')) return;
+            try {
+                await api('/appointments/' + id + '/status', 'PATCH', { status: 'cancelled' });
+                showToast('Appointment cancelled');
+                await loadAppointments(true);
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+
+        async function loadDoctors() {
+            try {
+                const doctors = await api('/doctors');
+                const select = document.getElementById('bookDoctor');
+                select.innerHTML = '<option value="">Select doctor...</option>' +
+                    doctors.map(d => `<option value="${d.id}">${escapeHtml(d.full_name)}${d.specialty ? ' - ' + escapeHtml(d.specialty) : ''}</option>`).join('');
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+
+        function showBookModal() {
+            document.getElementById('bookDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('bookDate').min = new Date().toISOString().split('T')[0];
+            document.getElementById('bookTime').value = '';
+            document.getElementById('bookReason').value = '';
+            showModal('bookModal');
+        }
+
+        async function bookAppointment() {
+            const btn = document.getElementById('bookBtn');
+            const user = getUser();
+            const date = document.getElementById('bookDate').value;
+            const doctorId = document.getElementById('bookDoctor').value;
+
+            if (!doctorId) {
+                showToast('Please choose a doctor', 'error');
+                return;
+            }
+            if (!date) {
+                showToast('Please choose a date', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            try {
+                await api('/appointments', 'POST', {
+                    patient_id: user.id,
+                    doctor_id: doctorId,
+                    appointment_date: date,
+                    appointment_time: document.getElementById('bookTime').value,
+                    reason: document.getElementById('bookReason').value
+                });
+                showToast('Appointment requested. Your doctor will confirm it.');
+                hideModal('bookModal');
+                await loadAppointments(true);
+                btn.disabled = false;
+            } catch (err) {
+                showToast(err.message, 'error');
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

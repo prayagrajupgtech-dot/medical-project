@@ -1,0 +1,308 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Assistant - AI Doctor Assistant</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/shrijal.css?v=2.1">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="admin-header-content">
+                <div class="admin-brand">
+                    <img src="/favicon.png" alt="AI Doctor Assistant">
+                    <span>AI Doctor Assistant - Admin Panel</span>
+                </div>
+                <div class="admin-user">
+                    <span id="userDisplay">Administrator</span>
+                    <button class="btn btn-sm btn-outline" onclick="logout()"><span data-i18n="logout">Logout</span></button>
+                    <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <nav class="admin-nav" aria-label="Main navigation">
+        <div class="container">
+            <button class="admin-nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul>
+                <li><a href="/admin/dashboard" data-nav="dashboard" data-i18n="dashboard">Dashboard</a></li>
+                <li><a href="/admin/doctors" data-nav="doctors" data-i18n="doctors">Doctors</a></li>
+                <li><a href="/admin/patients" data-nav="patients" data-i18n="patients">Patients</a></li>
+                <li><a href="/admin/appointments" data-nav="appointments" data-i18n="appointments">Appointments</a></li>
+                <li><a href="/admin/consultations" data-nav="consultations" data-i18n="consultations">Consultations</a></li>
+                <li><a href="/admin/messages" data-nav="messages" data-i18n="messages">Messages</a></li>
+                <li><a href="/admin/reports" data-nav="reports" data-i18n="reports">Reports</a></li>
+                <li><a href="/admin/audit-logs" data-nav="audit-logs" data-i18n="audit-logs">Audit Logs</a></li>
+                <li><a href="/admin/profile" data-nav="profile" data-i18n="profile">Profile</a></li>
+                <li><a href="/admin/settings" data-nav="settings" data-i18n="settings">Settings</a></li>
+                <li><a href="/admin/knowledge-base" data-nav="knowledge-base" data-i18n="knowledge-base">Knowledge Base</a></li>
+                <li><a href="/admin/ai-assistant" data-nav="ai-assistant" class="active" aria-current="page" data-i18n="ai-assistant">AI Assistant</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="admin-section">
+        <div class="container">
+            <div class="dashboard-welcome">
+                <h1>AI System Assistant</h1>
+                <p>Platform guidance, user management help, and system support</p>
+            </div>
+
+            <div class="shrijal-chat-panel">
+                <div class="shrijal-chat-header">
+                    <div class="shrijal-header-avatar">🩺</div>
+                    <div class="shrijal-header-info">
+                        <h3>Shrijal AI</h3>
+                        <p>Platform Administration Support</p>
+                    </div>
+                    <div class="shrijal-header-status">Online</div>
+                </div>
+
+                <div id="welcomeScreen" class="shrijal-welcome">
+                    <div class="ai-medical-core">
+                        <div class="ai-side-lines ai-side-left">
+                            <svg viewBox="0 0 200 60" preserveAspectRatio="none"><path class="ai-flow-line" d="M0,30 Q50,10 100,30 T200,30" /><path class="ai-flow-line ai-flow-line-2" d="M0,20 Q50,40 100,20 T200,20" /><path class="ai-flow-line ai-flow-line-3" d="M0,40 Q50,25 100,40 T200,40" /></svg>
+                        </div>
+                        <div class="ai-orbit-container">
+                            <div class="ai-orbit-ring ai-orbit-outer"></div>
+                            <div class="ai-orbit-ring ai-orbit-mid"></div>
+                            <div class="ai-orbit-ring ai-orbit-inner"></div>
+                            <div class="ai-center-glow"></div>
+                            <div class="ai-scanner-light"></div>
+                            <img src="/images/brand-logo.svg" alt="Shrijal AI Medical Assistant" class="ai-medical-logo" id="shrijalOrb">
+                        </div>
+                        <div class="ai-side-lines ai-side-right">
+                            <svg viewBox="0 0 200 60" preserveAspectRatio="none"><path class="ai-flow-line" d="M0,30 Q50,10 100,30 T200,30" /><path class="ai-flow-line ai-flow-line-2" d="M0,20 Q50,40 100,20 T200,20" /><path class="ai-flow-line ai-flow-line-3" d="M0,40 Q50,25 100,40 T200,40" /></svg>
+                        </div>
+                    </div>
+                    <h2>Shrijal AI Medical Assistant</h2>
+                    <p>Hi! I'm Shrijal 👋 I'm your AI Medical Assistant. I can help you with system guidance, user management, report overview, and platform administration. How can I assist you today?</p>
+                    <div class="shrijal-quick-actions">
+                        <button class="shrijal-quick-btn" onclick="quickAction('How do I verify a new doctor account and manage platform users?')">⚙️ System Help</button>
+                        <button class="shrijal-quick-btn" onclick="quickAction('What are the steps to manage doctor and patient accounts on the platform?')">👥 User Management</button>
+                        <button class="shrijal-quick-btn" onclick="quickAction('How can I generate and review platform reports and analytics?')">📊 Report Overview</button>
+                        <button class="shrijal-quick-btn" onclick="quickAction('What are the recommended security settings and best practices for the platform?')">🛡️ Platform Guidance</button>
+                    </div>
+                </div>
+
+                <div class="shrijal-messages" id="chatMessages" style="display:none;"></div>
+
+                <div class="shrijal-typing" id="typingIndicator" style="display:none;">
+                    <span></span><span></span><span></span>
+                </div>
+
+                <div class="shrijal-input-area">
+                    <button class="shrijal-mic-btn" id="micBtn" aria-label="Start voice input" title="Voice input">🎤</button>
+                    <div class="shrijal-input-wrapper">
+                        <textarea id="chatInput" rows="1" placeholder="Ask about platform management, users, reports, or system guidance..." aria-label="Chat message input"></textarea>
+                        <button class="shrijal-send-btn" id="sendBtn" aria-label="Send message" onclick="sendChat()">➤</button>
+                    </div>
+                    <button class="shrijal-voice-toggle" id="voiceToggle" aria-label="Toggle voice responses">🔇 Voice</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script src="/js/main.js?v=2.1"></script>
+    <script src="/js/language-detection.js"></script>
+    <script src="/js/voice-service.js"></script>
+    <script>
+        const conversation = [];
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!bootPage('ai-assistant', ['admin'])) return;
+
+            var user = null;
+            try { user = JSON.parse(localStorage.getItem('user')); } catch(e) {}
+            var preferredLocale = (user && user.preferredLocale) || 'en-IN';
+            var preferredLang = (user && user.preferredLanguage) || 'en';
+
+            ShrijalVoice.init({
+                preferredLocale: preferredLocale,
+                preferredLanguage: preferredLang,
+                onStateChange: function(state, text) {
+                    var micBtn = document.getElementById('micBtn');
+                    var orbit = document.querySelector('.ai-orbit-container');
+                    if (state === 'listening') {
+                        if (micBtn) micBtn.classList.add('recording');
+                        if (orbit) { orbit.classList.remove('speaking', 'thinking'); orbit.classList.add('listening'); }
+                    } else if (state === 'speaking') {
+                        if (micBtn) micBtn.classList.remove('recording');
+                        if (orbit) { orbit.classList.remove('listening', 'thinking'); orbit.classList.add('speaking'); }
+                    } else if (state === 'thinking') {
+                        if (micBtn) micBtn.classList.remove('recording');
+                        if (orbit) { orbit.classList.remove('listening', 'speaking'); orbit.classList.add('thinking'); }
+                    } else {
+                        if (micBtn) micBtn.classList.remove('recording');
+                        if (orbit) { orbit.classList.remove('listening', 'thinking', 'speaking'); }
+                        if (ShrijalVoice.getVoiceMode()) orbit.classList.add('voice-active');
+                    }
+                },
+                onTranscript: function(transcript, isFinal) {
+                    document.getElementById('chatInput').value = transcript;
+                    if (isFinal) {
+                        ShrijalVoice.updateConversationLanguage(transcript);
+                        sendChat();
+                    }
+                },
+                onVoiceModeChange: function(enabled) {
+                    var btn = document.getElementById('voiceToggle');
+                    btn.textContent = enabled ? '\uD83D\uDD0A Voice ON' : '\uD83D\uDD07 Voice OFF';
+                    btn.classList.toggle('active', enabled);
+                },
+                onOrbStateChange: function(state) {
+                    var orbit = document.querySelector('.ai-orbit-container');
+                    if (!orbit) return;
+                    orbit.className = 'ai-orbit-container';
+                    if (state) orbit.classList.add(state);
+                    if (ShrijalVoice.getVoiceMode() && !state) orbit.classList.add('voice-active');
+                }
+            });
+
+            document.getElementById('chatInput').addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendChat();
+                }
+            });
+
+            document.getElementById('micBtn').addEventListener('click', function() { toggleRecording(); });
+            document.getElementById('voiceToggle').addEventListener('click', function() { toggleVoice(); });
+            document.getElementById('shrijalOrb').addEventListener('click', function() { toggleRecording(); });
+
+            setTimeout(function() { showPersonalizedGreeting(); }, 500);
+        });
+
+        function showPersonalizedGreeting() {
+            if (ShrijalVoice.isGreetingShown()) return;
+            var name = ShrijalVoice.getCurrentUserDisplayName();
+            var role = ShrijalVoice.getCurrentUserRole();
+            var lang = ShrijalVoice.getCurrentLanguage();
+            var greeting = ShrijalVoice.buildShrijalGreeting(name, role, lang);
+            ShrijalVoice.setGreetingShown(true);
+            showWelcome(false);
+            addMessage(formatResponse(greeting), 'assistant');
+            if (ShrijalVoice.getVoiceMode()) ShrijalVoice.speakText(greeting);
+        }
+
+        function toggleRecording() {
+            if (!ShrijalVoice.isRecognitionSupported()) {
+                showToast('Voice input is not supported in this browser', 'error');
+                return;
+            }
+            if (ShrijalVoice.getIsRecording()) {
+                ShrijalVoice.stopListening();
+            } else {
+                if (!ShrijalVoice.getVoiceMode()) ShrijalVoice.enableVoiceMode();
+                ShrijalVoice.startListening();
+            }
+        }
+
+        function toggleVoice() {
+            ShrijalVoice.toggleVoiceMode();
+            if (ShrijalVoice.getVoiceMode()) ShrijalVoice.startListening();
+        }
+
+        function showWelcome(show) {
+            const welcome = document.getElementById('welcomeScreen');
+            const messages = document.getElementById('chatMessages');
+            if (show) {
+                welcome.style.display = 'flex';
+                messages.style.display = 'none';
+            } else {
+                welcome.style.display = 'none';
+                messages.style.display = 'flex';
+            }
+        }
+
+        function addMessage(content, role) {
+            showWelcome(false);
+            const container = document.getElementById('chatMessages');
+            const div = document.createElement('div');
+            div.className = 'shrijal-msg ' + role;
+            div.innerHTML = content;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function showTyping(show) {
+            const el = document.getElementById('typingIndicator');
+            el.style.display = show ? 'flex' : 'none';
+            const c = document.querySelector('.ai-orbit-container');
+            if (c) {
+                if (show) c.classList.add('thinking');
+                else c.classList.remove('thinking');
+            }
+        }
+
+        function formatResponse(text) {
+            let html = text;
+            html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            html = html.replace(/\n/g, '<br>');
+            html = html.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+
+            if (text.toLowerCase().includes('emergency') || text.toLowerCase().includes('critical') || text.toLowerCase().includes('urgent')) {
+                html = '<div class="msg-label" style="color:#ef4444;font-weight:600;">⚠️ Critical</div>' + html;
+            }
+
+            html += '<div class="disclaimer">This information is generated by AI and is intended for platform administration guidance. Always verify system configurations and follow your organization\'s security policies.</div>';
+            return html;
+        }
+
+        async function sendChat() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            ShrijalVoice.updateConversationLanguage(message);
+
+            addMessage('<div class="msg-label">You</div>' + escapeHtml(message), 'user');
+            conversation.push({ role: 'user', content: message });
+            input.value = '';
+            input.style.height = 'auto';
+
+            showTyping(true);
+
+            try {
+                const data = await api('/ai/chat', 'POST', {
+                    message: message,
+                    role: 'admin',
+                    conversation: conversation.slice(-10),
+                    conversationLanguage: ShrijalVoice.getCurrentLanguage().split('-')[0],
+                    conversationLocale: ShrijalVoice.getCurrentLanguage()
+                });
+
+                showTyping(false);
+                const responseText = data.response || data.message || 'I could not process your request.';
+                addMessage(formatResponse(responseText), 'assistant');
+                conversation.push({ role: 'assistant', content: responseText });
+
+                ShrijalVoice.setLastResponse(responseText);
+                if (ShrijalVoice.getVoiceMode() && responseText) ShrijalVoice.speakText(responseText);
+            } catch (err) {
+                showTyping(false);
+                addMessage('<div class="msg-label">System</div> Sorry, I encountered an error: ' + escapeHtml(err.message) + '. Please try again.', 'assistant');
+            }
+        }
+
+        function quickAction(text) {
+            document.getElementById('chatInput').value = text;
+            sendChat();
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+    </script>
+</body>
+</html>

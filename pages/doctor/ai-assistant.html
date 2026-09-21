@@ -1,0 +1,511 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Assistant - AI Doctor Assistant</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="stylesheet" href="/css/shrijal.css?v=2.1">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="admin-header-content">
+                <div class="admin-brand">
+                    <img src="/favicon.png" alt="AI Doctor Assistant">
+                    <span>AI Doctor Assistant - <span data-i18n="app_name">AI Doctor Assistant</span> - <span data-i18n="doctor_portal">Doctor Portal</span></span>
+                </div>
+                <div class="admin-user">
+                    <span id="userDisplay">Doctor</span>
+                    <button class="btn btn-sm btn-outline" onclick="logout()"><span data-i18n="logout">Logout</span></button>
+                    <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <nav class="admin-nav" aria-label="Main navigation">
+        <div class="container">
+            <button class="admin-nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul>
+                <li><a href="/doctor/dashboard" data-nav="dashboard" data-i18n="dashboard">Dashboard</a></li>
+                <li><a href="/doctor/patients" data-nav="patients" data-i18n="patients">Patients</a></li>
+                <li><a href="/doctor/consultations" data-nav="consultations" data-i18n="consultations">Consultations</a></li>
+                <li><a href="/doctor/appointments" data-nav="appointments" data-i18n="appointments">Appointments</a></li>
+                <li><a href="/doctor/messages" data-nav="messages" data-i18n="messages">Messages</a></li>
+                <li><a href="/doctor/reports" data-nav="reports" data-i18n="reports">Reports</a></li>
+                <li><a href="/doctor/profile" data-nav="profile" data-i18n="profile">Profile</a></li>
+                <li><a href="/doctor/settings" data-nav="settings" data-i18n="settings">Settings</a></li>
+                <li><a href="/doctor/ai-assistant" data-nav="ai-assistant" class="active" aria-current="page" data-i18n="ai-assistant">AI Assistant</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="admin-section">
+        <div class="container">
+            <div class="dashboard-welcome">
+                <h1>AI Medical Assistant</h1>
+                <p>Clinical decision support — summarize reports, highlight abnormalities, and prepare discussion points</p>
+            </div>
+
+            <div class="shrijal-chat-panel">
+                <div class="shrijal-chat-header">
+                    <div class="shrijal-header-avatar">🩺</div>
+                    <div class="shrijal-header-info">
+                        <h3>Shrijal AI</h3>
+                        <p>Clinical Decision Support</p>
+                    </div>
+                    <div class="shrijal-header-status">Online</div>
+                </div>
+
+                <div id="welcomeScreen" class="shrijal-welcome">
+                    <div class="ai-medical-core">
+                        <div class="ai-side-lines ai-side-left">
+                            <svg viewBox="0 0 200 60" preserveAspectRatio="none"><path class="ai-flow-line" d="M0,30 Q50,10 100,30 T200,30" /><path class="ai-flow-line ai-flow-line-2" d="M0,20 Q50,40 100,20 T200,20" /><path class="ai-flow-line ai-flow-line-3" d="M0,40 Q50,25 100,40 T200,40" /></svg>
+                        </div>
+                        <div class="ai-orbit-container">
+                            <div class="ai-orbit-ring ai-orbit-outer"></div>
+                            <div class="ai-orbit-ring ai-orbit-mid"></div>
+                            <div class="ai-orbit-ring ai-orbit-inner"></div>
+                            <div class="ai-center-glow"></div>
+                            <div class="ai-scanner-light"></div>
+                            <img src="/images/brand-logo.svg" alt="Shrijal AI Medical Assistant" class="ai-medical-logo" id="shrijalOrb">
+                        </div>
+                        <div class="ai-side-lines ai-side-right">
+                            <svg viewBox="0 0 200 60" preserveAspectRatio="none"><path class="ai-flow-line" d="M0,30 Q50,10 100,30 T200,30" /><path class="ai-flow-line ai-flow-line-2" d="M0,20 Q50,40 100,20 T200,20" /><path class="ai-flow-line ai-flow-line-3" d="M0,40 Q50,25 100,40 T200,40" /></svg>
+                        </div>
+                    </div>
+                    <h2>Shrijal AI Medical Assistant</h2>
+                    <p>Hi! I'm Shrijal 👋 I'm your AI Medical Assistant. I can help you summarize patient reports, highlight abnormal values, extract key findings, and prepare discussion points. Please remember that I'm an AI assistant to support your clinical decision-making, not replace it.</p>
+                    <div class="shrijal-quick-actions">
+                        <button class="shrijal-quick-btn" onclick="quickAction('Summarize the key findings from this patient report')">📋 Summarize Patient Report</button>
+                        <button class="shrijal-quick-btn" onclick="quickAction('Highlight any abnormal values in this lab report and their clinical significance')">⚠️ Highlight Abnormal Values</button>
+                        <button class="shrijal-quick-btn" onclick="quickAction('Extract the key clinical findings and actionable items from this report')">🔍 Extract Key Findings</button>
+                        <button class="shrijal-quick-btn" onclick="quickAction('Compare these two reports and identify changes or trends')">📊 Compare Reports</button>
+                        <button class="shrijal-quick-btn" onclick="quickAction('Prepare discussion points for the upcoming case conference based on this patient data')">📝 Prepare Discussion Points</button>
+                    </div>
+                </div>
+
+                <div class="shrijal-messages" id="chatMessages" style="display:none;"></div>
+
+                <div class="shrijal-typing" id="typingIndicator" style="display:none;">
+                    <span></span><span></span><span></span>
+                </div>
+
+                <div class="shrijal-input-area">
+                    <button class="shrijal-mic-btn" id="micBtn" aria-label="Start voice input" title="Voice input">🎤</button>
+                    <div class="shrijal-input-wrapper">
+                        <textarea id="chatInput" rows="1" placeholder="Ask about patient reports, findings, or clinical data..." aria-label="Chat message input"></textarea>
+                        <button class="shrijal-send-btn" id="sendBtn" aria-label="Send message" onclick="sendChat()">➤</button>
+                    </div>
+                    <button class="shrijal-voice-toggle" id="voiceToggle" aria-label="Toggle voice responses">🔇 Voice</button>
+                </div>
+            </div>
+
+            <div class="shrijal-upload-section">
+                <div class="shrijal-upload-card">
+                    <h3>👤 Select Patient</h3>
+                    <select id="selectedPatient" style="width:100%;padding:10px;border:1.5px solid var(--border-color);border-radius:10px;font-family:inherit;font-size:0.9rem;background:var(--bg-card);color:var(--text-primary);">
+                        <option value="">Choose a patient...</option>
+                    </select>
+                </div>
+
+                <div class="shrijal-upload-card">
+                    <h3>📋 Upload Patient Report</h3>
+                    <div class="shrijal-upload-dropzone" id="reportUploadArea" onclick="document.getElementById('reportFileInput').click()">
+                        <div class="drop-icon">📋</div>
+                        <h4>Upload Medical Report</h4>
+                        <p>Drag and drop or click to upload a patient report</p>
+                        <p style="font-size:0.75rem;color:var(--gray);margin-top:4px;">PDF, JPG, PNG — Max 10 MB</p>
+                        <input type="file" id="reportFileInput" accept=".pdf,.jpg,.jpeg,.png" style="display:none" onchange="previewFile(this, 'report')">
+                    </div>
+                    <div class="shrijal-upload-preview" id="reportPreview" style="display:none;">
+                        <img id="reportPreviewImg" src="" alt="Report preview" style="width:50px;height:50px;object-fit:cover;border-radius:8px;">
+                        <div style="flex:1;">
+                            <strong id="reportFileName" style="font-size:0.88rem;"></strong>
+                            <p id="reportFileSize" class="text-muted" style="font-size:0.8rem;margin:2px 0 6px;"></p>
+                            <button class="btn btn-sm btn-danger" onclick="clearFile('report')">Remove</button>
+                            <button class="btn btn-sm btn-primary" onclick="uploadFile('report')">Analyze Report</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script src="/js/main.js?v=2.1"></script>
+    <script src="/js/language-detection.js"></script>
+    <script src="/js/voice-service.js"></script>
+    <script>
+        const conversation = [];
+        let pendingFiles = { report: null };
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!bootPage('ai-assistant', ['doctor'])) return;
+
+            loadPatients();
+            setupDragDrop('reportUploadArea', 'report');
+
+            var user = null;
+            try { user = JSON.parse(localStorage.getItem('user')); } catch(e) {}
+            var preferredLocale = (user && user.preferredLocale) || 'en-IN';
+            var preferredLang = (user && user.preferredLanguage) || 'en';
+
+            ShrijalVoice.init({
+                preferredLocale: preferredLocale,
+                preferredLanguage: preferredLang,
+                onStateChange: function(state, text) {
+                    var micBtn = document.getElementById('micBtn');
+                    var orbit = document.querySelector('.ai-orbit-container');
+                    if (state === 'listening') {
+                        if (micBtn) micBtn.classList.add('recording');
+                        if (orbit) { orbit.classList.remove('speaking', 'thinking'); orbit.classList.add('listening'); }
+                    } else if (state === 'speaking') {
+                        if (micBtn) micBtn.classList.remove('recording');
+                        if (orbit) { orbit.classList.remove('listening', 'thinking'); orbit.classList.add('speaking'); }
+                    } else if (state === 'thinking') {
+                        if (micBtn) micBtn.classList.remove('recording');
+                        if (orbit) { orbit.classList.remove('listening', 'speaking'); orbit.classList.add('thinking'); }
+                    } else {
+                        if (micBtn) micBtn.classList.remove('recording');
+                        if (orbit) { orbit.classList.remove('listening', 'thinking', 'speaking'); }
+                        if (ShrijalVoice.getVoiceMode()) orbit.classList.add('voice-active');
+                    }
+                },
+                onTranscript: function(transcript, isFinal) {
+                    document.getElementById('chatInput').value = transcript;
+                    if (isFinal) {
+                        ShrijalVoice.updateConversationLanguage(transcript);
+                        sendChat();
+                    }
+                },
+                onVoiceModeChange: function(enabled) {
+                    var btn = document.getElementById('voiceToggle');
+                    btn.textContent = enabled ? '\uD83D\uDD0A Voice ON' : '\uD83D\uDD07 Voice OFF';
+                    btn.classList.toggle('active', enabled);
+                },
+                onOrbStateChange: function(state) {
+                    var orbit = document.querySelector('.ai-orbit-container');
+                    if (!orbit) return;
+                    orbit.className = 'ai-orbit-container';
+                    if (state) orbit.classList.add(state);
+                    if (ShrijalVoice.getVoiceMode() && !state) orbit.classList.add('voice-active');
+                }
+            });
+
+            document.getElementById('chatInput').addEventListener('keydown', function (e) {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    sendChat();
+                }
+            });
+
+            document.getElementById('micBtn').addEventListener('click', function() { toggleRecording(); });
+            document.getElementById('voiceToggle').addEventListener('click', function() { toggleVoice(); });
+            document.getElementById('shrijalOrb').addEventListener('click', function() { toggleRecording(); });
+
+            setTimeout(function() { showPersonalizedGreeting(); }, 500);
+        });
+
+        function showPersonalizedGreeting() {
+            if (ShrijalVoice.isGreetingShown()) return;
+            var name = ShrijalVoice.getCurrentUserDisplayName();
+            var role = ShrijalVoice.getCurrentUserRole();
+            var lang = ShrijalVoice.getCurrentLanguage();
+            var greeting = ShrijalVoice.buildShrijalGreeting(name, role, lang);
+            ShrijalVoice.setGreetingShown(true);
+            showWelcome(false);
+            addMessage(formatResponse(greeting), 'assistant');
+            if (ShrijalVoice.getVoiceMode()) ShrijalVoice.speakText(greeting);
+        }
+
+        function toggleRecording() {
+            if (!ShrijalVoice.isRecognitionSupported()) {
+                showToast('Voice input is not supported in this browser', 'error');
+                return;
+            }
+            if (ShrijalVoice.getIsRecording()) {
+                ShrijalVoice.stopListening();
+            } else {
+                if (!ShrijalVoice.getVoiceMode()) ShrijalVoice.enableVoiceMode();
+                ShrijalVoice.startListening();
+            }
+        }
+
+        function toggleVoice() {
+            ShrijalVoice.toggleVoiceMode();
+            if (ShrijalVoice.getVoiceMode()) ShrijalVoice.startListening();
+        }
+
+        function setOrbState(state) {
+            var orbit = document.querySelector('.ai-orbit-container');
+            if (!orbit) return;
+            orbit.className = 'ai-orbit-container';
+            if (state) orbit.classList.add(state);
+            if (ShrijalVoice.getVoiceMode() && !state) orbit.classList.add('voice-active');
+        }
+
+        async function loadPatients() {
+            try {
+                const data = await api('/doctors/me/patients');
+                const patients = data.patients || data || [];
+                const select = document.getElementById('selectedPatient');
+                patients.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = p.user_id || p.id;
+                    opt.textContent = p.full_name || p.name || 'Patient ' + (p.user_id || p.id);
+                    select.appendChild(opt);
+                });
+            } catch (err) {
+                console.error('Failed to load patients:', err);
+            }
+        }
+
+        function setupDragDrop(areaId, type) {
+            const area = document.getElementById(areaId);
+            ['dragenter', 'dragover'].forEach(evt => {
+                area.addEventListener(evt, e => { e.preventDefault(); area.classList.add('dragover'); });
+            });
+            ['dragleave', 'drop'].forEach(evt => {
+                area.addEventListener(evt, e => { e.preventDefault(); area.classList.remove('dragover'); });
+            });
+            area.addEventListener('drop', e => {
+                const file = e.dataTransfer.files[0];
+                if (file) handleFileDrop(file, type);
+            });
+        }
+
+        function handleFileDrop(file, type) {
+            const allowed = ['application/pdf', 'image/jpeg', 'image/png'];
+            if (!allowed.includes(file.type)) {
+                showToast('Only PDF, JPG, and PNG files are allowed', 'error');
+                return;
+            }
+            if (file.size > 10 * 1024 * 1024) {
+                showToast('File size must be under 10MB', 'error');
+                return;
+            }
+            pendingFiles[type] = file;
+            showFilePreview(file, type);
+        }
+
+        function previewFile(input, type) {
+            const file = input.files[0];
+            if (file) handleFileDrop(file, type);
+        }
+
+        function showFilePreview(file, type) {
+            const preview = document.getElementById(type + 'Preview');
+            const img = document.getElementById(type + 'PreviewImg');
+            const name = document.getElementById(type + 'FileName');
+            const size = document.getElementById(type + 'FileSize');
+
+            name.textContent = file.name;
+            size.textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
+
+            if (file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = e => { img.src = e.target.result; img.style.display = 'block'; };
+                reader.readAsDataURL(file);
+            } else {
+                img.style.display = 'none';
+            }
+            preview.style.display = 'flex';
+        }
+
+        function clearFile(type) {
+            pendingFiles[type] = null;
+            document.getElementById(type + 'Preview').style.display = 'none';
+            document.getElementById(type + 'FileInput').value = '';
+        }
+
+        function showWelcome(show) {
+            const welcome = document.getElementById('welcomeScreen');
+            const messages = document.getElementById('chatMessages');
+            if (show) {
+                welcome.style.display = 'flex';
+                messages.style.display = 'none';
+            } else {
+                welcome.style.display = 'none';
+                messages.style.display = 'flex';
+            }
+        }
+
+        function addMessage(content, role, isEmergency) {
+            showWelcome(false);
+            const container = document.getElementById('chatMessages');
+            const div = document.createElement('div');
+            div.className = 'shrijal-msg ' + role + (isEmergency ? ' emergency' : '');
+            div.innerHTML = content;
+            container.appendChild(div);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        function showTyping(show) {
+            const el = document.getElementById('typingIndicator');
+            el.style.display = show ? 'flex' : 'none';
+            const container = document.querySelector('.ai-orbit-container');
+            if (container) {
+                if (show) container.classList.add('thinking');
+                else container.classList.remove('thinking');
+            }
+        }
+
+        function formatResponse(text) {
+            let html = text;
+            html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+            html = html.replace(/\n/g, '<br>');
+            html = html.replace(/```([\s\S]*?)```/g, '<pre><code>$1</code></pre>');
+
+            if (text.toLowerCase().includes('emergency') || text.toLowerCase().includes('critical') || text.toLowerCase().includes('urgent')) {
+                html = '<div class="msg-label" style="color:#ef4444;font-weight:600;">⚠️ Critical Finding</div>' + html;
+            }
+
+            html += '<div class="disclaimer">This analysis is generated by AI and should be reviewed alongside your clinical assessment and standard medical protocols. Not a substitute for clinical judgment.</div>';
+            return html;
+        }
+
+        async function sendChat() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            if (!message) return;
+
+            ShrijalVoice.updateConversationLanguage(message);
+
+            addMessage('<div class="msg-label">You</div>' + escapeHtml(message), 'user');
+            conversation.push({ role: 'user', content: message });
+            input.value = '';
+            input.style.height = 'auto';
+
+            showTyping(true);
+
+            try {
+                const data = await api('/ai/chat', 'POST', {
+                    message: message,
+                    role: 'doctor',
+                    conversation: conversation.slice(-10),
+                    conversationLanguage: ShrijalVoice.getCurrentLanguage().split('-')[0],
+                    conversationLocale: ShrijalVoice.getCurrentLanguage()
+                });
+
+                showTyping(false);
+                const responseText = data.response || data.message || 'I could not process your request.';
+                addMessage(formatResponse(responseText), 'assistant');
+                conversation.push({ role: 'assistant', content: responseText });
+
+                ShrijalVoice.setLastResponse(responseText);
+                if (ShrijalVoice.getVoiceMode() && responseText) ShrijalVoice.speakText(responseText);
+            } catch (err) {
+                showTyping(false);
+                addMessage('<div class="msg-label">System</div> Sorry, I encountered an error: ' + escapeHtml(err.message) + '. Please try again.', 'assistant');
+            }
+        }
+
+        async function uploadFile(type) {
+            const file = pendingFiles[type];
+            if (!file) {
+                showToast('Please select a file first', 'error');
+                return;
+            }
+
+            const patientId = document.getElementById('selectedPatient').value;
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('role', 'doctor');
+            if (patientId) formData.append('patient_id', patientId);
+
+            addMessage('<div class="msg-label">You</div>Uploading report: ' + escapeHtml(file.name) + (patientId ? ' for patient #' + patientId : ''), 'user');
+
+            showTyping(true);
+
+            try {
+                const response = await fetch('/api/ai/analyze-report', {
+                    method: 'POST',
+                    headers: { 'Authorization': 'Bearer ' + localStorage.getItem('token') },
+                    body: formData
+                });
+
+                if (!response.ok) throw new Error('Upload failed');
+                const data = await response.json();
+
+                showTyping(false);
+
+                let responseText = '';
+
+                // Show extracted report data if available
+                if (data.ocr && data.ocr.extractedData && data.ocr.extractedData.tests && data.ocr.extractedData.tests.length > 0) {
+                    const ext = data.ocr.extractedData;
+                    responseText += '**Extracted Report**';
+                    if (ext.reportType) responseText += ' — ' + ext.reportType;
+                    responseText += '\n\n';
+
+                    for (const test of ext.tests) {
+                        const statusIcon = test.status === 'normal' ? '✅' : test.status === 'high' ? '⬆️' : test.status === 'low' ? '⬇️' : '❓';
+                        responseText += statusIcon + ' **' + test.name + '**: ' + test.value + ' ' + test.unit;
+                        if (test.referenceRange) responseText += ' (Ref: ' + test.referenceRange + ')';
+                        responseText += '\n';
+                    }
+                    responseText += '\n';
+
+                    if (data.ocr.quality) {
+                        responseText += '*Image quality: ' + data.ocr.quality.quality + ' (OCR confidence: ' + Math.round(data.ocr.confidence) + '%)*\n\n';
+                    }
+                }
+
+                if (data.analysis) {
+                    if (data.analysis.findings && data.analysis.findings.length > 0) {
+                        responseText += '**Analysis:**\n\n';
+                        for (const f of data.analysis.findings) {
+                            responseText += '- **' + f.name + '**: ' + f.value + ' ' + f.unit + ' (' + f.status.toUpperCase() + ')\n';
+                            responseText += '  ' + f.explanation + '\n\n';
+                        }
+                    }
+                    if (data.analysis.explanation) responseText += data.analysis.explanation + '\n\n';
+                    if (data.analysis.concerns && data.analysis.concerns.length > 0) {
+                        responseText += '**Clinical considerations:**\n';
+                        for (const c of data.analysis.concerns) responseText += '- ' + c + '\n';
+                        responseText += '\n';
+                    }
+                }
+
+                // If no structured data was found but we got raw OCR text
+                if ((!data.analysis || !data.analysis.findings || data.analysis.findings.length === 0) && data.ocr && data.ocr.text) {
+                    responseText += '**What I read from the image:**\n\n';
+                    responseText += data.ocr.text.substring(0, 800) + '\n\n';
+                    if (data.ocr.confidence < 50) {
+                        responseText += '*The image quality made it difficult to read some values clearly. Please consider uploading a clearer photo.*\n\n';
+                    }
+                }
+
+                if (!responseText) responseText = data.response || data.message || 'Analysis complete.';
+
+                addMessage(formatResponse(responseText), 'assistant');
+                conversation.push({ role: 'assistant', content: responseText });
+                ShrijalVoice.setLastResponse(responseText);
+                clearFile(type);
+
+                if (ShrijalVoice.getVoiceMode() && responseText) ShrijalVoice.speakText(responseText);
+            } catch (err) {
+                showTyping(false);
+                addMessage('<div class="msg-label">System</div> Failed to analyze the report: ' + escapeHtml(err.message), 'assistant');
+            }
+        }
+
+        function quickAction(text) {
+            document.getElementById('chatInput').value = text;
+            sendChat();
+        }
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+    </script>
+</body>
+</html>

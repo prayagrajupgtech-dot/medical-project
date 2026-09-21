@@ -1,0 +1,315 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign In - AI Doctor Assistant</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        .auth-role-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin:20px 0}
+        .auth-role-card{background:rgba(37,99,235,0.06);border:2px solid rgba(37,99,235,0.15);border-radius:12px;padding:24px 16px;text-align:center;cursor:pointer;transition:all .25s ease}
+        .auth-role-card:hover{border-color:var(--primary);background:rgba(37,99,235,0.1);transform:translateY(-2px);box-shadow:0 4px 12px rgba(37,99,235,0.15)}
+        .auth-role-card .role-icon{font-size:36px;margin-bottom:10px}
+        .auth-role-card h3{font-size:1rem;margin-bottom:6px;color:var(--dark)}
+        .auth-role-card p{font-size:.8rem;color:var(--gray);margin-bottom:12px}
+        .auth-role-card .role-btns{display:flex;flex-direction:column;gap:8px}
+        .auth-role-card .role-btns .btn{font-size:.85rem;padding:8px 16px}
+        .back-to-roles{display:inline-flex;align-items:center;gap:6px;margin-bottom:16px;color:var(--primary);font-size:.9rem;cursor:pointer;font-weight:500}
+        .back-to-roles:hover{text-decoration:underline}
+        .auth-card-header .auth-subtitle{color:var(--gray);font-size:.9rem}
+    </style>
+</head>
+<body class="auth-page">
+    <div class="auth-shell">
+
+    <!-- Theme toggle -->
+    <div class="auth-theme-toggle" style="position: absolute; top: 20px; right: 20px; z-index: 10;">
+        <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" style="color: #334155; border-color: #d3dcec;" data-i18n-aria="theme_toggle">
+            🌙
+        </button>
+    </div>
+
+        <!-- LEFT BRAND PANEL (desktop) -->
+        <aside class="auth-brand-panel" aria-hidden="true">
+            <div class="brand-panel-inner">
+                <img src="/images/brand-logo.svg" alt="" class="brand-logo brand-logo-lg" width="72" height="72">
+                <h1>AI Doctor Assistant</h1>
+                <p class="brand-subtitle">Professional Healthcare Platform</p>
+
+                <svg class="brand-visual" viewBox="0 0 360 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Medical care illustration">
+                    <circle cx="180" cy="110" r="86" fill="#ffffff" opacity="0.12"/>
+                    <circle cx="180" cy="110" r="62" fill="#ffffff" opacity="0.14"/>
+                    <rect x="150" y="78" width="60" height="60" rx="14" fill="#ffffff"/>
+                    <path d="M172 96h16v10h10v16h-10v10h-16v-10h-10v-16h10v-10z" fill="#1e6fff"/>
+                    <path d="M118 138l18-24 12 12 20-28" stroke="#ffffff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                    <path d="M196 150l16 14 18-8 12 20" stroke="#ffffff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.7"/>
+                </svg>
+
+                <p class="brand-tagline">Connect with healthcare professionals and manage your medical journey through a secure digital platform.</p>
+
+                <ul class="brand-points">
+                    <li>Secure and private medical records</li>
+                    <li>Book appointments with verified doctors</li>
+                    <li>Manage reports, prescriptions and messages</li>
+                </ul>
+            </div>
+            <div class="brand-panel-footer">
+                AI Doctor Assistant &middot; Digital Healthcare Assistance Platform
+            </div>
+        </aside>
+
+        <!-- RIGHT AUTH AREA -->
+        <main class="auth-main">
+
+            <!-- ======== ROLE SELECTION CARD ======== -->
+            <section class="auth-card" id="roleCard" aria-labelledby="roleTitle">
+                <div class="auth-card-header">
+                    <img src="/images/brand-logo.svg" alt="AI Doctor Assistant logo" class="brand-logo" width="64" height="64">
+                    <h2 id="roleTitle">AI Doctor Assistant</h2>
+                    <p class="auth-subtitle">Welcome</p>
+                    <p class="auth-caption">Choose how you want to continue</p>
+                </div>
+
+                <div class="auth-role-cards">
+                    <div class="auth-role-card">
+                        <div class="role-icon">🏥</div>
+                        <h3>Hospital</h3>
+                        <p>Register or manage your hospital</p>
+                        <div class="role-btns">
+                            <a href="/hospital/register" class="btn btn-primary btn-sm">Register Hospital</a>
+                            <a href="/hospital/login" class="btn btn-outline btn-sm">Hospital Login</a>
+                        </div>
+                    </div>
+                    <div class="auth-role-card">
+                        <div class="role-icon">👨‍⚕️</div>
+                        <h3>Doctor</h3>
+                        <p>Access your doctor dashboard</p>
+                        <div class="role-btns">
+                            <button class="btn btn-primary btn-sm" onclick="showLogin('doctor')">Doctor Login</button>
+                            <a href="/doctor/join-hospital" class="btn btn-outline btn-sm">Join Hospital</a>
+                        </div>
+                    </div>
+                    <div class="auth-role-card">
+                        <div class="role-icon">🧑‍🦰</div>
+                        <h3>Patient</h3>
+                        <p>Book appointments and manage health</p>
+                        <div class="role-btns">
+                            <button class="btn btn-primary btn-sm" onclick="showLogin('patient')">Patient Login</button>
+                            <button class="btn btn-outline btn-sm" onclick="showRegister()">Patient Register</button>
+                        </div>
+                    </div>
+                    <div class="auth-role-card">
+                        <div class="role-icon">🛡️</div>
+                        <h3>Admin</h3>
+                        <p>Manage the platform</p>
+                        <div class="role-btns">
+                            <button class="btn btn-primary btn-sm" onclick="showLogin('admin')">Admin Login</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="auth-footnote">AI Doctor Assistant &middot; Digital Healthcare Assistance Platform</div>
+            </section>
+
+            <!-- ======== LOGIN CARD ======== -->
+            <section class="auth-card hidden" id="loginCard" aria-labelledby="loginTitle">
+                <span class="back-to-roles" onclick="showRoles()">← Back to selection</span>
+                <div class="auth-card-header">
+                    <img src="/images/brand-logo.svg" alt="AI Doctor Assistant logo" class="brand-logo" width="64" height="64">
+                    <h2 id="loginTitle">Patient Sign In</h2>
+                    <p class="auth-subtitle">Welcome Back</p>
+                    <p class="auth-caption">Sign in to access your dashboard</p>
+                </div>
+
+                <form id="loginForm" novalidate autocomplete="on">
+                    <input type="hidden" id="loginRole" value="patient">
+                    <div class="form-group">
+                        <label for="loginUsername">Username or Email</label>
+                        <input type="text" id="loginUsername" name="username" class="form-control" autocomplete="username" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="loginPassword">Password</label>
+                        <div class="password-field">
+                            <input type="password" id="loginPassword" name="password" class="form-control" autocomplete="current-password" required>
+                            <button type="button" class="password-toggle" aria-label="Show password" tabindex="-1" aria-controls="loginPassword">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="form-alert" id="loginAlert" role="alert" hidden></div>
+
+                    <button type="submit" class="btn btn-primary btn-block btn-lg" id="loginSubmit">Sign In</button>
+                </form>
+
+                <div class="auth-links">
+                    <a href="/forgot-password">Forgot Password?</a>
+                </div>
+
+                <div class="auth-switch">
+                    <p>Don't have an account? <a href="/login?mode=register" id="goRegister">Create Account</a></p>
+                </div>
+
+                <div class="auth-footnote">AI Doctor Assistant &middot; Digital Healthcare Assistance Platform</div>
+            </section>
+
+            <!-- ======== REGISTER CARD ======== -->
+            <section class="auth-card auth-card-wide hidden" id="registerCard" aria-labelledby="registerTitle">
+                <span class="back-to-roles" onclick="showRoles()">← Back to selection</span>
+                <div class="auth-card-header">
+                    <img src="/images/brand-logo.svg" alt="AI Doctor Assistant logo" class="brand-logo" width="64" height="64">
+                    <h2 id="registerTitle">Create Patient Account</h2>
+                    <p class="auth-subtitle">Join our medical practice platform</p>
+                </div>
+
+                <form id="registerForm" novalidate autocomplete="on">
+                    <input type="hidden" name="role" value="patient" id="regRole">
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="regFirstName">First Name *</label>
+                            <input type="text" id="regFirstName" name="firstName" class="form-control" autocomplete="given-name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="regLastName">Last Name *</label>
+                            <input type="text" id="regLastName" name="lastName" class="form-control" autocomplete="family-name" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="regUsername">Username *</label>
+                            <input type="text" id="regUsername" name="username" class="form-control" autocomplete="username" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="regEmail">Email *</label>
+                            <input type="email" id="regEmail" name="email" class="form-control" autocomplete="email" required>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="regPassword">Password *</label>
+                            <div class="password-field">
+                                <input type="password" id="regPassword" name="password" class="form-control" autocomplete="new-password" required>
+                                <button type="button" class="password-toggle" aria-label="Show password" tabindex="-1" aria-controls="regPassword">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+                                </button>
+                            </div>
+                            <div class="password-strength-wrap">
+                                <div class="strength-track" aria-hidden="true"><div class="strength-meter"></div></div>
+                                <span class="strength-label" aria-live="polite"></span>
+                            </div>
+                            <ul class="password-reqs">
+                                <li class="req-item" data-req="length">Minimum 8 characters</li>
+                                <li class="req-item" data-req="upper">At least one uppercase letter</li>
+                                <li class="req-item" data-req="lower">At least one lowercase letter</li>
+                                <li class="req-item" data-req="number">At least one number</li>
+                            </ul>
+                        </div>
+                        <div class="form-group">
+                            <label for="regConfirm">Confirm Password *</label>
+                            <div class="password-field">
+                                <input type="password" id="regConfirm" name="confirm" class="form-control" autocomplete="new-password" required>
+                                <button type="button" class="password-toggle" aria-label="Show password" tabindex="-1" aria-controls="regConfirm">
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="regPhone">Phone *</label>
+                        <input type="tel" id="regPhone" name="phone" class="form-control" autocomplete="tel" required>
+                    </div>
+
+                    <!-- PATIENT-SPECIFIC FIELDS -->
+                    <div class="reg-section" id="patientFields" aria-live="polite">
+                        <h3 class="reg-section-title">Optional Information</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="regDob">Date of Birth</label>
+                                <input type="date" id="regDob" name="date_of_birth" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="regGender">Gender</label>
+                                <select id="regGender" name="gender" class="form-control">
+                                    <option value="">Select...</option>
+                                    <option value="male">Male</option>
+                                    <option value="female">Female</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="regPatientPhoto">Profile Photo</label>
+                            <input type="file" id="regPatientPhoto" class="form-control" accept="image/jpeg,image/png,image/webp">
+                            <div class="reg-photo-preview" id="patientPhotoPreview"></div>
+                            <small class="form-hint">JPG, PNG or WEBP. Maximum 5 MB. You can also change it later from your profile.</small>
+                        </div>
+                    </div>
+
+                    <div class="form-alert" id="registerAlert" role="alert" hidden></div>
+
+                    <button type="submit" class="btn btn-primary btn-block btn-lg" id="registerSubmit">Create Account</button>
+                </form>
+
+                <div class="auth-switch">
+                    <p>Already have an account? <a href="/login" id="goLogin">Sign In</a></p>
+                </div>
+
+                <div class="auth-footnote">AI Doctor Assistant &middot; Digital Healthcare Assistance Platform</div>
+            </section>
+
+        </main>
+    </div>
+
+    <script src="/js/brand.js"></script>
+    <script src="/js/app.js"></script>
+    <script>
+        // Show register mode via /login?mode=register, /login?register=true, #register, or /register
+        window.addEventListener('DOMContentLoaded', function () {
+            var url = new URLSearchParams(window.location.search);
+            var isRegister = url.get('mode') === 'register' ||
+                url.get('register') === 'true' ||
+                window.location.hash === '#register' ||
+                window.location.pathname === '/register';
+            if (isRegister) {
+                showRegister();
+            } else {
+                showRoles();
+            }
+        });
+
+        function showRoles() {
+            document.getElementById('roleCard').classList.remove('hidden');
+            document.getElementById('loginCard').classList.add('hidden');
+            document.getElementById('registerCard').classList.add('hidden');
+        }
+
+        function showLogin(role) {
+            role = role || 'patient';
+            document.getElementById('loginRole').value = role;
+            document.getElementById('roleCard').classList.add('hidden');
+            document.getElementById('loginCard').classList.remove('hidden');
+            document.getElementById('registerCard').classList.add('hidden');
+            var title = document.getElementById('loginTitle');
+            var roleLabels = { patient: 'Patient', doctor: 'Doctor', admin: 'Admin' };
+            title.textContent = (roleLabels[role] || 'Patient') + ' Sign In';
+            var first = document.getElementById('loginUsername');
+            if (first) setTimeout(function() { first.focus(); }, 50);
+        }
+
+        function showRegister() {
+            document.getElementById('roleCard').classList.add('hidden');
+            document.getElementById('loginCard').classList.add('hidden');
+            document.getElementById('registerCard').classList.remove('hidden');
+            var first = document.getElementById('regFirstName');
+            if (first) setTimeout(function() { first.focus(); }, 50);
+        }
+    </script>
+</body>
+</html>

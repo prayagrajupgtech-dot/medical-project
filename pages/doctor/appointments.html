@@ -1,0 +1,477 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Appointments - AI Doctor Assistant</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Admin Header -->
+    <header class="admin-header">
+        <div class="container">
+            <div class="admin-header-content">
+                <div class="admin-brand">
+                    <img src="/favicon.png" alt="AI Doctor Assistant">
+                    <span>AI Doctor Assistant - Dashboard</span>
+                </div>
+                <div class="admin-user">
+                    <span id="userDisplay">Dr. Sarah Johnson</span>
+                    <button class="btn btn-sm btn-outline" onclick="logout()"><span data-i18n="logout">Logout</span></button>
+                    <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">??</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="admin-nav" aria-label="Main navigation">
+        <div class="container">
+            <button class="admin-nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul>
+                <li><a href="/doctor/dashboard" data-nav="dashboard" data-i18n="dashboard">Dashboard</a></li>
+                <li><a href="/doctor/patients" data-nav="patients" data-i18n="patients">Patients</a></li>
+                <li><a href="/doctor/consultations" data-nav="consultations" data-i18n="consultations">Consultations</a></li>
+                <li><a href="/doctor/appointments" data-nav="appointments" class="active" aria-current="page" data-i18n="appointments">Appointments</a></li>
+                <li><a href="/doctor/messages" data-nav="messages" data-i18n="messages">Messages</a></li>
+                <li><a href="/doctor/reports" data-nav="reports" data-i18n="reports">Reports</a></li>
+                <li><a href="/doctor/profile" data-nav="profile" data-i18n="profile">Profile</a></li>
+                <li><a href="/doctor/settings" data-nav="settings" data-i18n="settings">Settings</a></li>
+                <li><a href="/doctor/ai-assistant" class="admin-nav-item" data-page="ai-assistant" data-i18n="ai_assistant">
+                    <span class="admin-nav-icon">??</span>
+                    <span class="admin-nav-label">AI Assistant</span>
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Appointments Section -->
+    <section class="admin-section">
+        <div class="container">
+            <div class="dashboard-welcome">
+                <div class="d-flex justify-between align-center" style="flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <h1>Appointments</h1>
+                        <p>Manage scheduled appointments and bookings</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="showNewAppointmentModal()">+ New Appointment</button>
+                </div>
+            </div>
+
+            <div class="admin-card mt-4">
+                <div class="filter-tabs" role="tablist" aria-label="Filter appointments">
+                    <button class="filter-tab" data-status="" onclick="setFilter(this)">All</button>
+                    <button class="filter-tab" data-status="today" onclick="setFilter(this)">Today</button>
+                    <button class="filter-tab" data-status="pending" onclick="setFilter(this)">New</button>
+                    <button class="filter-tab" data-status="seen" onclick="setFilter(this)">Seen</button>
+                    <button class="filter-tab" data-status="accepted" onclick="setFilter(this)">Accepted</button>
+                    <button class="filter-tab" data-status="in_progress" onclick="setFilter(this)">In Progress</button>
+                    <button class="filter-tab" data-status="completed" onclick="setFilter(this)">Completed</button>
+                    <button class="filter-tab" data-status="rejected" onclick="setFilter(this)">Rejected</button>
+                    <button class="filter-tab" data-status="cancelled" onclick="setFilter(this)">Cancelled</button>
+                </div>
+                <div class="toolbar" role="search">
+                    <input type="search" id="searchInput" class="form-control search-input" placeholder="Search patient or reason..." aria-label="Search appointments">
+                </div>
+                <div class="table-container">
+                    <table class="admin-table" id="appointmentsTable">
+                        <thead>
+                            <tr>
+                                <th>Patient</th>
+                                <th>Date</th>
+                                <th>Time</th>
+                                <th>Reason</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="appointmentsList"></tbody>
+                    </table>
+                    <div id="appointmentsState"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- New Appointment Modal -->
+    <div class="modal" id="newAppointmentModal" role="dialog" aria-modal="true" aria-labelledby="newAppointmentTitle">
+        <div class="modal-content" style="max-width: 520px; text-align: left;">
+            <div class="modal-header">
+                <h3 id="newAppointmentTitle">New Appointment</h3>
+                <button class="btn btn-sm btn-outline" onclick="hideModal('newAppointmentModal')" aria-label="Close">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="apptPatient">Patient</label>
+                    <select id="apptPatient" class="form-control" aria-label="Patient"><option value="">Loading patients...</option></select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="apptDate">Date</label>
+                        <input type="date" id="apptDate" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="apptTime">Time</label>
+                        <input type="time" id="apptTime" class="form-control">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="apptReason">Reason</label>
+                    <textarea id="apptReason" rows="3" class="form-control" placeholder="Reason for appointment"></textarea>
+                </div>
+            </div>
+            <div class="modal-actions" style="justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="hideModal('newAppointmentModal')">Cancel</button>
+                <button class="btn btn-primary" id="apptSaveBtn" onclick="createAppointment()">Create Appointment</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reschedule Modal -->
+    <div class="modal" id="rescheduleModal" role="dialog" aria-modal="true" aria-labelledby="rescheduleTitle">
+        <div class="modal-content" style="max-width: 520px; text-align: left;">
+            <div class="modal-header">
+                <h3 id="rescheduleTitle">Reschedule Appointment</h3>
+                <button class="btn btn-sm btn-outline" onclick="hideModal('rescheduleModal')" aria-label="Close">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="reschedDate">New Date</label>
+                        <input type="date" id="reschedDate" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="reschedTime">New Time</label>
+                        <input type="time" id="reschedTime" class="form-control">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="reschedReason">Reason</label>
+                    <textarea id="reschedReason" rows="3" class="form-control"></textarea>
+                </div>
+            </div>
+            <div class="modal-actions" style="justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="hideModal('rescheduleModal')">Cancel</button>
+                <button class="btn btn-primary" id="reschedSaveBtn" onclick="saveReschedule()">Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Appointment Detail Modal -->
+    <div class="modal" id="detailModal" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
+        <div class="modal-content" style="max-width: 620px; text-align: left;">
+            <div class="modal-header">
+                <h3 id="detailTitle">Appointment Details</h3>
+                <button class="btn btn-sm btn-outline" onclick="hideModal('detailModal')" aria-label="Close">×</button>
+            </div>
+            <div class="modal-body" id="detailBody"></div>
+        </div>
+    </div>
+
+    <script src="/js/i18n.js?v=2.2"></script>
+    <script src="/js/main.js?v=2.1"></script>
+    <script>
+        let currentFilter = '';
+        let allAppointments = [];
+        let rescheduleId = null;
+        let pollTimer = null;
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!bootPage('appointments', ['doctor', 'admin'])) return;
+
+            document.getElementById('searchInput').addEventListener('input', renderList);
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const filter = urlParams.get('filter');
+            if (filter) {
+                const tab = document.querySelector(`.filter-tab[data-status="${filter}"]`);
+                if (tab) setFilter(tab);
+            }
+
+            showSkeleton(document.getElementById('appointmentsList'), 4, 6);
+            loadAppointments();
+
+            if (urlParams.get('id')) {
+                viewAppointment(urlParams.get('id'));
+            }
+
+            startPolling();
+            window.addEventListener('beforeunload', stopPolling);
+            document.addEventListener('visibilitychange', function () {
+                if (document.hidden) stopPolling(); else startPolling();
+            });
+        });
+
+        function startPolling() {
+            if (pollTimer) return;
+            pollTimer = setInterval(() => { loadAppointments(true); }, 25000);
+        }
+        function stopPolling() {
+            if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+        }
+
+        async function loadAppointments(silent) {
+            try {
+                allAppointments = await api('/appointments');
+                renderList();
+            } catch (err) {
+                if (silent) return;
+                document.getElementById('appointmentsList').innerHTML = '';
+                showErrorState(document.getElementById('appointmentsState'), 'Unable to load appointments. Please try again.', 'loadAppointments');
+            }
+        }
+
+        function setFilter(btn) {
+            currentFilter = btn.getAttribute('data-status');
+            document.querySelectorAll('.filter-tab').forEach(t => t.classList.toggle('active', t === btn));
+            renderList();
+        }
+
+        function renderList() {
+            const tbody = document.getElementById('appointmentsList');
+            const state = document.getElementById('appointmentsState');
+            tbody.innerHTML = '';
+            state.innerHTML = '';
+
+            const search = document.getElementById('searchInput').value.trim().toLowerCase();
+            let list = allAppointments;
+
+            if (currentFilter === 'today') {
+                const today = new Date().toISOString().split('T')[0];
+                list = list.filter(a => (a.date || '').slice(0, 10) === today);
+            } else if (currentFilter === 'pending') {
+                list = list.filter(a => a.status === 'pending');
+            } else if (currentFilter) {
+                list = list.filter(a => a.status === currentFilter);
+            }
+
+            if (search) {
+                list = list.filter(a => [a.patient_name, a.reason, a.doctor_name].filter(Boolean)
+                    .join(' ').toLowerCase().includes(search));
+            }
+
+            if (!list.length) {
+                showEmptyState(state, currentFilter ? 'No appointments in this view.' : 'No appointments yet. Create one to get started.');
+                return;
+            }
+
+            tbody.innerHTML = list.map(a => {
+                const awaiting = a.status === 'pending' || a.status === 'seen';
+                const open = ['pending', 'seen', 'accepted', 'in_progress'].includes(a.status);
+                return `
+                <tr class="row-click" data-id="${a.id}" onclick="viewAppointment(${a.id})" tabindex="0" role="link" aria-label="Open appointment ${a.id}">
+                    <td>
+                        <div style="display:flex; align-items:center; gap:10px;">
+                            ${avatarHtml(a.patient_name, a.patient_photo, 'sm')}
+                            <div>
+                                <a href="/doctor/patients/${a.patient_user_id}" onclick="event.stopPropagation()">${escapeHtml(a.patient_name || 'Unknown')}</a>
+                                ${a.patient.phone ? `<div class="text-muted" style="font-size:0.78rem;">${escapeHtml(a.patient.phone)}</div>` : ''}
+                            </div>
+                        </div>
+                    </td>
+                    <td>${formatDate(a.date)}</td>
+                    <td>${escapeHtml(a.appointment_time || 'N/A')}</td>
+                    <td>${escapeHtml(a.reason || 'N/A')}</td>
+                    <td>${statusBadge(a.status)}</td>
+                    <td>
+                        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                            <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); viewAppointment(${a.id})">View</button>
+                            ${awaiting ? `
+                                <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); changeStatus(${a.id}, 'accepted')">Accept</button>
+                                <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); rejectAppointment(${a.id})">Reject</button>
+                            ` : ''}
+                            ${open ? `
+                                <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); startConsultation(${a.id})">Start</button>
+                                <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); openReschedule(${a.id})">Reschedule</button>
+                            ` : ''}
+                            ${a.status === 'in_progress' ? `
+                                <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); changeStatus(${a.id}, 'completed')">Complete</button>
+                            ` : ''}
+                            ${open && a.status !== 'cancelled' && a.status !== 'rejected' ? `
+                                <button class="btn btn-sm btn-ghost-danger" onclick="event.stopPropagation(); cancelAppointment(${a.id})">Cancel</button>
+                            ` : ''}
+                        </div>
+                    </td>
+                </tr>`;
+            }).join('');
+        }
+
+        async function changeStatus(id, status, rejectionReason) {
+            const payload = { status };
+            if (status === 'rejected') payload.rejection_reason = rejectionReason;
+            await api('/appointments/' + id + '/status', 'PATCH', payload);
+            showToast('Appointment ' + statusLabel(status).toLowerCase());
+            await loadAppointments(true);
+        }
+
+        async function rejectAppointment(id) {
+            const reason = prompt('Please provide a reason for rejecting this appointment:');
+            if (reason === null) return;
+            if (!reason.trim()) {
+                showToast('A rejection reason is required', 'error');
+                return;
+            }
+            try {
+                await changeStatus(id, 'rejected', reason.trim());
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+
+        async function cancelAppointment(id) {
+            if (!confirm('Cancel this appointment?')) return;
+            try {
+                await changeStatus(id, 'cancelled');
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+
+        async function startConsultation(id) {
+            const btn = event.target;
+            btn.disabled = true;
+            try {
+                const data = await api('/appointments/' + id + '/start', 'POST');
+                showToast('Consultation started');
+                window.location.href = '/doctor/consultations?id=' + data.consultation_id;
+            } catch (err) {
+                showToast(err.message, 'error');
+                btn.disabled = false;
+            }
+        }
+
+        function openReschedule(id) {
+            rescheduleId = id;
+            const appt = allAppointments.find(a => a.id === id);
+            document.getElementById('reschedDate').value = appt ? (appt.date || '').slice(0, 10) : '';
+            document.getElementById('reschedTime').value = appt ? (appt.appointment_time || '') : '';
+            document.getElementById('reschedReason').value = appt ? (appt.reason || '') : '';
+            showModal('rescheduleModal');
+        }
+
+        async function saveReschedule() {
+            const btn = document.getElementById('reschedSaveBtn');
+            const date = document.getElementById('reschedDate').value;
+            if (!date) {
+                showToast('Please choose a new date', 'error');
+                return;
+            }
+            btn.disabled = true;
+            try {
+                await api('/appointments/' + rescheduleId, 'PUT', {
+                    appointment_date: date,
+                    appointment_time: document.getElementById('reschedTime').value,
+                    reason: document.getElementById('reschedReason').value
+                });
+                showToast('Appointment rescheduled');
+                hideModal('rescheduleModal');
+                await loadAppointments(true);
+                btn.disabled = false;
+            } catch (err) {
+                showToast(err.message, 'error');
+                btn.disabled = false;
+            }
+        }
+
+        async function viewAppointment(id) {
+            const body = document.getElementById('detailBody');
+            body.innerHTML = '<div class="state-block"><span class="spinner" aria-hidden="true"></span><p>Loading...</p></div>';
+            showModal('detailModal');
+
+            try {
+                const a = await api('/appointments/' + id);
+
+                const actions = [];
+                if (a.status === 'pending' || a.status === 'seen') {
+                    actions.push(`<button class="btn btn-success" onclick="hideModal('detailModal'); changeStatus(${a.id}, 'accepted')">Accept</button>`);
+                    actions.push(`<button class="btn btn-outline" onclick="hideModal('detailModal'); rejectAppointment(${a.id})">Reject</button>`);
+                }
+                if (['pending', 'seen', 'accepted'].includes(a.status)) {
+                    actions.push(`<button class="btn btn-primary" onclick="hideModal('detailModal'); startConsultation(${a.id})">Start Consultation</button>`);
+                    actions.push(`<button class="btn btn-outline" onclick="hideModal('detailModal'); openReschedule(${a.id})">Reschedule</button>`);
+                }
+                if (a.status === 'in_progress') {
+                    actions.push(`<button class="btn btn-success" onclick="hideModal('detailModal'); changeStatus(${a.id}, 'completed')">Complete</button>`);
+                }
+                if (['pending', 'seen', 'accepted', 'in_progress'].includes(a.status)) {
+                    actions.push(`<button class="btn btn-outline" onclick="hideModal('detailModal'); cancelAppointment(${a.id})">Cancel</button>`);
+                }
+
+                body.innerHTML = `
+                    <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px;">
+                        ${avatarHtml(a.patient_name, a.patient_photo, 'lg')}
+                        <div>
+                            <strong style="font-size:1.05rem;">${escapeHtml(a.patient_name)}</strong>
+                            <div class="text-muted">${a.patient.phone ? escapeHtml(a.patient.phone) + ' &middot; ' : ''}${escapeHtml(a.patient.email || '')}</div>
+                            <a href="/doctor/patients/${a.patient_user_id}">Open full profile</a>
+                        </div>
+                    </div>
+                    <div class="detail-grid">
+                        <div class="detail-item"><label>Date</label><div class="detail-value">${formatDate(a.date)}</div></div>
+                        <div class="detail-item"><label>Time</label><div class="detail-value">${escapeHtml(a.appointment_time || 'N/A')}</div></div>
+                        <div class="detail-item"><label>Status</label><div class="detail-value">${statusBadge(a.status)}</div></div>
+                        <div class="detail-item"><label>Booked</label><div class="detail-value">${formatDateTime(a.created_at)}</div></div>
+                        <div class="detail-item" style="grid-column: 1 / -1;"><label>Reason</label><div class="detail-value">${escapeHtml(a.reason || 'N/A')}</div></div>
+                        <div class="detail-item" style="grid-column: 1 / -1;"><label>Symptoms</label><div class="detail-value">${escapeHtml(a.symptoms || 'Not recorded yet')}</div></div>
+                        <div class="detail-item" style="grid-column: 1 / -1;"><label>Status History</label><div class="detail-value">${statusTimeline(a)}</div></div>
+                    </div>
+                    <div class="modal-actions" style="justify-content: flex-end; margin-top: 18px; flex-wrap: wrap;">
+                        ${actions.join('')}
+                        <button class="btn btn-secondary" onclick="hideModal('detailModal')">Close</button>
+                    </div>
+                `;
+            } catch (err) {
+                body.innerHTML = '';
+                showErrorState(body, 'Unable to load appointment. Please try again.', 'viewAppointment(' + id + ')');
+            }
+        }
+
+        function showNewAppointmentModal() {
+            const select = document.getElementById('apptPatient');
+            select.innerHTML = '<option value="">Loading patients...</option>';
+            api('/patients')
+                .then(patients => {
+                    select.innerHTML = '<option value="">Select patient...</option>' +
+                        patients.map(p => `<option value="${p.user_id}">${escapeHtml(p.full_name)}</option>`).join('');
+                    document.getElementById('apptDate').value = new Date().toISOString().split('T')[0];
+                    document.getElementById('apptTime').value = '';
+                    document.getElementById('apptReason').value = '';
+                    showModal('newAppointmentModal');
+                })
+                .catch(err => showToast(err.message, 'error'));
+        }
+
+        async function createAppointment() {
+            const btn = document.getElementById('apptSaveBtn');
+            const patientId = document.getElementById('apptPatient').value;
+            const date = document.getElementById('apptDate').value;
+
+            if (!patientId || !date) {
+                showToast('Patient and date are required', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            try {
+                await api('/appointments', 'POST', {
+                    patient_id: patientId,
+                    appointment_date: date,
+                    appointment_time: document.getElementById('apptTime').value,
+                    reason: document.getElementById('apptReason').value
+                });
+                showToast('Appointment created');
+                hideModal('newAppointmentModal');
+                await loadAppointments();
+                btn.disabled = false;
+            } catch (err) {
+                showToast(err.message, 'error');
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,214 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - AI Doctor Assistant</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Admin Header -->
+    <header class="admin-header">
+        <div class="container">
+            <div class="admin-header-content">
+                <div class="admin-brand">
+                    <img src="/favicon.png" alt="AI Doctor Assistant">
+                    <span>AI Doctor Assistant - Dashboard</span>
+                </div>
+                <div class="admin-user">
+                    <span id="userDisplay">Dr. Sarah Johnson</span>
+                    <button class="btn btn-sm btn-outline" onclick="logout()"><span data-i18n="logout">Logout</span></button>
+                    <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">??</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="admin-nav" aria-label="Main navigation">
+        <div class="container">
+            <button class="admin-nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul>
+                <li><a href="/doctor/dashboard" data-nav="dashboard" class="active" aria-current="page" data-i18n="dashboard">Dashboard</a></li>
+                <li><a href="/doctor/patients" data-nav="patients" data-i18n="patients">Patients</a></li>
+                <li><a href="/doctor/consultations" data-nav="consultations" data-i18n="consultations">Consultations</a></li>
+                <li><a href="/doctor/appointments" data-nav="appointments" data-i18n="appointments">Appointments</a></li>
+                <li><a href="/doctor/messages" data-nav="messages" data-i18n="messages">Messages</a></li>
+                <li><a href="/doctor/reports" data-nav="reports" data-i18n="reports">Reports</a></li>
+                <li><a href="/doctor/profile" data-nav="profile" data-i18n="profile">Profile</a></li>
+                <li><a href="/doctor/settings" data-nav="settings" data-i18n="settings">Settings</a></li>
+                <li><a href="/doctor/ai-assistant" class="admin-nav-item" data-page="ai-assistant" data-i18n="ai_assistant">
+                    <span class="admin-nav-icon">??</span>
+                    <span class="admin-nav-label">AI Assistant</span>
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Dashboard Content -->
+    <section class="admin-section">
+        <div class="container">
+            <div class="dashboard-welcome">
+                <h1>Welcome, <span id="welcomeName">Dr. Johnson</span></h1>
+                <p class="text-muted" id="todayDate"></p>
+            </div>
+
+            <!-- Stats Cards -->
+            <div class="stats-grid" id="statsGrid">
+                <a href="/doctor/appointments?filter=today" class="stat-card stat-card-link" aria-label="View today's appointments">
+                    <div class="stat-header">
+                        <span class="stat-title">Today's Appointments</span>
+                        <span class="stat-badge bg-primary">Today</span>
+                    </div>
+                    <div class="stat-value" id="todayAppointments"><span class="skeleton">0</span></div>
+                </a>
+                <a href="/doctor/appointments?filter=pending" class="stat-card stat-card-link" aria-label="View pending appointments">
+                    <div class="stat-header">
+                        <span class="stat-title">Pending Appointments</span>
+                        <span class="stat-badge bg-warning">Awaiting Review</span>
+                    </div>
+                    <div class="stat-value" id="pendingAppointments"><span class="skeleton">0</span></div>
+                </a>
+                <a href="/doctor/patients" class="stat-card stat-card-link" aria-label="View all patients">
+                    <div class="stat-header">
+                        <span class="stat-title"><span data-i18n="total_patients">Total Patients</span></span>
+                        <span class="stat-badge bg-success">Active</span>
+                    </div>
+                    <div class="stat-value" id="totalPatients"><span class="skeleton">0</span></div>
+                </a>
+                <a href="/doctor/messages?filter=unread" class="stat-card stat-card-link" aria-label="View unread messages">
+                    <div class="stat-header">
+                        <span class="stat-title">Unread Messages</span>
+                        <span class="stat-badge bg-danger">Inbox</span>
+                    </div>
+                    <div class="stat-value" id="unreadMessages"><span class="skeleton">0</span></div>
+                </a>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="admin-card mt-4">
+                <div class="admin-card-header">
+                    <h2>Recent Appointments</h2>
+                    <a href="/doctor/appointments" class="btn btn-sm btn-outline"><span data-i18n="view_all">View All</span></a>
+                </div>
+                <div class="table-container">
+                    <table class="admin-table" id="recentTable">
+                        <thead>
+                            <tr>
+                                <th>Patient</th>
+                                <th>Date</th>
+                                <th>Time</th>
+                                <th>Reason</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentList"></tbody>
+                    </table>
+                    <div id="recentState"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script src="/js/i18n.js?v=2.2"></script>
+    <script src="/js/main.js?v=2.1"></script>
+    <script>
+        let statsLoaded = false;
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!bootPage('dashboard', ['doctor', 'admin'])) return;
+
+            const user = getUser();
+            document.getElementById('welcomeName').textContent = user.full_name || 'Dr. Johnson';
+            document.getElementById('todayDate').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+            showSkeleton(document.getElementById('recentList'), 4, 6);
+            loadDashboard();
+        });
+
+        async function loadDashboard() {
+            try {
+                const data = await api('/dashboard/stats');
+
+                document.getElementById('todayAppointments').textContent = data.appointments_today ?? 0;
+                document.getElementById('pendingAppointments').textContent = data.pending_appointments ?? 0;
+                document.getElementById('totalPatients').textContent = data.total_patients ?? 0;
+                document.getElementById('unreadMessages').textContent = data.unread_messages ?? 0;
+                statsLoaded = true;
+
+                renderRecent(data.recent_appointments || []);
+            } catch (err) {
+                document.getElementById('todayAppointments').textContent = '—';
+                document.getElementById('pendingAppointments').textContent = '—';
+                document.getElementById('totalPatients').textContent = '—';
+                document.getElementById('unreadMessages').textContent = '—';
+                document.getElementById('recentList').innerHTML = '';
+                showErrorState(document.getElementById('recentState'), 'Unable to load dashboard. Please try again.', 'loadDashboard');
+            }
+        }
+
+        function renderRecent(list) {
+            const tbody = document.getElementById('recentList');
+            const state = document.getElementById('recentState');
+            tbody.innerHTML = '';
+            state.innerHTML = '';
+
+            if (!list.length) {
+                showEmptyState(state, 'No appointments yet. New appointments will appear here.');
+                return;
+            }
+
+            tbody.innerHTML = list.map(a => `
+                <tr class="row-click" data-id="${a.id}" onclick="openAppointment(${a.id})" tabindex="0" role="link" aria-label="Open appointment ${a.id}">
+                    <td><a href="/doctor/patients/${a.patient_user_id}" onclick="event.stopPropagation()">${escapeHtml(a.patient_name || 'Unknown')}</a></td>
+                    <td>${formatDate(a.date)}</td>
+                    <td>${escapeHtml(a.appointment_time || 'N/A')}</td>
+                    <td>${escapeHtml(a.reason || 'N/A')}</td>
+                    <td>${statusBadge(a.status)}</td>
+                    <td>
+                        <a href="/doctor/appointments?id=${a.id}" class="btn btn-sm btn-outline" onclick="event.stopPropagation()">View</a>
+                        ${(a.status === 'pending' || a.status === 'seen') ? `
+                            <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); setAppointmentStatus(${a.id}, 'accepted')">Accept</button>
+                            <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); setAppointmentStatus(${a.id}, 'rejected')">Reject</button>
+                        ` : ''}
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function openAppointment(id) {
+            window.location.href = '/doctor/appointments?id=' + id;
+        }
+
+        async function setAppointmentStatus(id, status) {
+            let payload = { status };
+            if (status === 'rejected') {
+                const reason = prompt('Please provide a reason for rejecting this appointment:');
+                if (reason === null) return;
+                if (!reason.trim()) {
+                    showToast('A rejection reason is required', 'error');
+                    return;
+                }
+                payload.rejection_reason = reason.trim();
+            }
+            const btn = event.target;
+            btn.disabled = true;
+            try {
+                await api('/appointments/' + id + '/status', 'PATCH', payload);
+                showToast(status === 'accepted' ? 'Appointment accepted' : 'Appointment rejected');
+                loadDashboard();
+            } catch (err) {
+                showToast(err.message, 'error');
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,149 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Login - AI Doctor Assistant</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body class="auth-page">
+    <div class="auth-shell">
+    <div class="auth-theme-toggle" style="position: absolute; top: 20px; right: 20px; z-index: 10;">
+        <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" style="color: #334155; border-color: #d3dcec;" data-i18n-aria="theme_toggle">🌙</button>
+    </div>
+        <aside class="auth-brand-panel" aria-hidden="true">
+            <div class="brand-panel-inner">
+                <img src="/images/brand-logo.svg" alt="" class="brand-logo brand-logo-lg" width="72" height="72">
+                <h1>AI Doctor Assistant</h1>
+                <p class="brand-subtitle">Hospital Login</p>
+                <svg class="brand-visual" viewBox="0 0 360 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Hospital illustration">
+                    <circle cx="180" cy="110" r="86" fill="#ffffff" opacity="0.12"/>
+                    <rect x="140" y="60" width="80" height="100" rx="8" fill="#ffffff"/>
+                    <rect x="160" y="80" width="40" height="10" rx="2" fill="#1e6fff"/>
+                    <rect x="175" y="65" width="10" height="40" rx="2" fill="#1e6fff"/>
+                    <rect x="150" y="100" width="20" height="20" rx="2" fill="#e0e7ff"/>
+                    <rect x="190" y="100" width="20" height="20" rx="2" fill="#e0e7ff"/>
+                    <rect x="150" y="130" width="20" height="20" rx="2" fill="#e0e7ff"/>
+                    <rect x="190" y="130" width="20" height="20" rx="2" fill="#e0e7ff"/>
+                    <rect x="170" y="145" width="20" height="15" rx="2" fill="#1e6fff" opacity="0.5"/>
+                </svg>
+                <p class="brand-tagline">Access your hospital dashboard to manage doctors, staff, patients, and more.</p>
+                <ul class="brand-points">
+                    <li>Manage your hospital profile</li>
+                    <li>Approve or reject doctor requests</li>
+                    <li>Track appointments and reports</li>
+                </ul>
+            </div>
+            <div class="brand-panel-footer">AI Doctor Assistant &middot; Digital Healthcare Assistance Platform</div>
+        </aside>
+
+        <main class="auth-main">
+            <section class="auth-card" id="loginCard">
+                <a href="/login" style="display:inline-flex;align-items:center;gap:6px;margin-bottom:16px;color:var(--primary);font-size:.9rem;cursor:pointer;font-weight:500;text-decoration:none">← Back to selection</a>
+                <div class="auth-card-header">
+                    <img src="/images/brand-logo.svg" alt="AI Doctor Assistant logo" class="brand-logo" width="64" height="64">
+                    <h2>Hospital Login</h2>
+                    <p class="auth-subtitle">Sign in to your hospital dashboard</p>
+                </div>
+
+                <form id="loginForm" novalidate autocomplete="on">
+                    <div class="form-group">
+                        <label for="loginUsername">Username or Email</label>
+                        <input type="text" id="loginUsername" name="username" class="form-control" autocomplete="username" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="loginPassword">Password</label>
+                        <div class="password-field">
+                            <input type="password" id="loginPassword" name="password" class="form-control" autocomplete="current-password" required>
+                            <button type="button" class="password-toggle" aria-label="Show password" tabindex="-1" aria-controls="loginPassword">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="form-alert" id="loginAlert" role="alert" hidden></div>
+
+                    <button type="submit" class="btn btn-primary btn-block btn-lg" id="loginSubmit">Sign In</button>
+                </form>
+
+                <div class="auth-links">
+                    <a href="/forgot-password">Forgot Password?</a>
+                </div>
+
+                <div class="auth-switch">
+                    <p>Don't have a hospital account? <a href="/hospital/register">Register Hospital</a></p>
+                </div>
+
+                <div class="auth-footnote">AI Doctor Assistant &middot; Digital Healthcare Assistance Platform</div>
+            </section>
+        </main>
+    </div>
+
+    <script src="/js/brand.js"></script>
+    <script src="/js/app.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Consume session expired notice
+            var params = new URLSearchParams(window.location.search);
+            var reason = params.get('reason');
+            if (reason === 'session_expired' || reason === 'expired') {
+                showFormAlert('loginAlert', 'Your session has expired. Please sign in again.', 'error');
+                params.delete('reason');
+                var qs = params.toString();
+                window.history.replaceState({}, '', window.location.pathname + (qs ? '?' + qs : '') + window.location.hash);
+            }
+
+            var loginForm = document.getElementById('loginForm');
+            if (loginForm) {
+                var loginUsername = document.getElementById('loginUsername');
+                var loginPassword = document.getElementById('loginPassword');
+
+                [loginUsername, loginPassword].forEach(function(i) {
+                    if (i) i.addEventListener('input', function() { clearFieldError(i); });
+                });
+
+                loginForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    hideFormAlert('loginAlert');
+
+                    var valid = true;
+                    if (!loginUsername.value.trim()) { setFieldError(loginUsername, 'Username or email is required.'); valid = false; }
+                    if (!loginPassword.value) { setFieldError(loginPassword, 'Password is required.'); valid = false; }
+                    if (!valid) return;
+
+                    var submitBtn = document.getElementById('loginSubmit');
+                    setBusy(submitBtn, true, 'Signing In...', 'Sign In');
+
+                    try {
+                        var response = await fetch('/api/hospitals/login', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                username: loginUsername.value.trim(),
+                                password: loginPassword.value
+                            })
+                        });
+                        var result = await response.json();
+                        if (response.ok && result.token) {
+                            localStorage.setItem('token', result.token);
+                            localStorage.setItem('user', JSON.stringify(result.user));
+                            if (result.hospital) localStorage.setItem('hospital', JSON.stringify(result.hospital));
+                            showToast('Welcome back, ' + (result.user.full_name || result.user.username) + '!');
+                            setTimeout(function() { window.location.replace('/hospital/dashboard'); }, 400);
+                        } else {
+                            showFormAlert('loginAlert', result.error || 'Invalid credentials.', 'error');
+                        }
+                    } catch(error) {
+                        showFormAlert('loginAlert', 'Connection error. Please try again.', 'error');
+                    } finally {
+                        setBusy(submitBtn, false, 'Signing In...', 'Sign In');
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

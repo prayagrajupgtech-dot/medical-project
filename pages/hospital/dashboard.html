@@ -1,0 +1,154 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="hospital_dashboard">Hospital Dashboard - AI Doctor Assistant</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="portal">
+        <nav class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <img src="/images/brand-logo.svg" alt="Logo" class="sidebar-logo">
+                <span class="sidebar-brand" data-i18n="hospital_portal">Hospital Portal</span>
+            </div>
+            <ul class="sidebar-nav">
+                <li><a href="/hospital/dashboard" class="active">Dashboard</a></li>
+                <li><a href="/hospital/doctors">Doctors</a></li>
+                <li><a href="/hospital/join-requests">Join Requests</a></li>
+                <li><a href="/hospital/departments">Departments</a></li>
+                <li><a href="/hospital/patients">Patients</a></li>
+                <li><a href="/hospital/staff">Staff</a></li>
+                <li><a href="/hospital/profile">Hospital Profile</a></li>
+                <li><a href="/hospital/notifications">Notifications</a></li>
+                <li><a href="/hospital/settings">Settings</a></li>
+            </ul>
+            <div class="sidebar-footer">
+                <button class="btn btn-sm btn-outline btn-block" onclick="logout()" data-i18n="sign_out">Sign Out</button>
+            </div>
+        </nav>
+
+        <main class="main-content">
+            <header class="topbar">
+                <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
+                <h1 id="pageTitle" data-i18n="hospital_dashboard">Hospital Dashboard</h1>
+                <div class="topbar-actions">
+                    <span id="hospitalName" class="hospital-badge"></span>
+                    <span id="userGreeting"></span>
+                    <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button>
+                </div>
+            </header>
+
+            <div class="content" id="content">
+                <div class="stats-grid" id="statsGrid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="statDoctors">-</div>
+                        <div class="stat-label" data-i18n="doctors">Doctors</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statPending">-</div>
+                        <div class="stat-label" data-i18n="pending_requests">Pending Requests</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statDepartments">-</div>
+                        <div class="stat-label" data-i18n="total_departments">Departments</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statPatients">-</div>
+                        <div class="stat-label" data-i18n="total_patients">Patients</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statAppointments">-</div>
+                        <div class="stat-label" data-i18n="appointments">Appointments</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="statCompleted">-</div>
+                        <div class="stat-label" data-i18n="completed">Completed</div>
+                    </div>
+                </div>
+
+                <div class="dashboard-grid">
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 data-i18n="recent_join_requests">Recent Join Requests</h3>
+                            <a href="/hospital/join-requests" class="btn btn-sm btn-outline"><span data-i18n="view_all">View All</span></a>
+                        </div>
+                        <div class="card-body" id="pendingRequests">
+                            <p class="text-muted">Loading...</p>
+                        </div>
+                    </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 data-i18n="approved_doctors">Approved Doctors</h3>
+                            <a href="/hospital/doctors" class="btn btn-sm btn-outline"><span data-i18n="view_all">View All</span></a>
+                        </div>
+                        <div class="card-body" id="approvedDoctors">
+                            <p class="text-muted">Loading...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="/js/i18n.js?v=2.2"></script>
+    <script src="/js/main.js?v=2.1"></script>
+    <script>
+        const t = function(key) { return typeof ShrijalI18n !== 'undefined' ? ShrijalI18n.t(key) : key; };
+        document.addEventListener('DOMContentLoaded', function() {
+            bootPage('dashboard', ['hospital_admin']);
+
+            var user = getUser();
+            var hospital = JSON.parse(localStorage.getItem('hospital') || '{}');
+            var greetingEl = document.getElementById('userGreeting');
+            var hospNameEl = document.getElementById('hospitalName');
+            if (greetingEl) greetingEl.textContent = user.full_name || user.username;
+            if (hospNameEl) hospNameEl.textContent = hospital.name || 'Hospital';
+
+            loadDashboard();
+        });
+
+        async function loadDashboard() {
+            try {
+                var stats = await api('/api/hospital/dashboard/stats');
+                if (stats) {
+                    document.getElementById('statDoctors').textContent = stats.total_doctors || 0;
+                    document.getElementById('statPending').textContent = stats.pending_requests || 0;
+                    document.getElementById('statDepartments').textContent = stats.total_departments || 0;
+                    document.getElementById('statPatients').textContent = stats.total_patients || 0;
+                    document.getElementById('statAppointments').textContent = stats.total_appointments || 0;
+                    document.getElementById('statCompleted').textContent = stats.completed_appointments || 0;
+                }
+            } catch(e) { console.error('Stats error:', e); }
+
+            try {
+                var requests = await api('/api/hospital/join-requests?status=pending');
+                var container = document.getElementById('pendingRequests');
+                if (!requests || requests.length === 0) {
+                    container.innerHTML = '<p class="text-muted">' + t('no_pending_requests') + '</p>';
+                } else {
+                    container.innerHTML = requests.slice(0, 5).map(function(r) {
+                        return '<div class="list-item"><div><strong>' + (r.full_name || t('unknown')) + '</strong><br><small class="text-muted">' + (r.specialty || '') + ' &middot; ' + (r.message || t('no_message')) + '</small></div></div>';
+                    }).join('');
+                }
+            } catch(e) { console.error('Requests error:', e); }
+
+            try {
+                var doctors = await api('/api/hospital/doctors?status=approved');
+                var container = document.getElementById('approvedDoctors');
+                if (!doctors || doctors.length === 0) {
+                    container.innerHTML = '<p class="text-muted">' + t('no_approved_doctors') + '</p>';
+                } else {
+                    container.innerHTML = doctors.slice(0, 5).map(function(d) {
+                        return '<div class="list-item"><div><strong>' + (d.full_name || t('unknown')) + '</strong><br><small class="text-muted">' + (d.specialty || '') + ' &middot; ' + (d.department || t('no_department')) + '</small></div></div>';
+                    }).join('');
+                }
+            } catch(e) { console.error('Doctors error:', e); }
+        }
+    </script>
+</body>
+</html>

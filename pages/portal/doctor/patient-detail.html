@@ -1,0 +1,260 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Profile - AI Doctor Assistant</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="admin-header-content">
+                <div class="admin-brand">
+                    <img src="/favicon.png" alt="AI Doctor Assistant">
+                    <span>AI Doctor Assistant - <span data-i18n="app_name">AI Doctor Assistant</span> - <span data-i18n="doctor_portal">Doctor Portal</span></span>
+                </div>
+                <div class="admin-user">
+                    <span id="userDisplay">Doctor</span>
+                    <button class="btn btn-sm btn-outline" onclick="logout()"><span data-i18n="logout">Logout</span></button>
+                    <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <nav class="admin-nav" aria-label="Main navigation">
+        <div class="container">
+            <button class="admin-nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul>
+                <li><a href="/doctor/dashboard" data-nav="dashboard" data-i18n="dashboard">Dashboard</a></li>
+                <li><a href="/doctor/patients" data-nav="patients" class="active" aria-current="page" data-i18n="patients">Patients</a></li>
+                <li><a href="/doctor/appointments" data-nav="appointments" data-i18n="appointments">Appointments</a></li>
+                <li><a href="/doctor/consultations" data-nav="consultations" data-i18n="consultations">Consultations</a></li>
+                <li><a href="/doctor/messages" data-nav="messages" data-i18n="messages">Messages</a></li>
+                <li><a href="/doctor/reports" data-nav="reports" data-i18n="reports">Reports</a></li>
+                <li><a href="/doctor/profile" data-nav="profile" data-i18n="profile">Profile</a></li>
+                <li><a href="/doctor/settings" data-nav="settings" data-i18n="settings">Settings</a></li>
+                <li><a href="/doctor/ai-assistant" class="admin-nav-item" data-page="ai-assistant" data-i18n="ai_assistant">
+                    <span class="admin-nav-icon">🤖</span>
+                    <span class="admin-nav-label">AI Assistant</span>
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="admin-section">
+        <div class="container">
+            <div id="profileContent">
+                <div class="state-block"><span class="spinner" aria-hidden="true"></span><p data-i18n="loading_patient_profile">Loading patient profile...</p></div>
+            </div>
+        </div>
+    </section>
+
+    <script src="/js/i18n.js?v=2.2"></script>
+    <script src="/js/main.js?v=2.1"></script>
+    <script>
+        const t = function(key) { return typeof ShrijalI18n !== 'undefined' ? ShrijalI18n.t(key) : key; };
+        let patientUserId = null;
+        let myDoctorId = null;
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!bootPage('patients', ['doctor'])) return;
+
+            myDoctorId = getUser().id;
+            patientUserId = window.location.pathname.split('/').pop();
+            if (!patientUserId) {
+                window.location.href = '/doctor/patients';
+                return;
+            }
+            loadProfile();
+        });
+
+        function calcAge(dob) {
+            if (!dob) return null;
+            const birth = new Date(dob);
+            if (isNaN(birth.getTime())) return null;
+            return Math.floor((Date.now() - birth.getTime()) / (1000 * 60 * 60 * 24 * 365.25));
+        }
+
+        function loadProfile() {
+            const container = document.getElementById('profileContent');
+            container.innerHTML = '<div class="state-block"><span class="spinner" aria-hidden="true"></span><p>' + t('loading_patient_profile') + '</p></div>';
+
+            api('/patients/' + patientUserId + '/profile')
+                .then(data => renderProfile(data))
+                .catch(err => {
+                    container.innerHTML = '';
+                    const wrapper = document.createElement('div');
+                    wrapper.className = 'admin-card';
+                    wrapper.innerHTML = '<div class="state-block state-error"><p>' + t('unable_to_load_patient_profile') + ' ' + escapeHtml(err.message) + '</p><button type="button" class="btn btn-sm btn-outline retry-btn">' + t('retry') + '</button></div>';
+                    container.appendChild(wrapper);
+                    wrapper.querySelector('.retry-btn').addEventListener('click', loadProfile);
+                });
+        }
+
+        function renderProfile(data) {
+            const p = data.patient || {};
+            const history = data.medical_history || [];
+            const allConsults = data.consultations || [];
+            const reports = data.reports || [];
+            const prescriptions = data.prescriptions || [];
+            const age = calcAge(p.date_of_birth);
+
+            // Consultations with this doctor only
+            const consultations = allConsults.filter(c => String(c.doctor_id) === String(myDoctorId));
+            const upcomingAppts = consultations.filter(c => ['pending', 'seen', 'accepted', 'in_progress'].includes(c.status));
+            const pastAppts = consultations.filter(c => ['completed', 'cancelled', 'rejected'].includes(c.status));
+
+            const container = document.getElementById('profileContent');
+            container.innerHTML = `
+                <div class="admin-card">
+                    <div class="profile-summary">
+                        ${avatarHtml(p.full_name, p.photo, 'lg')}
+                        <div>
+                            <h1>${escapeHtml(p.full_name || t('patient'))}</h1>
+                            <p class="text-muted">${escapeHtml(p.email || '')}${p.phone ? ' &middot; ' + escapeHtml(p.phone) : ''}${age ? ' &middot; ' + age + ' years old' : ''}</p>
+                        </div>
+                        <div style="margin-left:auto; display:flex; gap:8px; flex-wrap:wrap;">
+                            <a href="/doctor/consultations?new_patient=${patientUserId}" class="btn btn-sm btn-primary">${t('start_consultation')}</a>
+                            <a href="/doctor/messages?to=${patientUserId}" class="btn btn-sm btn-outline">${t('send_message')}</a>
+                            <a href="/doctor/patients" class="btn btn-sm btn-outline">&larr; ${t('back')}</a>
+                        </div>
+                    </div>
+
+                    <div class="detail-tabs" role="tablist" aria-label="Patient details">
+                        <button type="button" class="tab-btn active" data-tab="overview" onclick="switchTab('overview', this)"><span data-i18n="overview">Overview</span></button>
+                        <button type="button" class="tab-btn" data-tab="history" onclick="switchTab('history', this)"><span data-i18n="medical_history">Medical History</span> (${history.length})</button>
+                        <button type="button" class="tab-btn" data-tab="consultations" onclick="switchTab('consultations', this)"><span data-i18n="consultations">Consultations</span> (${consultations.length})</button>
+                        <button type="button" class="tab-btn" data-tab="appointments" onclick="switchTab('appointments', this)"><span data-i18n="appointments">Appointments</span> (${upcomingAppts.length} <span data-i18n="upcoming">upcoming</span>)</button>
+                        <button type="button" class="tab-btn" data-tab="reports" onclick="switchTab('reports', this)"><span data-i18n="reports">Reports</span> (${reports.length})</button>
+                        <button type="button" class="tab-btn" data-tab="prescriptions" onclick="switchTab('prescriptions', this)"><span data-i18n="prescriptions">Prescriptions</span> (${prescriptions.length})</button>
+                    </div>
+
+                    <div class="detail-panel active" id="panel-overview">
+                        <div class="profile-grid">
+                            <div class="profile-field"><label>${t('date_of_birth')}</label><p>${escapeHtml(p.date_of_birth || 'N/A')}</p></div>
+                            <div class="profile-field"><label>${t('gender')}</label><p>${escapeHtml((p.gender || 'N/A').charAt(0).toUpperCase() + (p.gender || 'n/a').slice(1))}</p></div>
+                            <div class="profile-field"><label>${t('blood_type')}</label><p>${escapeHtml(p.blood_type || 'N/A')}</p></div>
+                            <div class="profile-field"><label>${t('height')} / ${t('weight')}</label><p>${p.height ? escapeHtml(p.height) + ' cm' : 'N/A'} / ${p.weight ? escapeHtml(p.weight) + ' kg' : 'N/A'}</p></div>
+                            <div class="profile-field"><label>${t('phone')}</label><p>${escapeHtml(p.phone || 'N/A')}</p></div>
+                            <div class="profile-field"><label>${t('email')}</label><p>${escapeHtml(p.email || 'N/A')}</p></div>
+                            <div class="profile-field"><label>${t('address')}</label><p>${escapeHtml(p.address || 'N/A')}</p></div>
+                            <div class="profile-field"><label>${t('emergency_contact')}</label><p>${escapeHtml(p.emergency_contact || 'N/A')}</p></div>
+                            <div class="profile-field"><label>${t('allergies')}</label><p>${escapeHtml(p.allergies || t('no_known_allergies'))}</p></div>
+                            <div class="profile-field"><label>${t('chronic_conditions')}</label><p>${escapeHtml(p.chronic_conditions || t('none_documented'))}</p></div>
+                            <div class="profile-field"><label>${t('current_medications')}</label><p>${escapeHtml(p.current_medications || t('none'))}</p></div>
+                        </div>
+                    </div>
+
+                    <div class="detail-panel" id="panel-history">
+                        ${history.length === 0 ? '<div class="state-block state-empty"><p>' + t('no_medical_history') + '</p></div>' : `
+                        <div class="table-container">
+                            <table class="admin-table">
+                                <thead><tr><th>${t('condition')}</th><th>${t('diagnosed')}</th><th>${t('severity')}</th><th>${t('notes')}</th></tr></thead>
+                                <tbody>
+                                    ${history.map(h => `
+                                        <tr>
+                                            <td><strong>${escapeHtml(h.condition_name)}</strong></td>
+                                            <td>${escapeHtml(h.diagnosed_date || 'N/A')}</td>
+                                            <td>${escapeHtml(h.severity || 'N/A')}</td>
+                                            <td>${escapeHtml(h.notes || '—')}</td>
+                                        </tr>`).join('')}
+                                </tbody>
+                            </table>
+                        </div>`}
+                    </div>
+
+                    <div class="detail-panel" id="panel-consultations">
+                        ${consultations.length === 0 ? '<div class="state-block state-empty"><p>' + t('no_consultations_with_you') + '</p></div>' : `
+                        <div class="table-container">
+                            <table class="admin-table">
+                                <thead><tr><th>${t('date')}</th><th>${t('time')}</th><th>${t('reason')}</th><th>${t('diagnosis')}</th><th>${t('status')}</th><th>${t('actions')}</th></tr></thead>
+                                <tbody>
+                                    ${consultations.map(c => `
+                                        <tr>
+                                            <td>${formatDate(c.date)}</td>
+                                            <td>${escapeHtml(c.appointment_time || 'N/A')}</td>
+                                            <td>${escapeHtml((c.reason || c.symptoms || '—').substring(0, 50))}</td>
+                                            <td>${escapeHtml(c.diagnosis || '—')}</td>
+                                            <td>${statusBadge(c.status)}</td>
+                                            <td><a href="/doctor/consultations?id=${c.id}" class="btn btn-sm btn-outline">${t('open')}</a></td>
+                                        </tr>`).join('')}
+                                </tbody>
+                            </table>
+                        </div>`}
+                    </div>
+
+                    <div class="detail-panel" id="panel-appointments">
+                        ${consultations.length === 0 ? '<div class="state-block state-empty"><p>' + t('no_appointments_yet') + '</p></div>' : `
+                        <div class="table-container">
+                            <table class="admin-table">
+                                <thead><tr><th>${t('date')}</th><th>${t('time')}</th><th>${t('reason')}</th><th>${t('status')}</th><th>${t('actions')}</th></tr></thead>
+                                <tbody>
+                                    ${consultations.map(c => `
+                                        <tr>
+                                            <td>${formatDate(c.date)}</td>
+                                            <td>${escapeHtml(c.appointment_time || 'N/A')}</td>
+                                            <td>${escapeHtml(c.reason || '—')}</td>
+                                            <td>${statusBadge(c.status)}</td>
+                                            <td><a href="/doctor/appointments?id=${c.id}" class="btn btn-sm btn-outline">${t('open')}</a></td>
+                                        </tr>`).join('')}
+                                </tbody>
+                            </table>
+                        </div>`}
+                    </div>
+
+                    <div class="detail-panel" id="panel-reports">
+                        ${reports.length === 0 ? '<div class="state-block state-empty"><p>' + t('no_reports_uploaded') + '</p></div>' : `
+                        <div class="table-container">
+                            <table class="admin-table">
+                                <thead><tr><th>${t('file')}</th><th>${t('type')}</th><th>${t('uploaded')}</th><th>${t('actions')}</th></tr></thead>
+                                <tbody>
+                                    ${reports.map(r => `
+                                        <tr>
+                                            <td>${escapeHtml(r.file_name)}</td>
+                                            <td>${escapeHtml(r.report_type || 'N/A')}</td>
+                                            <td>${formatDate(r.created_at)}</td>
+                                            <td><a href="/${escapeHtml(r.file_path)}" target="_blank" rel="noopener" class="btn btn-sm btn-outline">${t('open')}</a></td>
+                                        </tr>`).join('')}
+                                </tbody>
+                            </table>
+                        </div>`}
+                    </div>
+
+                    <div class="detail-panel" id="panel-prescriptions">
+                        ${prescriptions.length === 0 ? '<div class="state-block state-empty"><p>' + t('no_prescriptions_issued') + '</p></div>' : `
+                        <div class="table-container">
+                            <table class="admin-table">
+                                <thead><tr><th>${t('medication')}</th><th>${t('dosage')}</th><th>${t('frequency')}</th><th>${t('duration')}</th><th>${t('status')}</th></tr></thead>
+                                <tbody>
+                                    ${prescriptions.map(pr => `
+                                        <tr>
+                                            <td><strong>${escapeHtml(pr.medication_name)}</strong></td>
+                                            <td>${escapeHtml(pr.dosage || 'N/A')}</td>
+                                            <td>${escapeHtml(pr.frequency || 'N/A')}</td>
+                                            <td>${escapeHtml(pr.duration || 'N/A')}</td>
+                                            <td>${statusBadge(pr.status)}</td>
+                                        </tr>`).join('')}
+                                </tbody>
+                            </table>
+                        </div>`}
+                    </div>
+                </div>
+            `;
+        }
+
+        function switchTab(tabName, btn) {
+            document.querySelectorAll('.detail-tabs .tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.detail-panel').forEach(p => p.classList.remove('active'));
+            btn.classList.add('active');
+            const panel = document.getElementById('panel-' + tabName);
+            if (panel) panel.classList.add('active');
+        }
+    </script>
+</body>
+</html>

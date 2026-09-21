@@ -1,0 +1,263 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Register Hospital - AI Doctor Assistant</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        .back-link{display:inline-flex;align-items:center;gap:6px;margin-bottom:16px;color:var(--primary);font-size:.9rem;cursor:pointer;font-weight:500;text-decoration:none}
+        .back-link:hover{text-decoration:underline}
+        .form-section{background:rgba(37,99,235,0.04);border:1px solid rgba(37,99,235,0.1);border-radius:8px;padding:16px;margin:16px 0}
+        .form-section h3{font-size:.95rem;margin-bottom:12px;color:var(--dark);border-bottom:1px solid var(--border);padding-bottom:8px}
+        .form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+        @media(max-width:600px){.form-row{grid-template-columns:1fr}}
+    </style>
+</head>
+<body class="auth-page">
+    <div class="auth-shell">
+    <div class="auth-theme-toggle" style="position: absolute; top: 20px; right: 20px; z-index: 10;">
+        <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" style="color: #334155; border-color: #d3dcec;" data-i18n-aria="theme_toggle">🌙</button>
+    </div>
+        <aside class="auth-brand-panel" aria-hidden="true">
+            <div class="brand-panel-inner">
+                <img src="/images/brand-logo.svg" alt="" class="brand-logo brand-logo-lg" width="72" height="72">
+                <h1>AI Doctor Assistant</h1>
+                <p class="brand-subtitle">Hospital Registration</p>
+                <svg class="brand-visual" viewBox="0 0 360 220" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Hospital illustration">
+                    <circle cx="180" cy="110" r="86" fill="#ffffff" opacity="0.12"/>
+                    <rect x="140" y="60" width="80" height="100" rx="8" fill="#ffffff"/>
+                    <rect x="160" y="80" width="40" height="10" rx="2" fill="#1e6fff"/>
+                    <rect x="175" y="65" width="10" height="40" rx="2" fill="#1e6fff"/>
+                    <rect x="150" y="100" width="20" height="20" rx="2" fill="#e0e7ff"/>
+                    <rect x="190" y="100" width="20" height="20" rx="2" fill="#e0e7ff"/>
+                    <rect x="150" y="130" width="20" height="20" rx="2" fill="#e0e7ff"/>
+                    <rect x="190" y="130" width="20" height="20" rx="2" fill="#e0e7ff"/>
+                    <rect x="170" y="145" width="20" height="15" rx="2" fill="#1e6fff" opacity="0.5"/>
+                </svg>
+                <p class="brand-tagline">Register your hospital to start managing doctors, staff, and patients on our platform.</p>
+                <ul class="brand-points">
+                    <li>Manage doctors and staff</li>
+                    <li>Track appointments and records</li>
+                    <li>Verified hospital badge</li>
+                </ul>
+            </div>
+            <div class="brand-panel-footer">AI Doctor Assistant &middot; Digital Healthcare Assistance Platform</div>
+        </aside>
+
+        <main class="auth-main">
+            <section class="auth-card auth-card-wide" id="registerCard">
+                <a href="/login" class="back-link">← Back to Login</a>
+                <div class="auth-card-header">
+                    <img src="/images/brand-logo.svg" alt="AI Doctor Assistant logo" class="brand-logo" width="64" height="64">
+                    <h2>Register Your Hospital</h2>
+                    <p class="auth-subtitle">Create a hospital account to manage your practice</p>
+                </div>
+
+                <form id="hospitalRegisterForm" novalidate autocomplete="on">
+                    <div class="form-section">
+                        <h3>Hospital Information</h3>
+                        <div class="form-group">
+                            <label for="hospName">Hospital Name *</label>
+                            <input type="text" id="hospName" name="name" class="form-control" required placeholder="e.g. City General Hospital">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="hospType">Hospital Type *</label>
+                                <select id="hospType" name="type" class="form-control" required>
+                                    <option value="">Select type...</option>
+                                    <option value="government">Government</option>
+                                    <option value="private">Private</option>
+                                    <option value="clinic">Clinic</option>
+                                    <option value="other">Other</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="hospLicense">Registration / License Number</label>
+                                <input type="text" id="hospLicense" name="license_number" class="form-control" placeholder="e.g. MED-2024-12345">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="hospAddress">Address</label>
+                            <input type="text" id="hospAddress" name="address" class="form-control" placeholder="Full address">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="hospCity">City</label>
+                                <input type="text" id="hospCity" name="city" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="hospState">State</label>
+                                <input type="text" id="hospState" name="state" class="form-control">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="hospPincode">Pincode</label>
+                                <input type="text" id="hospPincode" name="pincode" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label for="hospPhone">Hospital Phone</label>
+                                <input type="tel" id="hospPhone" name="phone" class="form-control">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="hospEmail">Official Email</label>
+                            <input type="email" id="hospEmail" name="email" class="form-control" placeholder="info@hospital.com">
+                        </div>
+                        <div class="form-group">
+                            <label for="hospLogo">Hospital Logo</label>
+                            <input type="file" id="hospLogo" class="form-control" accept="image/jpeg,image/png,image/webp">
+                            <div class="reg-photo-preview" id="logoPreview"></div>
+                            <small class="form-hint">JPG, PNG or WEBP. Maximum 5 MB.</small>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h3>Admin / Authorized Person</h3>
+                        <div class="form-group">
+                            <label for="adminName">Admin Name *</label>
+                            <input type="text" id="adminName" name="admin_name" class="form-control" required placeholder="Full name of authorized person">
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="adminPassword">Password *</label>
+                                <div class="password-field">
+                                    <input type="password" id="adminPassword" name="password" class="form-control" autocomplete="new-password" required>
+                                    <button type="button" class="password-toggle" aria-label="Show password" tabindex="-1" aria-controls="adminPassword">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+                                    </button>
+                                </div>
+                                <div class="password-strength-wrap">
+                                    <div class="strength-track" aria-hidden="true"><div class="strength-meter"></div></div>
+                                    <span class="strength-label" aria-live="polite"></span>
+                                </div>
+                                <ul class="password-reqs">
+                                    <li class="req-item" data-req="length">Minimum 8 characters</li>
+                                    <li class="req-item" data-req="upper">At least one uppercase letter</li>
+                                    <li class="req-item" data-req="lower">At least one lowercase letter</li>
+                                    <li class="req-item" data-req="number">At least one number</li>
+                                </ul>
+                            </div>
+                            <div class="form-group">
+                                <label for="adminConfirm">Confirm Password *</label>
+                                <div class="password-field">
+                                    <input type="password" id="adminConfirm" name="confirm_password" class="form-control" autocomplete="new-password" required>
+                                    <button type="button" class="password-toggle" aria-label="Show password" tabindex="-1" aria-controls="adminConfirm">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-alert" id="registerAlert" role="alert" hidden></div>
+
+                    <button type="submit" class="btn btn-primary btn-block btn-lg" id="registerSubmit">Register Hospital</button>
+                </form>
+
+                <div class="auth-switch">
+                    <p>Already have an account? <a href="/hospital/login">Hospital Login</a></p>
+                </div>
+                <div class="auth-footnote">AI Doctor Assistant &middot; Digital Healthcare Assistance Platform</div>
+            </section>
+        </main>
+    </div>
+
+    <script src="/js/brand.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            var form = document.getElementById('hospitalRegisterForm');
+            var alertEl = document.getElementById('registerAlert');
+            var submitBtn = document.getElementById('registerSubmit');
+
+            // Password strength
+            var pwInput = document.getElementById('adminPassword');
+            var confirmInput = document.getElementById('adminConfirm');
+            if (pwInput) pwInput.addEventListener('input', function() { renderStrengthMeter(pwInput); clearFieldError(pwInput); if (confirmInput.value) clearFieldError(confirmInput); });
+            if (confirmInput) confirmInput.addEventListener('input', function() { clearFieldError(confirmInput); });
+            bindPasswordToggles();
+
+            // Photo preview
+            var logoInput = document.getElementById('hospLogo');
+            var logoPreview = document.getElementById('logoPreview');
+            if (logoInput) logoInput.addEventListener('change', function() {
+                logoPreview.innerHTML = '';
+                clearFieldError(logoInput);
+                var file = logoInput.files && logoInput.files[0];
+                if (!file) return;
+                if (!['image/jpeg','image/png','image/webp'].includes(file.type)) { setFieldError(logoInput, 'Please upload JPG, PNG, or WEBP.'); logoInput.value = ''; return; }
+                if (file.size > 5*1024*1024) { setFieldError(logoInput, 'Image size must be less than 5 MB.'); logoInput.value = ''; return; }
+                var img = document.createElement('img'); img.src = URL.createObjectURL(file); img.alt = 'Logo preview'; img.className = 'reg-photo-img'; logoPreview.appendChild(img);
+            });
+
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                if (alertEl) { alertEl.hidden = true; alertEl.textContent = ''; }
+
+                var valid = true;
+                var get = function(id) { return document.getElementById(id); };
+
+                // Validate required fields
+                ['hospName','hospType','adminName','adminPassword','adminConfirm'].forEach(function(id) {
+                    var el = get(id);
+                    if (el && !el.value.trim()) {
+                        setFieldError(el, (el.labels && el.labels[0] ? el.labels[0].textContent.trim().replace(/\*$/,'').trim() : 'This field') + ' is required.');
+                        valid = false;
+                    }
+                });
+
+                // Password policy
+                if (valid) {
+                    var score = passwordScore(pwInput.value);
+                    if (score < 4) { setFieldError(pwInput, 'Password must be at least 8 characters and include uppercase, lowercase, and a number.'); valid = false; }
+                }
+                if (valid && pwInput.value !== confirmInput.value) { setFieldError(confirmInput, 'Passwords do not match.'); valid = false; }
+
+                if (!valid) return;
+
+                setBusy(submitBtn, true, 'Registering...', 'Register Hospital');
+
+                var data = {
+                    name: get('hospName').value.trim(),
+                    type: get('hospType').value,
+                    license_number: get('hospLicense').value.trim() || undefined,
+                    address: get('hospAddress').value.trim() || undefined,
+                    city: get('hospCity').value.trim() || undefined,
+                    state: get('hospState').value.trim() || undefined,
+                    pincode: get('hospPincode').value.trim() || undefined,
+                    phone: get('hospPhone').value.trim() || undefined,
+                    email: get('hospEmail').value.trim() || undefined,
+                    admin_name: get('adminName').value.trim(),
+                    password: pwInput.value,
+                    confirm_password: confirmInput.value
+                };
+
+                try {
+                    var res = await fetch('/api/hospitals/register', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(data)
+                    });
+                    var result = await res.json();
+                    if (res.ok && result.token) {
+                        localStorage.setItem('token', result.token);
+                        localStorage.setItem('user', JSON.stringify(result.user));
+                        if (result.hospital) localStorage.setItem('hospital', JSON.stringify(result.hospital));
+                        showToast('Hospital registered successfully!');
+                        setTimeout(function() { window.location.replace('/hospital/dashboard'); }, 500);
+                    } else {
+                        if (alertEl) { alertEl.textContent = result.error || 'Registration failed'; alertEl.hidden = false; alertEl.className = 'form-alert form-alert-error'; }
+                    }
+                } catch(err) {
+                    if (alertEl) { alertEl.textContent = 'Connection error. Please try again.'; alertEl.hidden = false; alertEl.className = 'form-alert form-alert-error'; }
+                } finally {
+                    setBusy(submitBtn, false, 'Registering...', 'Register Hospital');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

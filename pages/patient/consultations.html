@@ -1,0 +1,207 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Consultations - AI Doctor Assistant</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Admin Header -->
+    <header class="admin-header">
+        <div class="container">
+            <div class="admin-header-content">
+                <div class="admin-brand">
+                    <img src="/favicon.png" alt="AI Doctor Assistant">
+                    <span>AI Doctor Assistant - <span data-i18n="app_name">AI Doctor Assistant</span> - <span data-i18n="patient_portal">Patient Portal</span></span>
+                </div>
+                <div class="admin-user">
+                    <span id="userDisplay">John Doe</span>
+                    <button class="btn btn-sm btn-outline" onclick="logout()"><span data-i18n="logout">Logout</span></button>
+                    <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="admin-nav" aria-label="Main navigation">
+        <div class="container">
+            <button class="admin-nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul>
+                <li><a href="/patient/dashboard" data-nav="dashboard" data-i18n="dashboard">Dashboard</a></li>
+                <li><a href="/patient/doctors" data-nav="doctors" data-i18n="doctors">Doctors</a></li>
+                <li><a href="/patient/appointments" data-nav="appointments" data-i18n="appointments">Appointments</a></li>
+                <li><a href="/patient/consultations" data-nav="consultations" class="active" aria-current="page" data-i18n="consultations">Consultations</a></li>
+                <li><a href="/patient/reports" data-nav="reports" data-i18n="reports">Reports</a></li>
+                <li><a href="/patient/prescriptions" data-nav="prescriptions" data-i18n="prescriptions">Prescriptions</a></li>
+                <li><a href="/patient/messages" data-nav="messages" data-i18n="messages">Messages</a></li>
+                <li><a href="/patient/profile" data-nav="profile" data-i18n="profile">Profile</a></li>
+                <li><a href="/patient/settings" data-nav="settings" data-i18n="settings">Settings</a></li>
+                <li><a href="/patient/ai-assistant" class="admin-nav-item" data-page="ai-assistant" data-i18n="ai_assistant">
+                    <span class="admin-nav-icon">🤖</span>
+                    <span class="admin-nav-label">AI Assistant</span>
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Consultations Section -->
+    <section class="admin-section">
+        <div class="container">
+            <div class="dashboard-welcome">
+                <div class="d-flex justify-between align-center" style="flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <h1><span data-i18n="my_consultations">My Consultations</span></h1>
+                        <p data-i18n="consultation_history_desc">View your consultation history, appointments and notes</p>
+                    </div>
+                    <a href="/patient/dashboard" class="btn btn-primary"><span data-i18n="book_appointment">Book Appointment</span></a>
+                </div>
+            </div>
+
+            <div class="admin-card">
+                <div class="filter-tabs" role="tablist" aria-label="Filter consultations">
+                    <button class="filter-tab active" data-status="" onclick="setFilter(this)"><span data-i18n="all">All</span></button>
+                    <button class="filter-tab" data-status="upcoming" onclick="setFilter(this)"><span data-i18n="upcoming">Upcoming</span></button>
+                    <button class="filter-tab" data-status="in_progress" onclick="setFilter(this)"><span data-i18n="in_progress">Active</span></button>
+                    <button class="filter-tab" data-status="completed" onclick="setFilter(this)"><span data-i18n="completed">Completed</span></button>
+                    <button class="filter-tab" data-status="cancelled" onclick="setFilter(this)"><span data-i18n="cancelled">Cancelled</span></button>
+                </div>
+                <div class="table-container">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th><span data-i18n="date">Date</span></th>
+                                <th><span data-i18n="doctor">Doctor</span></th>
+                                <th><span data-i18n="description">Reason</span></th>
+                                <th><span data-i18n="symptoms">Symptoms</span></th>
+                                <th><span data-i18n="diagnosis">Diagnosis</span></th>
+                                <th><span data-i18n="status">Status</span></th>
+                                <th><span data-i18n="actions">Actions</span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="consultationsList"></tbody>
+                    </table>
+                    <div id="consultationsState"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Consultation Modal -->
+    <div class="modal" id="consultationModal" role="dialog" aria-modal="true" aria-labelledby="consultationTitle">
+        <div class="modal-content modal-lg" style="max-width: 680px; max-height: 85vh; overflow-y: auto; text-align: left;">
+            <div class="modal-header">
+                <h3 id="consultationTitle"><span data-i18n="consultation">Consultation Details</span></h3>
+                <button class="btn btn-sm btn-outline" onclick="hideModal('consultationModal')" aria-label="Close"><span data-i18n="close">×</span></button>
+            </div>
+            <div class="modal-body" id="consultationDetails"></div>
+        </div>
+    </div>
+
+    <script src="/js/i18n.js?v=2.2"></script>
+    <script src="/js/main.js?v=2.1"></script>
+    <script>
+        let allConsultations = [];
+        let currentFilter = '';
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!bootPage('consultations', ['patient'])) return;
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const filter = urlParams.get('filter');
+            if (filter) {
+                const tab = document.querySelector(`.filter-tab[data-status="${filter}"]`);
+                if (tab) setFilter(tab);
+            }
+
+            showSkeleton(document.getElementById('consultationsList'), 4, 7);
+            loadConsultations();
+        });
+
+        async function loadConsultations() {
+            try {
+                allConsultations = await api('/my/consultations');
+                renderList();
+            } catch (err) {
+                document.getElementById('consultationsList').innerHTML = '';
+                showErrorState(document.getElementById('consultationsState'), 'Unable to load consultations. Please try again.', 'loadConsultations');
+            }
+        }
+
+        function setFilter(btn) {
+            currentFilter = btn.getAttribute('data-status');
+            document.querySelectorAll('.filter-tab').forEach(t => t.classList.toggle('active', t === btn));
+            renderList();
+        }
+
+        function renderList() {
+            const t = function(key) { return typeof ShrijalI18n !== 'undefined' ? ShrijalI18n.t(key) : key; };
+            const tbody = document.getElementById('consultationsList');
+            const state = document.getElementById('consultationsState');
+            tbody.innerHTML = '';
+            state.innerHTML = '';
+
+            let list = allConsultations;
+            if (currentFilter === 'upcoming') {
+                list = list.filter(c => ['pending', 'seen', 'accepted', 'in_progress'].includes(c.status));
+            } else if (currentFilter) {
+                list = list.filter(c => c.status === currentFilter);
+            }
+
+            if (!list.length) {
+                showEmptyState(state, currentFilter ? t('no_consultations') : t('no_consultations'));
+                return;
+            }
+
+            tbody.innerHTML = list.map(c => `
+                <tr>
+                    <td>${formatDate(c.date)}</td>
+                    <td>${escapeHtml(c.doctor_name || 'Dr. Johnson')}</td>
+                    <td>${escapeHtml(c.reason || 'N/A')}</td>
+                    <td>${escapeHtml((c.symptoms || t('none')).substring(0, 40))}</td>
+                    <td>${escapeHtml((c.diagnosis || t('none')).substring(0, 30))}</td>
+                    <td>${statusBadge(c.status)}</td>
+                    <td><button class="btn btn-sm btn-outline" onclick="viewConsultation(${c.id})">${t('view')}</button></td>
+                </tr>
+            `).join('');
+        }
+
+        async function viewConsultation(id) {
+            const body = document.getElementById('consultationDetails');
+            body.innerHTML = '<div class="state-box"><p>Loading...</p></div>';
+            showModal('consultationModal');
+
+            try {
+                const t = function(key) { return typeof ShrijalI18n !== 'undefined' ? ShrijalI18n.t(key) : key; };
+                const c = await api('/consultations/' + id);
+                const vs = c.vital_signs || {};
+                body.innerHTML = `
+                    <div class="detail-grid">
+                        <div class="detail-item"><label>${t('doctor')}</label><div class="detail-value">${escapeHtml(c.doctor_name)}</div></div>
+                        <div class="detail-item"><label>${t('date')}</label><div class="detail-value">${formatDate(c.date)}</div></div>
+                        <div class="detail-item"><label>${t('status')}</label><div class="detail-value">${statusBadge(c.status)}</div></div>
+                        <div class="detail-item"><label>${t('description')}</label><div class="detail-value">${escapeHtml(c.reason || 'N/A')}</div></div>
+                        <div class="detail-item" style="grid-column: 1 / -1;"><label>${t('symptoms')}</label><div class="detail-value">${escapeHtml(c.symptoms || 'Not recorded')}</div></div>
+                        <div class="detail-item" style="grid-column: 1 / -1;"><label>${t('diagnosis')}</label><div class="detail-value">${escapeHtml(c.diagnosis || 'Not yet diagnosed')}</div></div>
+                        <div class="detail-item"><label>${t('heart_rate')}</label><div class="detail-value">${escapeHtml(vs.heart_rate || 'N/A')} bpm</div></div>
+                        <div class="detail-item"><label>${t('blood_pressure')}</label><div class="detail-value">${vs.bp_sys ? vs.bp_sys + '/' + (vs.bp_dia || '?') + ' mmHg' : 'N/A'}</div></div>
+                        <div class="detail-item"><label>${t('temperature')}</label><div class="detail-value">${escapeHtml(vs.temperature || 'N/A')} F</div></div>
+                        <div class="detail-item"><label>${t('spo2')}</label><div class="detail-value">${escapeHtml(vs.spo2 || 'N/A')} %</div></div>
+                    </div>
+                    <div class="modal-actions" style="justify-content: flex-end; margin-top: 18px;">
+                        <button class="btn btn-secondary" onclick="hideModal('consultationModal')">${t('close')}</button>
+                    </div>
+                `;
+            } catch (err) {
+                body.innerHTML = '';
+                showErrorState(body, 'Unable to load consultation. Please try again.', 'viewConsultation(' + id + ')');
+            }
+        }
+    </script>
+</body>
+</html>

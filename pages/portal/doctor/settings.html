@@ -1,0 +1,140 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings - AI Doctor Assistant</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="admin-header-content">
+                <div class="admin-brand">
+                    <img src="/favicon.png" alt="AI Doctor Assistant">
+                    <span>AI Doctor Assistant - <span data-i18n="app_name">AI Doctor Assistant</span> - <span data-i18n="doctor_portal">Doctor Portal</span></span>
+                </div>
+                <div class="admin-user">
+                    <span id="userDisplay">Doctor</span>
+                    <button class="btn btn-sm btn-outline" onclick="logout()"><span data-i18n="logout">Logout</span></button>
+                    <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <nav class="admin-nav" aria-label="Main navigation">
+        <div class="container">
+            <button class="admin-nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul>
+                <li><a href="/doctor/dashboard" data-nav="dashboard" data-i18n="dashboard">Dashboard</a></li>
+                <li><a href="/doctor/patients" data-nav="patients" data-i18n="patients">Patients</a></li>
+                <li><a href="/doctor/appointments" data-nav="appointments" data-i18n="appointments">Appointments</a></li>
+                <li><a href="/doctor/consultations" data-nav="consultations" data-i18n="consultations">Consultations</a></li>
+                <li><a href="/doctor/messages" data-nav="messages" data-i18n="messages">Messages</a></li>
+                <li><a href="/doctor/reports" data-nav="reports" data-i18n="reports">Reports</a></li>
+                <li><a href="/doctor/profile" data-nav="profile" data-i18n="profile">Profile</a></li>
+                <li><a href="/doctor/settings" data-nav="settings" class="active" aria-current="page" data-i18n="settings">Settings</a></li>
+                <li><a href="/doctor/ai-assistant" class="admin-nav-item" data-page="ai-assistant" data-i18n="ai_assistant">
+                    <span class="admin-nav-icon">🤖</span>
+                    <span class="admin-nav-label">AI Assistant</span>
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="admin-section">
+        <div class="container">
+            <div class="dashboard-welcome">
+                <h1 id="page-title"><span data-i18n="settings">Settings</span></h1>
+                <p id="page-subtitle">Account security and preferences</p>
+            </div>
+
+            <div class="admin-card" style="max-width: 640px;">
+                <div class="admin-card-header"><h2>Change Password</h2></div>
+                <div class="form-group">
+                    <label for="currentPassword"><span data-i18n="current_password">Current Password</span></label>
+                    <input type="password" id="currentPassword" class="form-control" autocomplete="current-password">
+                </div>
+                <div class="form-group">
+                    <label for="newPassword">New Password (min 6 characters)</label>
+                    <input type="password" id="newPassword" class="form-control" autocomplete="new-password">
+                </div>
+                <div class="form-group">
+                    <label for="confirmPassword">Confirm New Password</label>
+                    <input type="password" id="confirmPassword" class="form-control" autocomplete="new-password">
+                </div>
+                <button class="btn btn-primary" onclick="changePassword()"><span data-i18n="update_password">Update Password</span></button>
+            </div>
+
+            <div class="admin-card mt-4" style="max-width: 640px;">
+                <div class="admin-card-header"><h2>Preferences</h2></div>
+                <div class="form-group" style="display:flex; align-items:center; gap:10px;">
+                    <input type="checkbox" id="emailNotif" style="width:auto;">
+                    <label for="emailNotif" style="margin:0;">Email me for new appointments</label>
+                </div>
+                <div class="form-group" style="display:flex; align-items:center; gap:10px;">
+                    <input type="checkbox" id="smsNotif" style="width:auto;">
+                    <label for="smsNotif" style="margin:0;">SMS me for urgent messages</label>
+                </div>
+                <button class="btn btn-outline" onclick="savePrefs()">Save Preferences</button>
+            </div>
+
+            <div id="languageContainer" style="max-width: 640px;"></div>
+        </div>
+    </section>
+
+    <script src="/js/main.js?v=2.1"></script>
+    <script src="/js/i18n.js?v=2.2"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!bootPage('settings', ['doctor'])) return;
+            document.getElementById('emailNotif').checked = localStorage.getItem('doc_notif_email') !== '0';
+            document.getElementById('smsNotif').checked = localStorage.getItem('doc_notif_sms') === '1';
+
+            ShrijalI18n.setOnLanguageChange(function() { location.reload(); });
+            try {
+                ShrijalI18n.createLanguageSelector('languageContainer');
+                ShrijalI18n.applyLanguageToDOM();
+            } catch(e) {}
+        });
+
+        async function changePassword() {
+            const current = document.getElementById('currentPassword').value;
+            const next = document.getElementById('newPassword').value;
+            const confirm = document.getElementById('confirmPassword').value;
+            if (!current || !next) {
+                showToast('Fill in all password fields', 'error');
+                return;
+            }
+            if (next !== confirm) {
+                showToast('New passwords do not match', 'error');
+                return;
+            }
+            const btn = event.target;
+            btn.disabled = true;
+            try {
+                await api('/auth/change-password', 'POST', { current_password: current, new_password: next });
+                showToast('Password changed successfully');
+                document.getElementById('currentPassword').value = '';
+                document.getElementById('newPassword').value = '';
+                document.getElementById('confirmPassword').value = '';
+            } catch (err) {
+                showToast(err.message, 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        function savePrefs() {
+            localStorage.setItem('doc_notif_email', document.getElementById('emailNotif').checked ? '1' : '0');
+            localStorage.setItem('doc_notif_sms', document.getElementById('smsNotif').checked ? '1' : '0');
+            showToast('Preferences saved');
+        }
+    </script>
+</body>
+</html>

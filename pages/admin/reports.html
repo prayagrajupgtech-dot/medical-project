@@ -1,0 +1,206 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports Management - AI Doctor Assistant</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="admin-header-content">
+                <div class="admin-brand">
+                    <img src="/favicon.png" alt="AI Doctor Assistant">
+                    <span>AI Doctor Assistant - Admin Panel</span>
+                </div>
+                <div class="admin-user">
+                    <span id="userDisplay">Administrator</span>
+                    <button class="btn btn-sm btn-outline" onclick="logout()"><span data-i18n="logout">Logout</span></button>
+                    <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <nav class="admin-nav" aria-label="Main navigation">
+        <div class="container">
+            <button class="admin-nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul>
+                <li><a href="/admin/dashboard" data-nav="dashboard" data-i18n="dashboard">Dashboard</a></li>
+                <li><a href="/admin/doctors" data-nav="doctors" data-i18n="doctors">Doctors</a></li>
+                <li><a href="/admin/patients" data-nav="patients" data-i18n="patients">Patients</a></li>
+                <li><a href="/admin/appointments" data-nav="appointments" data-i18n="appointments">Appointments</a></li>
+                <li><a href="/admin/consultations" data-nav="consultations" data-i18n="consultations">Consultations</a></li>
+                <li><a href="/admin/messages" data-nav="messages" data-i18n="messages">Messages</a></li>
+                <li><a href="/admin/reports" data-nav="reports" class="active" aria-current="page" data-i18n="reports">Reports</a></li>
+                <li><a href="/admin/audit-logs" data-nav="audit-logs" data-i18n="audit-logs">Audit Logs</a></li>
+                <li><a href="/admin/profile" data-nav="profile" data-i18n="profile">Profile</a></li>
+                <li><a href="/admin/settings" data-nav="settings" data-i18n="settings">Settings</a></li>
+                <li><a href="/admin/knowledge-base" data-nav="knowledge-base" data-i18n="knowledge-base">Knowledge Base</a></li>
+                <li><a href="/admin/ai-assistant" class="admin-nav-item" data-page="ai-assistant" data-i18n="ai_assistant">
+                    <span class="admin-nav-icon">🤖</span>
+                    <span class="admin-nav-label">AI Assistant</span>
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="admin-section">
+        <div class="container">
+            <div class="dashboard-welcome">
+                <h1 data-i18n="reports_management">Reports Management</h1>
+                <p data-i18n="monitor_all_reports">Monitor all medical reports uploaded on the platform</p>
+            </div>
+
+            <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr);" id="summaryGrid">
+                <div class="stat-card"><div class="stat-title"><span data-i18n="total_reports">Total Reports</span></div><div class="stat-value" id="statTotal">-</div></div>
+                <div class="stat-card"><div class="stat-title"><span data-i18n="reports_today">Uploaded Today</span></div><div class="stat-value" id="statToday">-</div></div>
+                <div class="stat-card"><div class="stat-title"><span data-i18n="reports_this_week">This Week</span></div><div class="stat-value" id="statWeek">-</div></div>
+                <div class="stat-card"><div class="stat-title"><span data-i18n="reports_this_month">This Month</span></div><div class="stat-value" id="statMonth">-</div></div>
+            </div>
+
+            <div class="admin-card mt-4">
+                <div class="toolbar" role="search">
+                    <input type="search" id="searchInput" class="form-control search-input" placeholder="Search by patient, file name or report type..." data-i18n-placeholder="search_reports" aria-label="Search reports">
+                </div>
+                <div class="table-container">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th data-i18n="report_id">Report ID</th>
+                                <th data-i18n="patient">Patient</th>
+                                <th data-i18n="doctor">Doctor</th>
+                                <th data-i18n="report_type">Report Type</th>
+                                <th data-i18n="file_name">File Name</th>
+                                <th data-i18n="date">Date</th>
+                                <th data-i18n="actions">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="reportsList"></tbody>
+                    </table>
+                    <div id="reportsState"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Delete Report Modal -->
+    <div class="modal" id="deleteModal" role="dialog" aria-modal="true" aria-labelledby="deleteTitle">
+        <div class="modal-content" style="max-width: 460px; text-align: left;">
+            <div class="modal-header">
+                <h3 id="deleteTitle" data-i18n="delete_report">Delete Report</h3>
+                <button class="btn btn-sm btn-outline" onclick="hideModal('deleteModal')" aria-label="Close">×</button>
+            </div>
+            <div class="modal-body">
+                <p id="deleteMessage" data-i18n="delete_report_confirm">Are you sure you want to delete this report? This action is logged in the audit trail.</p>
+            </div>
+            <div class="modal-actions" style="justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="hideModal('deleteModal')" data-i18n="cancel">Cancel</button>
+                <button class="btn btn-danger" id="deleteBtn" onclick="confirmDelete()" data-i18n="delete_report">Delete Report</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/i18n.js?v=2.2"></script>
+    <script src="/js/main.js?v=2.1"></script>
+    <script>
+        const t = function(key) { return typeof ShrijalI18n !== 'undefined' ? ShrijalI18n.t(key) : key; };
+        let pendingDeleteId = null;
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!bootPage('reports', ['admin'])) return;
+            loadReports();
+            document.getElementById('searchInput').addEventListener('input', debounce(loadReports, 350));
+        });
+
+        function debounce(fn, ms) {
+            let t;
+            return function () { clearTimeout(t); t = setTimeout(fn, ms); };
+        }
+
+        async function loadReports() {
+            const tbody = document.getElementById('reportsList');
+            const state = document.getElementById('reportsState');
+            showSkeleton(tbody, 5, 7);
+            state.innerHTML = '';
+            try {
+                const params = new URLSearchParams();
+                const search = document.getElementById('searchInput').value.trim();
+                if (search) params.set('search', search);
+                const data = await api('/admin/reports?' + params.toString());
+                document.getElementById('statTotal').textContent = data.total;
+                document.getElementById('statToday').textContent = data.today;
+                document.getElementById('statWeek').textContent = data.week;
+                document.getElementById('statMonth').textContent = data.month;
+                renderList(data.reports);
+            } catch (err) {
+                tbody.innerHTML = '';
+                showErrorState(state, 'Unable to load reports. ' + err.message, 'loadReports');
+            }
+        }
+
+        function renderList(list) {
+            const tbody = document.getElementById('reportsList');
+            const state = document.getElementById('reportsState');
+            tbody.innerHTML = ''; state.innerHTML = '';
+
+            if (!list.length) {
+                showEmptyState(state, t('no_reports_found_message'));
+                return;
+            }
+
+            tbody.innerHTML = list.map(r => `
+                <tr>
+                    <td>#${r.id}</td>
+                    <td><strong>${escapeHtml(r.patient_name || 'N/A')}</strong></td>
+                    <td>${escapeHtml(r.doctor_name || 'N/A')}</td>
+                    <td>${escapeHtml(r.report_type || 'General')}</td>
+                    <td>${escapeHtml(r.file_name || 'N/A')}<br><small class="doctor-meta">${r.file_size ? formatSize(r.file_size) : ''}</small></td>
+                    <td>${formatDateTime(r.created_at)}</td>
+                    <td>
+                        <div class="table-actions">
+                            <a class="btn btn-sm btn-outline" href="/api/admin/reports/${r.id}/download" download="${encodeURIComponent(r.file_name || 'report')}">${t('download')}</a>
+                            <button class="btn btn-sm btn-ghost-danger" onclick="openDelete(${r.id}, '${escapeHtml(r.file_name || 'this report')}')">${t('delete')}</button>
+                        </div>
+                    </td>
+                </tr>`).join('');
+        }
+
+        function formatSize(bytes) {
+            if (!bytes) return '';
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        function openDelete(id, name) {
+            pendingDeleteId = id;
+            document.getElementById('deleteMessage').textContent = t('delete_report_confirm');
+            showModal('deleteModal');
+        }
+
+        async function confirmDelete() {
+            const btn = document.getElementById('deleteBtn');
+            btn.disabled = true;
+            btn.textContent = t('deleting');
+            try {
+                await api('/admin/reports/' + pendingDeleteId, 'DELETE');
+                showToast(t('report_deleted'));
+                hideModal('deleteModal');
+                await loadReports();
+                btn.disabled = false;
+                btn.textContent = t('delete_report');
+            } catch (err) {
+                showToast(err.message, 'error');
+                btn.disabled = false;
+                btn.textContent = t('delete_report');
+            }
+        }
+    </script>
+</body>
+</html>

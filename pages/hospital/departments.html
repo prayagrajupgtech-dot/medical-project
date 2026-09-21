@@ -1,0 +1,82 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title data-i18n="department_management">Departments - Hospital Portal</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="portal">
+        <nav class="sidebar" id="sidebar">
+            <div class="sidebar-header"><img src="/images/brand-logo.svg" alt="Logo" class="sidebar-logo"><span class="sidebar-brand" data-i18n="hospital_portal">Hospital Portal</span></div>
+            <ul class="sidebar-nav">
+                <li><a href="/hospital/dashboard">Dashboard</a></li>
+                <li><a href="/hospital/doctors">Doctors</a></li>
+                <li><a href="/hospital/join-requests">Join Requests</a></li>
+                <li><a href="/hospital/departments" class="active">Departments</a></li>
+                <li><a href="/hospital/patients">Patients</a></li>
+                <li><a href="/hospital/staff">Staff</a></li>
+                <li><a href="/hospital/profile">Hospital Profile</a></li>
+                <li><a href="/hospital/notifications">Notifications</a></li>
+                <li><a href="/hospital/settings">Settings</a></li>
+            </ul>
+            <div class="sidebar-footer"><button class="btn btn-sm btn-outline btn-block" onclick="logout()" data-i18n="sign_out">Sign Out</button></div>
+        </nav>
+        <main class="main-content">
+            <header class="topbar"><button class="menu-toggle" onclick="toggleSidebar()">☰</button><h1 data-i18n="department_management">Departments</h1><div class="topbar-actions"><button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button></div></header>
+            <div class="content">
+                <div class="card">
+                    <div class="card-header"><h3 data-i18n="department_management">Departments</h3><button class="btn btn-sm btn-primary" onclick="showAddDept()" data-i18n="add_department">Add Department</button></div>
+                    <div class="card-body" id="deptList"><p class="text-muted">Loading...</p></div>
+                </div>
+                <div class="card hidden" id="addDeptForm">
+                    <div class="card-header"><h3 data-i18n="add_department">Add Department</h3></div>
+                    <div class="card-body">
+                        <div class="form-group"><label data-i18n="name">Name *</label><input type="text" id="deptName" class="form-control" required></div>
+                        <div class="form-group"><label data-i18n="description">Description</label><textarea id="deptDesc" class="form-control" rows="2"></textarea></div>
+                        <div class="form-group"><label data-i18n="head_doctor_optional">Head Doctor (optional)</label><select id="deptHead" class="form-control"><option value="">Select...</option></select></div>
+                        <button class="btn btn-primary" onclick="saveDept()" data-i18n="save">Save</button>
+                        <button class="btn btn-outline" onclick="hideAddDept()" data-i18n="cancel">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="/js/i18n.js?v=2.2"></script>
+    <script src="/js/main.js?v=2.1"></script>
+    <script>
+        const t = function(key) { return typeof ShrijalI18n !== 'undefined' ? ShrijalI18n.t(key) : key; };
+        var allDoctors = [];
+        document.addEventListener('DOMContentLoaded', function() {
+            bootPage('departments', ['hospital_admin']);
+            loadDepartments();
+            loadDoctorsForHead();
+        });
+        async function loadDepartments() {
+            try {
+                var depts = await api('/api/hospital/departments');
+                var container = document.getElementById('deptList');
+                if (!depts || depts.length === 0) { container.innerHTML = '<p class="text-muted">' + t('no_departments') + '</p>'; return; }
+                container.innerHTML = '<table class="table"><thead><tr><th>' + t('name') + '</th><th>' + t('description') + '</th><th>' + t('head_doctor') + '</th><th>' + t('status') + '</th><th>' + t('actions') + '</th></tr></thead><tbody>' +
+                    depts.map(function(d) {
+                        return '<tr><td>' + d.name + '</td><td>' + (d.description||'-') + '</td><td>' + (d.head_doctor_name||'-') + '</td><td><span class="badge badge-' + (d.is_active ? 'success' : 'danger') + '">' + (d.is_active ? t('active_label') : t('inactive')) + '</span></td><td><button class="btn btn-sm btn-danger" onclick="deleteDept(' + d.id + ')">' + t('delete') + '</button></td></tr>';
+                    }).join('') + '</tbody></table>';
+            } catch(e) { console.error(e); }
+        }
+        async function loadDoctorsForHead() {
+            try { allDoctors = await api('/api/hospital/doctors?status=approved'); var sel = document.getElementById('deptHead'); (allDoctors||[]).forEach(function(d) { var opt = document.createElement('option'); opt.value = d.doctor_id; opt.textContent = d.full_name; sel.appendChild(opt); }); } catch(e) {}
+        }
+        function showAddDept() { document.getElementById('addDeptForm').classList.remove('hidden'); }
+        function hideAddDept() { document.getElementById('addDeptForm').classList.add('hidden'); document.getElementById('deptName').value = ''; document.getElementById('deptDesc').value = ''; }
+        async function saveDept() {
+            var name = document.getElementById('deptName').value.trim();
+            if (!name) { showToast(t('name_required'), 'error'); return; }
+            try { await api('/api/hospital/departments', 'POST', { name: name, description: document.getElementById('deptDesc').value.trim(), head_doctor_id: document.getElementById('deptHead').value || undefined }); showToast(t('department_created')); hideAddDept(); loadDepartments(); } catch(e) { showToast(t('error'), 'error'); }
+        }
+        async function deleteDept(id) { if (!confirm(t('delete_department_confirm'))) return; try { await api('/api/hospital/departments/' + id, 'DELETE'); showToast(t('department_deleted')); loadDepartments(); } catch(e) { showToast(t('error'), 'error'); } }
+    </script>
+</body>
+</html>

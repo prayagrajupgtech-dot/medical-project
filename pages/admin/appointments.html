@@ -1,0 +1,207 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Appointments - AI Doctor Assistant</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="admin-header-content">
+                <div class="admin-brand">
+                    <img src="/favicon.png" alt="AI Doctor Assistant">
+                    <span>AI Doctor Assistant - Admin Panel</span>
+                </div>
+                <div class="admin-user">
+                    <span id="userDisplay">Administrator</span>
+                    <button class="btn btn-sm btn-outline" onclick="logout()"><span data-i18n="logout">Logout</span></button>
+                    <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <nav class="admin-nav" aria-label="Main navigation">
+        <div class="container">
+            <button class="admin-nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul>
+                <li><a href="/admin/dashboard" data-nav="dashboard" data-i18n="dashboard">Dashboard</a></li>
+                <li><a href="/admin/doctors" data-nav="doctors" data-i18n="doctors">Doctors</a></li>
+                <li><a href="/admin/patients" data-nav="patients" data-i18n="patients">Patients</a></li>
+                <li><a href="/admin/appointments" data-nav="appointments" class="active" aria-current="page" data-i18n="appointments">Appointments</a></li>
+                <li><a href="/admin/consultations" data-nav="consultations" data-i18n="consultations">Consultations</a></li>
+                <li><a href="/admin/messages" data-nav="messages" data-i18n="messages">Messages</a></li>
+                <li><a href="/admin/reports" data-nav="reports" data-i18n="reports">Reports</a></li>
+                <li><a href="/admin/audit-logs" data-nav="audit-logs" data-i18n="audit-logs">Audit Logs</a></li>
+                <li><a href="/admin/profile" data-nav="profile" data-i18n="profile">Profile</a></li>
+                <li><a href="/admin/settings" data-nav="settings" data-i18n="settings">Settings</a></li>
+                <li><a href="/admin/knowledge-base" data-nav="knowledge-base" data-i18n="knowledge-base">Knowledge Base</a></li>
+                <li><a href="/admin/ai-assistant" class="admin-nav-item" data-page="ai-assistant" data-i18n="ai_assistant">
+                    <span class="admin-nav-icon">🤖</span>
+                    <span class="admin-nav-label">AI Assistant</span>
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="admin-section">
+        <div class="container">
+            <div class="dashboard-welcome">
+                <h1>Appointments</h1>
+                <p>All appointments across the platform</p>
+            </div>
+
+            <div class="admin-card">
+                <div class="filter-tabs" role="tablist" aria-label="Filter appointments">
+                    <button class="filter-tab active" data-status="" onclick="setFilter(this)">All</button>
+                    <button class="filter-tab" data-status="today" onclick="setFilter(this)">Today</button>
+                    <button class="filter-tab" data-status="upcoming" onclick="setFilter(this)">Upcoming</button>
+                    <button class="filter-tab" data-status="pending" onclick="setFilter(this)">Pending</button>
+                    <button class="filter-tab" data-status="seen" onclick="setFilter(this)">Seen</button>
+                    <button class="filter-tab" data-status="accepted" onclick="setFilter(this)">Accepted</button>
+                    <button class="filter-tab" data-status="in_progress" onclick="setFilter(this)">In Progress</button>
+                    <button class="filter-tab" data-status="completed" onclick="setFilter(this)">Completed</button>
+                    <button class="filter-tab" data-status="rejected" onclick="setFilter(this)">Rejected</button>
+                    <button class="filter-tab" data-status="cancelled" onclick="setFilter(this)">Cancelled</button>
+                </div>
+                <div class="toolbar" role="search">
+                    <input type="search" id="searchInput" class="form-control search-input" placeholder="Search by patient, doctor or reason..." aria-label="Search appointments">
+                </div>
+                <div class="table-container">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Patient</th>
+                                <th>Doctor</th>
+                                <th>Date</th>
+                                <th>Time</th>
+                                <th>Reason</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="appointmentsList"></tbody>
+                    </table>
+                    <div id="appointmentsState"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- View Appointment Modal -->
+    <div class="modal" id="viewModal" role="dialog" aria-modal="true" aria-labelledby="viewTitle">
+        <div class="modal-content modal-lg" style="max-width: 600px; max-height: 85vh; overflow-y: auto; text-align: left;">
+            <div class="modal-header">
+                <h3 id="viewTitle">Appointment Details</h3>
+                <button class="btn btn-sm btn-outline" onclick="hideModal('viewModal')" aria-label="Close">×</button>
+            </div>
+            <div class="modal-body" id="viewDetails">
+                <div class="state-block"><span class="spinner" aria-hidden="true"></span><p>Loading...</p></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/i18n.js?v=2.2"></script>
+    <script src="/js/main.js?v=2.1"></script>
+    <script>
+        let currentFilter = '';
+        let allAppointments = [];
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!bootPage('appointments', ['admin'])) return;
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const filter = urlParams.get('filter');
+            if (filter) {
+                const tab = document.querySelector('.filter-tab[data-status="' + filter + '"]');
+                if (tab) setFilter(tab);
+            }
+
+            loadAppointments();
+            document.getElementById('searchInput').addEventListener('input', debounce(loadAppointments, 350));
+        });
+
+        function debounce(fn, ms) {
+            let t;
+            return function () { clearTimeout(t); t = setTimeout(fn, ms); };
+        }
+
+        function setFilter(btn) {
+            currentFilter = btn.getAttribute('data-status');
+            document.querySelectorAll('.filter-tab').forEach(t => t.classList.toggle('active', t === btn));
+            loadAppointments();
+        }
+
+        async function loadAppointments() {
+            const tbody = document.getElementById('appointmentsList');
+            const state = document.getElementById('appointmentsState');
+            showSkeleton(tbody, 5, 8);
+            state.innerHTML = '';
+            try {
+                const params = new URLSearchParams();
+                if (currentFilter) params.set('filter', currentFilter);
+                const search = document.getElementById('searchInput').value.trim();
+                if (search) params.set('search', search);
+                allAppointments = await api('/admin/appointments?' + params.toString());
+                renderList();
+            } catch (err) {
+                tbody.innerHTML = '';
+                showErrorState(state, 'Unable to load appointments. ' + err.message, 'loadAppointments');
+            }
+        }
+
+        function renderList() {
+            const tbody = document.getElementById('appointmentsList');
+            const state = document.getElementById('appointmentsState');
+            tbody.innerHTML = ''; state.innerHTML = '';
+
+            if (!allAppointments.length) {
+                showEmptyState(state, currentFilter ? 'No appointments in this view.' : 'No appointments yet.');
+                return;
+            }
+
+            tbody.innerHTML = allAppointments.map(a => `
+                <tr>
+                    <td><strong>${escapeHtml(a.patient_name || 'N/A')}</strong></td>
+                    <td>${escapeHtml(a.doctor_name || 'N/A')}</td>
+                    <td>${formatDate(a.date)}</td>
+                    <td>${escapeHtml(a.appointment_time || 'N/A')}</td>
+                    <td>${escapeHtml(a.reason || 'N/A')}</td>
+                    <td>${statusBadge(a.status)}</td>
+                    <td>${formatDateTime(a.created_at)}</td>
+                    <td><button class="btn btn-sm btn-outline" onclick="viewAppointment(${a.id})">View</button></td>
+                </tr>`).join('');
+        }
+
+        async function viewAppointment(id) {
+            showModal('viewModal');
+            document.getElementById('viewDetails').innerHTML = '<div class="state-block"><span class="spinner" aria-hidden="true"></span><p>Loading...</p></div>';
+            try {
+                const a = await api('/appointments/' + id);
+                document.getElementById('viewDetails').innerHTML = `
+                    <div class="detail-grid">
+                        <div class="detail-item"><label>Patient</label><div class="detail-value">${escapeHtml(a.patient_name || 'N/A')}</div></div>
+                        <div class="detail-item"><label>Doctor</label><div class="detail-value">${escapeHtml(a.doctor_name || 'N/A')}</div></div>
+                        <div class="detail-item"><label>Date</label><div class="detail-value">${formatDate(a.date)}</div></div>
+                        <div class="detail-item"><label>Time</label><div class="detail-value">${escapeHtml(a.appointment_time || 'N/A')}</div></div>
+                        <div class="detail-item"><label>Reason</label><div class="detail-value">${escapeHtml(a.reason || 'N/A')}</div></div>
+                        <div class="detail-item"><label>Symptoms</label><div class="detail-value">${escapeHtml(a.symptoms || 'N/A')}</div></div>
+                        <div class="detail-item"><label>Status</label><div class="detail-value">${statusBadge(a.status)}</div></div>
+                        <div class="detail-item"><label>Created</label><div class="detail-value">${formatDateTime(a.created_at)}</div></div>
+                        ${a.rejection_reason ? `<div class="detail-item" style="grid-column: 1 / -1;"><label>Rejection Reason</label><div class="detail-value">${escapeHtml(a.rejection_reason)}</div></div>` : ''}
+                        <div class="detail-item" style="grid-column: 1 / -1;"><label>Status History</label><div class="detail-value">${statusTimeline(a)}</div></div>
+                    </div>`;
+            } catch (err) {
+                document.getElementById('viewDetails').innerHTML = `<div class="state-box" role="alert"><p>${escapeHtml(err.message)}</p></div>`;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,180 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patients - AI Doctor Assistant</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Admin Header -->
+    <header class="admin-header">
+        <div class="container">
+            <div class="admin-header-content">
+                <div class="admin-brand">
+                    <img src="/favicon.png" alt="AI Doctor Assistant">
+                    <span>AI Doctor Assistant - Dashboard</span>
+                </div>
+                <div class="admin-user">
+                    <span id="userDisplay">Dr. Sarah Johnson</span>
+                    <button class="btn btn-sm btn-outline" onclick="logout()"><span data-i18n="logout">Logout</span></button>
+                    <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">??</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="admin-nav" aria-label="Main navigation">
+        <div class="container">
+            <button class="admin-nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul>
+                <li><a href="/doctor/dashboard" data-nav="dashboard" data-i18n="dashboard">Dashboard</a></li>
+                <li><a href="/doctor/patients" data-nav="patients" class="active" aria-current="page" data-i18n="patients">Patients</a></li>
+                <li><a href="/doctor/consultations" data-nav="consultations" data-i18n="consultations">Consultations</a></li>
+                <li><a href="/doctor/appointments" data-nav="appointments" data-i18n="appointments">Appointments</a></li>
+                <li><a href="/doctor/messages" data-nav="messages" data-i18n="messages">Messages</a></li>
+                <li><a href="/doctor/reports" data-nav="reports" data-i18n="reports">Reports</a></li>
+                <li><a href="/doctor/profile" data-nav="profile" data-i18n="profile">Profile</a></li>
+                <li><a href="/doctor/settings" data-nav="settings" data-i18n="settings">Settings</a></li>
+                <li><a href="/doctor/ai-assistant" class="admin-nav-item" data-page="ai-assistant" data-i18n="ai_assistant">
+                    <span class="admin-nav-icon">??</span>
+                    <span class="admin-nav-label">AI Assistant</span>
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Patients Section -->
+    <section class="admin-section">
+        <div class="container">
+            <div class="dashboard-welcome">
+                <h1>Patient Management</h1>
+                <p>Search, filter and manage all your patients</p>
+            </div>
+
+            <div class="admin-card">
+                <div class="admin-card-header">
+                    <h2>All Patients</h2>
+                </div>
+                <div class="toolbar" role="search">
+                    <input type="search" id="searchInput" class="form-control search-input" placeholder="Search by name, email or phone..." aria-label="Search patients">
+                    <select id="genderFilter" class="form-control" style="max-width:160px;" aria-label="Filter by gender">
+                        <option value="">All genders</option>
+                        <option value="male">Male</option>
+                        <option value="female">Female</option>
+                        <option value="other">Other</option>
+                    </select>
+                    <select id="sortSelect" class="form-control" style="max-width:190px;" aria-label="Sort patients">
+                        <option value="name_asc">Sort: Name (A-Z)</option>
+                        <option value="name_desc">Sort: Name (Z-A)</option>
+                        <option value="recent">Sort: Recently added</option>
+                    </select>
+                </div>
+                <div class="table-container">
+                    <table class="admin-table" id="patientsTable">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Name</th>
+                                <th>DOB</th>
+                                <th>Gender</th>
+                                <th>Phone</th>
+                                <th>Email</th>
+                                <th>Allergies</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="patientsList"></tbody>
+                    </table>
+                    <div id="patientsState"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script src="/js/i18n.js?v=2.2"></script>
+    <script src="/js/main.js?v=2.1"></script>
+    <script>
+        let allPatients = [];
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!bootPage('patients', ['doctor', 'admin'])) return;
+
+            document.getElementById('searchInput').addEventListener('input', renderPatients);
+            document.getElementById('genderFilter').addEventListener('change', renderPatients);
+            document.getElementById('sortSelect').addEventListener('change', renderPatients);
+
+            showSkeleton(document.getElementById('patientsList'), 4, 8);
+            loadPatients();
+
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('id')) {
+                openPatientProfile(urlParams.get('id'));
+            }
+        });
+
+        function openPatientProfile(userId) {
+            window.location.href = '/doctor/patients/' + userId;
+        }
+
+        async function loadPatients() {
+            try {
+                allPatients = await api('/patients');
+                renderPatients();
+            } catch (err) {
+                document.getElementById('patientsList').innerHTML = '';
+                showErrorState(document.getElementById('patientsState'), 'Unable to load patients. Please try again.', 'loadPatients');
+            }
+        }
+
+        function renderPatients() {
+            const tbody = document.getElementById('patientsList');
+            const state = document.getElementById('patientsState');
+            tbody.innerHTML = '';
+            state.innerHTML = '';
+
+            const search = document.getElementById('searchInput').value.trim().toLowerCase();
+            const gender = document.getElementById('genderFilter').value;
+            const sort = document.getElementById('sortSelect').value;
+
+            let list = allPatients.filter(p => {
+                const haystack = [p.full_name, p.email, p.phone, p.username].filter(Boolean).join(' ').toLowerCase();
+                const matchesSearch = !search || haystack.includes(search);
+                const matchesGender = !gender || p.gender === gender;
+                return matchesSearch && matchesGender;
+            });
+
+            if (sort === 'name_asc') list.sort((a, b) => (a.full_name || '').localeCompare(b.full_name || ''));
+            else if (sort === 'name_desc') list.sort((a, b) => (b.full_name || '').localeCompare(a.full_name || ''));
+            else list.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0));
+
+            if (!list.length) {
+                showEmptyState(state, allPatients.length ? 'No patients match your search.' : 'No patients found yet. New patients will appear here after registration.');
+                return;
+            }
+
+            tbody.innerHTML = list.map((p, idx) => `
+                <tr class="row-click" data-id="${p.user_id}" onclick="openPatientProfile(${p.user_id})" tabindex="0" role="link" aria-label="Open profile of ${escapeHtml(p.full_name)}">
+                    <td>${idx + 1}</td>
+                    <td><a href="/doctor/patients/${p.user_id}" onclick="event.stopPropagation()">${escapeHtml(p.full_name || 'N/A')}</a></td>
+                    <td>${escapeHtml(p.date_of_birth || 'N/A')}</td>
+                    <td>${escapeHtml(p.gender || 'N/A')}</td>
+                    <td>${escapeHtml(p.phone || 'N/A')}</td>
+                    <td>${escapeHtml(p.email || 'N/A')}</td>
+                    <td>${p.allergies ? escapeHtml(p.allergies) : '<span style="color:#999">None</span>'}</td>
+                    <td>
+                        <a href="/doctor/patients/${p.user_id}" class="btn btn-sm btn-outline" onclick="event.stopPropagation()">View</a>
+                        <a href="/doctor/consultations?new_patient=${p.user_id}" class="btn btn-sm btn-primary" onclick="event.stopPropagation()">Consult</a>
+                        <a href="/doctor/messages?to=${p.user_id}" class="btn btn-sm btn-outline" onclick="event.stopPropagation()">Message</a>
+                    </td>
+                </tr>
+            `).join('');
+        }
+    </script>
+</body>
+</html>

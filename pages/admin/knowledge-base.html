@@ -1,0 +1,346 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical Knowledge Base — Admin</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .kb-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:28px}
+        .kb-stat{background:var(--card-bg,#fff);border:1px solid var(--border-color,#e2e8f0);border-radius:12px;padding:20px;text-align:center}
+        .kb-stat .num{font-size:2rem;font-weight:700;color:#0891b2}
+        .kb-stat .label{font-size:.85rem;color:var(--text-secondary,#64748b);margin-top:4px}
+        .kb-section{background:var(--card-bg,#fff);border:1px solid var(--border-color,#e2e8f0);border-radius:12px;padding:24px;margin-bottom:24px}
+        .kb-section h2{margin:0 0 16px;font-size:1.2rem;color:var(--text-primary,#1e293b)}
+        .kb-table{width:100%;border-collapse:collapse;font-size:.9rem}
+        .kb-table th,.kb-table td{padding:10px 12px;text-align:left;border-bottom:1px solid var(--border-color,#e2e8f0)}
+        .kb-table th{background:var(--bg-secondary,#f8fafc);font-weight:600;color:var(--text-secondary,#64748b);font-size:.8rem;text-transform:uppercase;letter-spacing:.5px}
+        .kb-table tr:hover td{background:var(--bg-secondary,#f1f5f9)}
+        .badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:.75rem;font-weight:600}
+        .badge-free{background:#d1fae5;color:#065f46}
+        .badge-licensed{background:#fef3c7;color:#92400e}
+        .badge-guideline{background:#dbeafe;color:#1e40af}
+        .badge-research{background:#ede9fe;color:#5b21b6}
+        .badge-government{background:#fce7f3;color:#9d174d}
+        .badge-indexed{background:#d1fae5;color:#065f46}
+        .badge-pending{background:#fef3c7;color:#92400e}
+        .badge-failed{background:#fee2e2;color:#991b1b}
+        .badge-indexing{background:#dbeafe;color:#1e40af}
+        .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border:none;border-radius:8px;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .15s}
+        .btn-primary{background:#0891b2;color:#fff}.btn-primary:hover{background:#0e7490}
+        .btn-danger{background:#ef4444;color:#fff}.btn-danger:hover{background:#dc2626}
+        .btn-outline{background:transparent;border:1px solid #cbd5e1;color:#475569}.btn-outline:hover{background:#f1f5f9}
+        .btn-sm{padding:5px 12px;font-size:.8rem}
+        .form-group{margin-bottom:16px}
+        .form-group label{display:block;font-size:.85rem;font-weight:600;color:var(--text-secondary,#64748b);margin-bottom:6px}
+        .form-group input,.form-group select,.form-group textarea{width:100%;padding:10px 12px;border:1px solid var(--border-color,#cbd5e1);border-radius:8px;font-size:.9rem;background:var(--card-bg,#fff);color:var(--text-primary,#1e293b)}
+        .form-group textarea{min-height:120px;resize:vertical;font-family:monospace}
+        .form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+        .test-box{background:var(--bg-secondary,#f8fafc);border:1px solid var(--border-color,#e2e8f0);border-radius:12px;padding:20px;margin-top:20px}
+        .test-result{margin-top:12px;padding:16px;background:var(--card-bg,#fff);border:1px solid var(--border-color,#e2e8f0);border-radius:8px;white-space:pre-wrap;font-size:.85rem;line-height:1.6;max-height:500px;overflow-y:auto}
+        .source-card{border:1px solid var(--border-color,#e2e8f0);border-radius:8px;padding:16px;margin-bottom:12px;cursor:pointer;transition:all .15s}
+        .source-card:hover{border-color:#0891b2;box-shadow:0 2px 8px rgba(8,145,178,.1)}
+        .source-card h3{margin:0 0 6px;font-size:1rem}
+        .source-card p{margin:0;font-size:.85rem;color:var(--text-secondary,#64748b)}
+        .modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;justify-content:center;align-items:center}
+        .modal-overlay.active{display:flex}
+        .modal{background:var(--card-bg,#fff);border-radius:16px;padding:28px;max-width:600px;width:90%;max-height:85vh;overflow-y:auto}
+        .modal h2{margin:0 0 20px;font-size:1.2rem}
+        .tabs{display:flex;gap:4px;margin-bottom:20px;border-bottom:2px solid var(--border-color,#e2e8f0);padding-bottom:0}
+        .tab{padding:10px 20px;cursor:pointer;font-size:.9rem;font-weight:600;color:var(--text-secondary,#64748b);border-bottom:2px solid transparent;margin-bottom:-2px;transition:all .15s}
+        .tab.active{color:#0891b2;border-bottom-color:#0891b2}
+        .tab-content{display:none}.tab-content.active{display:block}
+        @media(max-width:768px){.form-row{grid-template-columns:1fr}.kb-stats{grid-template-columns:repeat(2,1fr)}}
+    </style>
+</head>
+<body>
+    <div class="admin-layout">
+        <nav class="admin-sidebar">
+            <div class="sidebar-header"><h2>MediConnect</h2><p>Admin Panel</p></div>
+            <ul class="sidebar-nav">
+                <li><a href="/admin/dashboard" data-nav="dashboard" data-i18n="dashboard">Dashboard</a></li>
+                <li><a href="/admin/doctors" data-nav="doctors" data-i18n="doctors">Doctors</a></li>
+                <li><a href="/admin/patients" data-nav="patients" data-i18n="patients">Patients</a></li>
+                <li><a href="/admin/appointments" data-nav="appointments" data-i18n="appointments">Appointments</a></li>
+                <li><a href="/admin/consultations" data-nav="consultations" data-i18n="consultations">Consultations</a></li>
+                <li><a href="/admin/reports" data-nav="reports" data-i18n="reports">Reports</a></li>
+                <li><a href="/admin/messages" data-nav="messages" data-i18n="messages">Messages</a></li>
+                <li><a href="/admin/knowledge-base" data-nav="knowledge-base" class="active" aria-current="page" data-i18n="knowledge-base">Knowledge Base</a></li>
+                <li><a href="/admin/ai-assistant" class="admin-nav-item" data-page="ai-assistant" data-i18n="ai_assistant">AI Assistant</a></li>
+                <li><a href="/admin/audit-logs" data-nav="audit-logs" data-i18n="audit-logs">Audit Logs</a></li>
+                <li><a href="/admin/settings" data-nav="settings" data-i18n="settings">Settings</a></li>
+                <li><a href="/admin/profile" data-nav="profile" data-i18n="profile">Profile</a></li>
+            </ul>
+        </nav>
+        <main class="admin-main">
+            <header class="admin-header">
+                <h1 data-i18n="medical_knowledge_base">Medical Knowledge Base</h1>
+                <div class="header-actions">
+                    <button class="btn btn-outline" onclick="loadStats()" data-i18n="refresh">Refresh</button>
+                    <button class="btn btn-primary" onclick="showAddSourceModal()" data-i18n="add_source">+ Add Source</button>
+                </div>
+            </header>
+
+            <div class="kb-stats" id="statsGrid">
+                <div class="kb-stat"><div class="num" id="statTotalSources">-</div><div class="label">Total Sources</div></div>
+                <div class="kb-stat"><div class="num" id="statFreeSources">-</div><div class="label">Free Sources</div></div>
+                <div class="kb-stat"><div class="num" id="statLicensedSources">-</div><div class="label">Licensed Sources</div></div>
+                <div class="kb-stat"><div class="num" id="statTotalDocs">-</div><div class="label">Documents</div></div>
+                <div class="kb-stat"><div class="num" id="statTotalChunks">-</div><div class="label">Knowledge Chunks</div></div>
+                <div class="kb-stat"><div class="num" id="statIndexed">-</div><div class="label">Indexed</div></div>
+                <div class="kb-stat"><div class="num" id="statFailed">-</div><div class="label">Failed</div></div>
+                <div class="kb-stat"><div class="num" id="statLastIndexed">-</div><div class="label">Last Indexed</div></div>
+            </div>
+
+            <div class="kb-section">
+                <h2>Sources</h2>
+                <div id="sourcesList">Loading...</div>
+            </div>
+
+            <div class="kb-section">
+                <h2>Test Shrijal Knowledge</h2>
+                <div style="display:flex;gap:12px;margin-bottom:12px">
+                    <input type="text" id="testQuery" placeholder="Ask a medical question..." style="flex:1;padding:10px 12px;border:1px solid #cbd5e1;border-radius:8px;font-size:.9rem">
+                    <button class="btn btn-primary" onclick="testRAG()">Test</button>
+                </div>
+                <div id="testResult" class="test-result" style="display:none"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Add Source Modal -->
+    <div class="modal-overlay" id="addSourceModal">
+        <div class="modal">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+                <h2 style="margin:0">Add Medical Source</h2>
+                <button onclick="closeModal()" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:#64748b">&times;</button>
+            </div>
+
+            <div class="tabs">
+                <div class="tab active" onclick="switchTab('free')">Free Source</div>
+                <div class="tab" onclick="switchTab('licensed')">Licensed Book</div>
+            </div>
+
+            <form id="addSourceForm" onsubmit="submitSource(event)">
+                <input type="hidden" id="sourceType" value="free">
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Source Name *</label>
+                        <input type="text" id="sourceName" required placeholder="e.g., WHO Malaria Guidelines">
+                    </div>
+                    <div class="form-group">
+                        <label>Source Type</label>
+                        <select id="sourceTypeSelect" onchange="document.getElementById('sourceType').value=this.value">
+                            <option value="free">Free / Open Access</option>
+                            <option value="government">Government / Public Health</option>
+                            <option value="guideline">Clinical Guideline</option>
+                            <option value="research">Research Paper</option>
+                            <option value="licensed">Licensed Book</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Author</label>
+                        <input type="text" id="sourceAuthor" placeholder="e.g., World Health Organization">
+                    </div>
+                    <div class="form-group">
+                        <label>Publisher</label>
+                        <input type="text" id="sourcePublisher" placeholder="e.g., WHO Press">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Year</label>
+                        <input type="number" id="sourceYear" placeholder="e.g., 2024">
+                    </div>
+                    <div class="form-group">
+                        <label>URL</label>
+                        <input type="url" id="sourceUrl" placeholder="https://...">
+                    </div>
+                </div>
+                <div class="form-group" id="licenseGroup">
+                    <label>License</label>
+                    <input type="text" id="sourceLicense" placeholder="e.g., CC BY 4.0, Open Access, or License details">
+                </div>
+
+                <div class="form-group">
+                    <label>Content to Index</label>
+                    <textarea id="sourceContent" placeholder="Paste the medical content to index (text, guidelines, chapters, etc.)..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Document Title</label>
+                    <input type="text" id="docTitle" placeholder="Title for this document/chapter">
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Chapter</label>
+                        <input type="text" id="docChapter" placeholder="e.g., Chapter 3">
+                    </div>
+                    <div class="form-group">
+                        <label>Section</label>
+                        <input type="text" id="docSection" placeholder="e.g., Diagnosis">
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:20px">
+                    <button type="button" class="btn btn-outline" onclick="closeModal()">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="submitBtn">Add & Index</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        const API = '/api/medical-knowledge';
+        const token = localStorage.getItem('token');
+        const headers = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
+
+        async function apiFetch(url, opts = {}) {
+            opts.headers = { ...headers, ...opts.headers };
+            const res = await fetch(url, opts);
+            return res.json();
+        }
+
+        async function loadStats() {
+            try {
+                const data = await apiFetch(API + '/stats');
+                if (data.stats) {
+                    document.getElementById('statTotalSources').textContent = data.stats.total_sources || 0;
+                    document.getElementById('statFreeSources').textContent = data.stats.free_sources || 0;
+                    document.getElementById('statLicensedSources').textContent = data.stats.licensed_sources || 0;
+                    document.getElementById('statTotalDocs').textContent = data.stats.total_documents || 0;
+                    document.getElementById('statTotalChunks').textContent = data.stats.total_chunks || 0;
+                    document.getElementById('statIndexed').textContent = data.stats.indexed_sources || 0;
+                    document.getElementById('statFailed').textContent = data.stats.failed_sources || 0;
+                    document.getElementById('statLastIndexed').textContent = data.stats.last_indexed ? new Date(data.stats.last_indexed).toLocaleDateString() : 'Never';
+                }
+            } catch (e) { console.error('Stats load error:', e); }
+        }
+
+        async function loadSources() {
+            try {
+                const data = await apiFetch(API + '/sources');
+                const container = document.getElementById('sourcesList');
+                if (!data.sources || data.sources.length === 0) {
+                    container.innerHTML = '<p style="color:#64748b;text-align:center;padding:40px">No sources yet. Click "Add Source" to get started.</p>';
+                    return;
+                }
+                container.innerHTML = data.sources.map(s => `
+                    <div class="source-card" onclick="viewSource(${s.id})">
+                        <div style="display:flex;justify-content:space-between;align-items:start">
+                            <div>
+                                <h3>${esc(s.source_name)}</h3>
+                                <p>${esc(s.author || '')} ${s.year ? '(' + s.year + ')' : ''} — ${esc(s.publisher || '')}</p>
+                                <p style="margin-top:4px">${s.total_chunks || 0} chunks indexed</p>
+                            </div>
+                            <div style="display:flex;gap:6px;align-items:center">
+                                <span class="badge badge-${s.source_type}">${s.source_type}</span>
+                                <span class="badge badge-${s.status}">${s.status}</span>
+                                <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();deleteSource(${s.id})" title="Delete">✕</button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            } catch (e) { console.error('Sources load error:', e); }
+        }
+
+        async function viewSource(id) {
+            try {
+                const data = await apiFetch(API + '/sources/' + id);
+                if (data.source) {
+                    const s = data.source;
+                    alert(`Source: ${s.source_name}\nType: ${s.source_type}\nAuthor: ${s.author || 'N/A'}\nStatus: ${s.status}\nChunks: ${s.total_chunks}\nDocuments: ${(data.documents || []).length}`);
+                }
+            } catch (e) { alert('Error loading source'); }
+        }
+
+        async function deleteSource(id) {
+            if (!confirm('Delete this source and all its indexed content?')) return;
+            try {
+                await apiFetch(API + '/sources/' + id, { method: 'DELETE' });
+                loadSources();
+                loadStats();
+            } catch (e) { alert('Delete failed'); }
+        }
+
+        async function testRAG() {
+            const query = document.getElementById('testQuery').value.trim();
+            if (!query) return;
+            const resultDiv = document.getElementById('testResult');
+            resultDiv.style.display = 'block';
+            resultDiv.textContent = 'Searching knowledge base...';
+            try {
+                const data = await apiFetch(API + '/test', {
+                    method: 'POST',
+                    body: JSON.stringify({ query })
+                });
+                let output = '';
+                if (data.intent) output += 'Intent: ' + data.intent.map(i => i.label).join(', ') + '\n';
+                if (data.topics) output += 'Topics: ' + data.topics.join(', ') + '\n';
+                if (data.sources) output += '\nSources Used: ' + data.sources.length + '\n' + data.sources.map(s => '  • ' + s.name + (s.year ? ' (' + s.year + ')' : '')).join('\n');
+                if (data.evidence) output += '\n\nEvidence Confidence: ' + (data.evidence.confidence * 100).toFixed(0) + '%\nChunks Used: ' + data.chunksUsed;
+                if (data.latencyMs) output += '\nLatency: ' + data.latencyMs + 'ms';
+                output += '\n\n--- Response ---\n\n' + (data.response || 'No response generated');
+                resultDiv.textContent = output;
+            } catch (e) {
+                resultDiv.textContent = 'Error: ' + e.message;
+            }
+        }
+
+        function showAddSourceModal() { document.getElementById('addSourceModal').classList.add('active'); }
+        function closeModal() { document.getElementById('addSourceModal').classList.remove('active'); }
+
+        function switchTab(type) {
+            document.getElementById('sourceType').value = type;
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('licenseGroup').style.display = type === 'licensed' ? 'block' : (type === 'free' ? 'none' : 'block');
+        }
+
+        async function submitSource(e) {
+            e.preventDefault();
+            const btn = document.getElementById('submitBtn');
+            btn.textContent = 'Indexing...';
+            btn.disabled = true;
+            try {
+                const body = {
+                    source_type: document.getElementById('sourceTypeSelect').value,
+                    source_name: document.getElementById('sourceName').value,
+                    author: document.getElementById('sourceAuthor').value,
+                    publisher: document.getElementById('sourcePublisher').value,
+                    year: parseInt(document.getElementById('sourceYear').value) || null,
+                    url: document.getElementById('sourceUrl').value,
+                    license: document.getElementById('sourceLicense').value,
+                    content: document.getElementById('sourceContent').value,
+                    title: document.getElementById('docTitle').value || document.getElementById('sourceName').value,
+                    chapter: document.getElementById('docChapter').value,
+                    section: document.getElementById('docSection').value
+                };
+                const data = await apiFetch(API + '/sources', { method: 'POST', body: JSON.stringify(body) });
+                if (data.success) {
+                    closeModal();
+                    document.getElementById('addSourceForm').reset();
+                    loadSources();
+                    loadStats();
+                    alert('Source added and indexed! ' + (data.ingestion ? data.ingestion.chunkCount + ' chunks created.' : ''));
+                } else {
+                    alert('Error: ' + (data.error || 'Unknown error'));
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            } finally {
+                btn.textContent = 'Add & Index';
+                btn.disabled = false;
+            }
+        }
+
+        function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+        // Init
+        loadStats();
+        loadSources();
+    </script>
+</body>
+</html>

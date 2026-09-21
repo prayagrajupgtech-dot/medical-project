@@ -1,0 +1,364 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - AI Doctor Assistant</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="admin-header-content">
+                <div class="admin-brand">
+                    <img src="/favicon.png" alt="AI Doctor Assistant">
+                    <span>AI Doctor Assistant - Admin Panel</span>
+                </div>
+<div class="admin-user">
+    <span id="userDisplay">Administrator</span>
+    <button class="btn btn-sm btn-outline" onclick="logout()"><span data-i18n="logout">Logout</span></button>
+    <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button>
+        🌙
+    </button>
+</div>
+            </div>
+        </div>
+    </header>
+
+    <nav class="admin-nav" aria-label="Main navigation">
+        <div class="container">
+            <button class="admin-nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul>
+                <li><a href="/admin/dashboard" data-nav="dashboard" class="active" aria-current="page" data-i18n="dashboard">Dashboard</a></li>
+                <li><a href="/admin/doctors" data-nav="doctors" data-i18n="doctors">Doctors</a></li>
+                <li><a href="/admin/patients" data-nav="patients" data-i18n="patients">Patients</a></li>
+                <li><a href="/admin/appointments" data-nav="appointments" data-i18n="appointments">Appointments</a></li>
+                <li><a href="/admin/consultations" data-nav="consultations" data-i18n="consultations">Consultations</a></li>
+                <li><a href="/admin/messages" data-nav="messages" data-i18n="messages">Messages</a></li>
+                <li><a href="/admin/reports" data-nav="reports" data-i18n="reports">Reports</a></li>
+                <li><a href="/admin/audit-logs" data-nav="audit-logs" data-i18n="audit-logs">Audit Logs</a></li>
+                <li><a href="/admin/profile" data-nav="profile" data-i18n="profile">Profile</a></li>
+                <li><a href="/admin/settings" data-nav="settings" data-i18n="settings">Settings</a></li>
+                <li><a href="/admin/knowledge-base" data-nav="knowledge-base" data-i18n="knowledge-base">Knowledge Base</a></li>
+                <li><a href="/admin/ai-assistant" class="admin-nav-item" data-page="ai-assistant" data-i18n="ai_assistant">
+                    <span class="admin-nav-icon">🤖</span>
+                    <span class="admin-nav-label">AI Assistant</span>
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="admin-section">
+        <div class="container">
+            <div class="dashboard-welcome">
+                <h1 data-i18n="admin_dashboard">Admin Dashboard</h1>
+                <p data-i18n="platform_overview_management">Platform overview and management</p>
+            </div>
+
+            <div class="admin-card mb-4" id="profileCard">
+                <div class="profile-summary">
+                    <div id="adminPhoto"></div>
+                    <div>
+                        <h1 id="adminName">Loading...</h1>
+                    <div class="doctor-meta" data-i18n="administrator">Administrator</div>
+                    <div class="doctor-meta" id="adminEmail"></div>
+                    <div class="doctor-meta" id="adminLastLogin"></div>
+                </div>
+                    <a href="/admin/profile" class="btn btn-outline btn-sm" style="margin-left:auto;" data-i18n="view_profile">View Profile</a>
+                </div>
+            </div>
+
+            <div class="admin-card mb-4">
+                <div class="toolbar" style="margin-bottom:0;">
+                    <input type="search" id="globalSearch" class="form-control search-input" placeholder="Search doctors, patients, appointments, consultations, reports..." data-i18n-placeholder="search_users" aria-label="Global search" autocomplete="off">
+                </div>
+                <div id="searchResults"></div>
+            </div>
+
+            <div class="stats-grid mt-4" id="statsGrid">
+                <a href="/admin/doctors" class="stat-card stat-card-link"><div class="stat-title"><span data-i18n="total_doctors">Total Doctors</span></div><div class="stat-value" id="statTotalDoctors">-</div><span class="stat-hint" data-i18n="manage_doctors_hint">Manage doctors &rarr;</span></a>
+                <a href="/admin/patients" class="stat-card stat-card-link"><div class="stat-title"><span data-i18n="total_patients">Total Patients</span></div><div class="stat-value" id="statTotalPatients">-</div><span class="stat-hint" data-i18n="manage_patients_hint">Manage patients &rarr;</span></a>
+                <a href="/admin/doctors?status=active" class="stat-card stat-card-link"><div class="stat-title"><span data-i18n="active_doctors">Active Doctors</span></div><div class="stat-value" id="statActiveDoctors">-</div><span class="stat-hint" data-i18n="view_active_hint">View active &rarr;</span></a>
+                <a href="/admin/doctors?status=blocked" class="stat-card stat-card-link"><div class="stat-title"><span data-i18n="blocked_doctors">Blocked Doctors</span></div><div class="stat-value" id="statBlockedDoctors">-</div><span class="stat-hint" data-i18n="view_blocked_hint">View blocked &rarr;</span></a>
+                <a href="/admin/doctors?status=deactivated" class="stat-card stat-card-link"><div class="stat-title"><span data-i18n="deactivated_doctors">Deactivated Doctors</span></div><div class="stat-value" id="statDeactivatedDoctors">-</div><span class="stat-hint" data-i18n="view_deactivated_hint">View deactivated &rarr;</span></a>
+                <a href="/admin/doctors?status=deleted" class="stat-card stat-card-link"><div class="stat-title"><span data-i18n="deleted_doctors">Deleted Doctors</span></div><div class="stat-value" id="statDeletedDoctors">-</div><span class="stat-hint" data-i18n="view_deleted_hint">View deleted &rarr;</span></a>
+                <a href="/admin/patients?status=active" class="stat-card stat-card-link"><div class="stat-title"><span data-i18n="active_patients">Active Patients</span></div><div class="stat-value" id="statActivePatients">-</div><span class="stat-hint" data-i18n="view_active_hint">View active &rarr;</span></a>
+                <a href="/admin/patients?status=blocked" class="stat-card stat-card-link"><div class="stat-title"><span data-i18n="blocked_patients">Blocked Patients</span></div><div class="stat-value" id="statBlockedPatients">-</div><span class="stat-hint" data-i18n="view_blocked_hint">View blocked &rarr;</span></a>
+                <a href="/admin/patients?status=deactivated" class="stat-card stat-card-link"><div class="stat-title"><span data-i18n="deactivated_patients">Deactivated Patients</span></div><div class="stat-value" id="statDeactivatedPatients">-</div><span class="stat-hint" data-i18n="view_deactivated_hint">View deactivated &rarr;</span></a>
+                <a href="/admin/patients?status=deleted" class="stat-card stat-card-link"><div class="stat-title"><span data-i18n="deleted_patients">Deleted Patients</span></div><div class="stat-value" id="statDeletedPatients">-</div><span class="stat-hint" data-i18n="view_deleted_hint">View deleted &rarr;</span></a>
+                <div class="stat-card"><div class="stat-title"><span data-i18n="total_admins">Total Admins</span></div><div class="stat-value" id="statTotalAdmins">-</div><span class="stat-hint" data-i18n="administrators">Administrators</span></div>
+                <div class="stat-card"><div class="stat-title"><span data-i18n="total_users">Total Users</span></div><div class="stat-value" id="statTotalUsers">-</div><span class="stat-hint" data-i18n="all_registered_accounts">All registered accounts</span></div>
+                <a href="/admin/appointments" class="stat-card stat-card-link"><div class="stat-title"><span data-i18n="total_appointments">Total Appointments</span></div><div class="stat-value" id="statTotalAppointments">-</div><span class="stat-hint" data-i18n="all_appointments_hint">All appointments &rarr;</span></a>
+                <a href="/admin/appointments?filter=pending" class="stat-card stat-card-link"><div class="stat-title"><span data-i18n="pending_appointments">Pending Appointments</span></div><div class="stat-value" id="statPendingAppointments">-</div><span class="stat-hint" data-i18n="awaiting_confirmation">Awaiting confirmation &rarr;</span></a>
+                <a href="/admin/consultations?status=completed" class="stat-card stat-card-link"><div class="stat-title"><span data-i18n="completed_consultations">Completed Consultations</span></div><div class="stat-value" id="statCompletedConsultations">-</div><span class="stat-hint" data-i18n="successfully_completed">Successfully completed &rarr;</span></a>
+                <a href="/admin/reports" class="stat-card stat-card-link"><div class="stat-title"><span data-i18n="total_reports">Total Reports</span></div><div class="stat-value" id="statTotalReports">-</div><span class="stat-hint" data-i18n="manage_reports_hint">Manage reports &rarr;</span></a>
+            </div>
+
+            <div class="stats-grid mt-4" style="grid-template-columns: repeat(3, 1fr);" id="reportSummary">
+                <div class="stat-card"><div class="stat-title"><span data-i18n="reports_today">Reports Today</span></div><div class="stat-value" id="statReportsToday">-</div></div>
+                <div class="stat-card"><div class="stat-title"><span data-i18n="reports_this_week">Reports This Week</span></div><div class="stat-value" id="statReportsWeek">-</div></div>
+                <div class="stat-card"><div class="stat-title"><span data-i18n="reports_this_month">Reports This Month</span></div><div class="stat-value" id="statReportsMonth">-</div></div>
+            </div>
+
+            <div class="stats-grid mt-4" style="grid-template-columns: 1fr 1fr;" id="recentGrid">
+                <div class="admin-card">
+                    <div class="admin-card-header">
+                        <h2 data-i18n="recent_doctors">Recent Doctors</h2>
+                        <a href="/admin/doctors" class="btn btn-sm btn-outline"><span data-i18n="view_all">View All</span></a>
+                    </div>
+                    <div class="table-container">
+                        <table class="admin-table">
+                            <thead><tr><th data-i18n="doctor">Doctor</th><th data-i18n="specialty">Specialty</th><th data-i18n="verified">Verified</th><th data-i18n="status">Status</th><th data-i18n="registered">Registered</th><th data-i18n="actions">Actions</th></tr></thead>
+                            <tbody id="recentDoctorsBody"></tbody>
+                        </table>
+                    </div>
+                    <div id="recentDoctorsState"></div>
+                </div>
+                <div class="admin-card">
+                    <div class="admin-card-header">
+                        <h2 data-i18n="recent_patients">Recent Patients</h2>
+                        <a href="/admin/patients" class="btn btn-sm btn-outline"><span data-i18n="view_all">View All</span></a>
+                    </div>
+                    <div class="table-container">
+                        <table class="admin-table">
+                            <thead><tr><th data-i18n="patient">Patient</th><th data-i18n="registered">Registered</th><th data-i18n="status">Status</th><th data-i18n="appointments">Appointments</th><th data-i18n="actions">Actions</th></tr></thead>
+                            <tbody id="recentPatientsBody"></tbody>
+                        </table>
+                    </div>
+                    <div id="recentPatientsState"></div>
+                </div>
+                <div class="admin-card">
+                    <div class="admin-card-header">
+                        <h2 data-i18n="recent_appointments">Recent Appointments</h2>
+                        <a href="/admin/appointments" class="btn btn-sm btn-outline"><span data-i18n="view_all">View All</span></a>
+                    </div>
+                    <div class="table-container">
+                        <table class="admin-table">
+                            <thead><tr><th data-i18n="patient">Patient</th><th data-i18n="doctor">Doctor</th><th data-i18n="date">Date</th><th data-i18n="status">Status</th></tr></thead>
+                            <tbody id="recentAppointmentsBody"></tbody>
+                        </table>
+                    </div>
+                    <div id="recentAppointmentsState"></div>
+                </div>
+                <div class="admin-card">
+                    <div class="admin-card-header">
+                        <h2 data-i18n="recent_consultations">Recent Consultations</h2>
+                        <a href="/admin/consultations" class="btn btn-sm btn-outline"><span data-i18n="view_all">View All</span></a>
+                    </div>
+                    <div class="table-container">
+                        <table class="admin-table">
+                            <thead><tr><th data-i18n="patient">Patient</th><th data-i18n="doctor">Doctor</th><th data-i18n="date">Date</th><th data-i18n="status">Status</th></tr></thead>
+                            <tbody id="recentConsultationsBody"></tbody>
+                        </table>
+                    </div>
+                    <div id="recentConsultationsState"></div>
+                </div>
+                <div class="admin-card">
+                    <div class="admin-card-header">
+                        <h2 data-i18n="recent_reports">Recent Reports</h2>
+                        <a href="/admin/reports" class="btn btn-sm btn-outline"><span data-i18n="view_all">View All</span></a>
+                    </div>
+                    <div class="table-container">
+                        <table class="admin-table">
+                            <thead><tr><th data-i18n="patient">Patient</th><th data-i18n="report">Report</th><th data-i18n="type">Type</th><th data-i18n="date">Date</th></tr></thead>
+                            <tbody id="recentReportsBody"></tbody>
+                        </table>
+                    </div>
+                    <div id="recentReportsState"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script src="/js/i18n.js?v=2.2"></script>
+    <script src="/js/main.js?v=2.1"></script>
+    <script>
+        const t = function(key) { return typeof ShrijalI18n !== 'undefined' ? ShrijalI18n.t(key) : key; };
+        let searchTimer = null;
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!bootPage('dashboard', ['admin'])) return;
+            loadProfile();
+            loadStats();
+
+            const search = document.getElementById('globalSearch');
+            search.addEventListener('input', function () {
+                clearTimeout(searchTimer);
+                const q = search.value.trim();
+                if (q.length < 2) {
+                    document.getElementById('searchResults').innerHTML = '';
+                    return;
+                }
+                searchTimer = setTimeout(() => runGlobalSearch(q), 350);
+            });
+            search.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') runGlobalSearch(search.value.trim());
+            });
+        });
+
+        async function loadProfile() {
+            try {
+                const data = await api('/admin/profile');
+                const u = data.user;
+                document.getElementById('adminName').textContent = u.full_name || t('administrator');
+                document.getElementById('adminEmail').textContent = u.email || '';
+                document.getElementById('adminLastLogin').textContent = t('last_login') + ': ' + (u.lastLoginAt ? formatDateTime(u.lastLoginAt) : t('never'));
+                document.getElementById('adminPhoto').innerHTML = avatarHtml(u.full_name, u.photo, 'lg');
+            } catch (err) {
+                document.getElementById('adminName').textContent = t('administrator');
+            }
+        }
+
+        async function loadStats() {
+            try {
+                const s = await api('/admin/dashboard/stats');
+                document.getElementById('statTotalDoctors').textContent = s.total_doctors;
+                document.getElementById('statTotalPatients').textContent = s.total_patients;
+                document.getElementById('statTotalAdmins').textContent = s.total_admins;
+                document.getElementById('statTotalUsers').textContent = s.total_users;
+                document.getElementById('statActiveDoctors').textContent = s.active_doctors;
+                document.getElementById('statBlockedDoctors').textContent = s.blocked_doctors;
+                document.getElementById('statDeactivatedDoctors').textContent = s.deactivated_doctors;
+                document.getElementById('statDeletedDoctors').textContent = s.deleted_doctors;
+                document.getElementById('statActivePatients').textContent = s.active_patients;
+                document.getElementById('statBlockedPatients').textContent = s.blocked_patients;
+                document.getElementById('statDeactivatedPatients').textContent = s.deactivated_patients;
+                document.getElementById('statDeletedPatients').textContent = s.deleted_patients;
+                document.getElementById('statTotalAppointments').textContent = s.total_appointments;
+                document.getElementById('statPendingAppointments').textContent = s.pending_appointments;
+                document.getElementById('statCompletedConsultations').textContent = s.completed_consultations;
+                document.getElementById('statTotalReports').textContent = s.total_reports;
+                document.getElementById('statReportsToday').textContent = s.reports_today;
+                document.getElementById('statReportsWeek').textContent = s.reports_week;
+                document.getElementById('statReportsMonth').textContent = s.reports_month;
+                renderRecentDoctors(s.recent_doctors);
+                renderRecentPatients(s.recent_patients);
+                renderRecentAppointments(s.recent_appointments);
+                renderRecentConsultations(s.recent_consultations);
+                renderRecentReports(s.recent_reports);
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+
+        function renderRecentDoctors(list) {
+            const tbody = document.getElementById('recentDoctorsBody');
+            const state = document.getElementById('recentDoctorsState');
+            tbody.innerHTML = ''; state.innerHTML = '';
+            if (!list || !list.length) { showEmptyState(state, t('no_doctors_registered')); return; }
+            tbody.innerHTML = list.map(d => `
+                <tr>
+                    <td><strong>${escapeHtml(d.full_name)}</strong></td>
+                    <td>${escapeHtml(d.specialty || 'N/A')}</td>
+                    <td>${d.verified ? '<span class="status-badge status-verified">' + t('verified') + '</span>' : '<span class="status-badge status-unverified">' + t('unverified') + '</span>'}</td>
+                    <td>${accountBadge(d.accountStatus)}</td>
+                    <td>${formatDate(d.created_at)}</td>
+                    <td><a href="/admin/doctors" class="btn btn-sm btn-outline">${t('view')}</a></td>
+                </tr>`).join('');
+        }
+
+        function renderRecentPatients(list) {
+            const tbody = document.getElementById('recentPatientsBody');
+            const state = document.getElementById('recentPatientsState');
+            tbody.innerHTML = ''; state.innerHTML = '';
+            if (!list || !list.length) { showEmptyState(state, t('no_patients_registered')); return; }
+            tbody.innerHTML = list.map(p => `
+                <tr>
+                    <td><strong>${escapeHtml(p.full_name)}</strong></td>
+                    <td>${formatDate(p.created_at)}</td>
+                    <td>${accountBadge(p.accountStatus)}</td>
+                    <td>${p.appointment_count || 0}</td>
+                    <td><a href="/admin/patients" class="btn btn-sm btn-outline">${t('view')}</a></td>
+                </tr>`).join('');
+        }
+
+        function renderRecentAppointments(list) {
+            const tbody = document.getElementById('recentAppointmentsBody');
+            const state = document.getElementById('recentAppointmentsState');
+            tbody.innerHTML = ''; state.innerHTML = '';
+            if (!list || !list.length) { showEmptyState(state, t('no_appointments_yet')); return; }
+            tbody.innerHTML = list.map(a => `
+                <tr>
+                    <td>${escapeHtml(a.patient_name || 'N/A')}</td>
+                    <td>${escapeHtml(a.doctor_name || 'N/A')}</td>
+                    <td>${formatDate(a.date)}</td>
+                    <td>${statusBadge(a.status)}</td>
+                </tr>`).join('');
+        }
+
+        function renderRecentConsultations(list) {
+            const tbody = document.getElementById('recentConsultationsBody');
+            const state = document.getElementById('recentConsultationsState');
+            tbody.innerHTML = ''; state.innerHTML = '';
+            if (!list || !list.length) { showEmptyState(state, t('no_consultations_yet')); return; }
+            tbody.innerHTML = list.map(c => `
+                <tr>
+                    <td>${escapeHtml(c.patient_name || 'N/A')}</td>
+                    <td>${escapeHtml(c.doctor_name || 'N/A')}</td>
+                    <td>${formatDate(c.date)}</td>
+                    <td>${statusBadge(c.status)}</td>
+                </tr>`).join('');
+        }
+
+        function renderRecentReports(list) {
+            const tbody = document.getElementById('recentReportsBody');
+            const state = document.getElementById('recentReportsState');
+            tbody.innerHTML = ''; state.innerHTML = '';
+            if (!list || !list.length) { showEmptyState(state, t('no_reports_uploaded_yet')); return; }
+            tbody.innerHTML = list.map(r => `
+                <tr>
+                    <td>${escapeHtml(r.patient_name || 'N/A')}</td>
+                    <td>${escapeHtml(r.file_name || 'N/A')}</td>
+                    <td>${escapeHtml(r.report_type || 'General')}</td>
+                    <td>${formatDateTime(r.created_at)}</td>
+                </tr>`).join('');
+        }
+
+        function accountBadge(status) {
+            const cls = 'status-' + (status || 'active');
+            return `<span class="status-badge ${cls}" style="text-transform: capitalize;">${escapeHtml(status || 'active')}</span>`;
+        }
+
+        async function runGlobalSearch(q) {
+            const container = document.getElementById('searchResults');
+            container.innerHTML = '<div class="state-block"><span class="spinner" aria-hidden="true"></span><p>' + t('searching') + '</p></div>';
+            try {
+                const r = await api('/admin/search?q=' + encodeURIComponent(q));
+                if (!r.doctors.length && !r.patients.length && !r.appointments.length && !r.consultations.length && !r.reports.length) {
+                    showEmptyState(container, t('no_results_found') + ' "' + escapeHtml(q) + '".');
+                    return;
+                }
+                let html = '<div class="search-results">';
+                if (r.doctors.length) {
+                    html += '<div class="search-group"><div class="search-group-title">' + t('doctors_label') + '</div>' +
+                        r.doctors.map(d => `<a href="/admin/doctors" class="search-item"><strong>${escapeHtml(d.full_name)}</strong> <span>${escapeHtml(d.specialty || 'Doctor')}</span></a>`).join('') + '</div>';
+                }
+                if (r.patients.length) {
+                    html += '<div class="search-group"><div class="search-group-title">' + t('patients_label') + '</div>' +
+                        r.patients.map(p => `<a href="/admin/patients" class="search-item"><strong>${escapeHtml(p.full_name)}</strong> <span>${escapeHtml(p.email || '')}</span></a>`).join('') + '</div>';
+                }
+                if (r.appointments.length) {
+                    html += '<div class="search-group"><div class="search-group-title">' + t('appointments_label') + '</div>' +
+                        r.appointments.map(a => `<a href="/admin/appointments" class="search-item"><strong>${escapeHtml(a.patient_name)}</strong> <span>${t('with_doctor')} ${escapeHtml(a.doctor_name)} &middot; ${formatDate(a.date)}</span></a>`).join('') + '</div>';
+                }
+                if (r.consultations.length) {
+                    html += '<div class="search-group"><div class="search-group-title">' + t('consultations_label') + '</div>' +
+                        r.consultations.map(c => `<a href="/admin/consultations" class="search-item"><strong>${escapeHtml(c.patient_name)}</strong> <span>${t('with_doctor')} ${escapeHtml(c.doctor_name)} &middot; ${formatDate(c.date)}</span></a>`).join('') + '</div>';
+                }
+                if (r.reports.length) {
+                    html += '<div class="search-group"><div class="search-group-title">' + t('reports_label2') + '</div>' +
+                        r.reports.map(x => `<a href="/admin/reports" class="search-item"><strong>${escapeHtml(x.patient_name)}</strong> <span>${escapeHtml(x.file_name || x.report_type || t('report'))}</span></a>`).join('') + '</div>';
+                }
+                html += '</div>';
+                container.innerHTML = html;
+            } catch (err) {
+                showErrorState(container, 'Unable to search. ' + err.message, 'runGlobalSearch');
+            }
+        }
+    </script>
+</body>
+</html>

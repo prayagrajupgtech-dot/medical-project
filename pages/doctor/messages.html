@@ -1,0 +1,338 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Messages - AI Doctor Assistant</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Admin Header -->
+    <header class="admin-header">
+        <div class="container">
+            <div class="admin-header-content">
+                <div class="admin-brand">
+                    <img src="/favicon.png" alt="AI Doctor Assistant">
+                    <span>AI Doctor Assistant - Dashboard</span>
+                </div>
+                <div class="admin-user">
+                    <span id="userDisplay">Dr. Sarah Johnson</span>
+                    <button class="btn btn-sm btn-outline" onclick="logout()"><span data-i18n="logout">Logout</span></button>
+                    <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">??</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="admin-nav" aria-label="Main navigation">
+        <div class="container">
+            <button class="admin-nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul>
+                <li><a href="/doctor/dashboard" data-nav="dashboard" data-i18n="dashboard">Dashboard</a></li>
+                <li><a href="/doctor/patients" data-nav="patients" data-i18n="patients">Patients</a></li>
+                <li><a href="/doctor/consultations" data-nav="consultations" data-i18n="consultations">Consultations</a></li>
+                <li><a href="/doctor/appointments" data-nav="appointments" data-i18n="appointments">Appointments</a></li>
+                <li><a href="/doctor/messages" data-nav="messages" class="active" aria-current="page" data-i18n="messages">Messages</a></li>
+                <li><a href="/doctor/reports" data-nav="reports" data-i18n="reports">Reports</a></li>
+                <li><a href="/doctor/profile" data-nav="profile" data-i18n="profile">Profile</a></li>
+                <li><a href="/doctor/settings" data-nav="settings" data-i18n="settings">Settings</a></li>
+                <li><a href="/doctor/ai-assistant" class="admin-nav-item" data-page="ai-assistant" data-i18n="ai_assistant">
+                    <span class="admin-nav-icon">??</span>
+                    <span class="admin-nav-label">AI Assistant</span>
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Messages Section -->
+    <section class="admin-section">
+        <div class="container">
+            <div class="dashboard-welcome">
+                <div class="d-flex justify-between align-center" style="flex-wrap: wrap; gap: 12px;">
+                    <div>
+                        <h1>Messages</h1>
+                        <p>Communicate with your patients</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="showComposeModal()">Compose Message</button>
+                </div>
+            </div>
+
+            <div class="chat-layout mt-4">
+                <!-- Conversation list -->
+                <div class="chat-conversations" id="conversationPanel">
+                    <div class="chat-conversations-header">
+                        <input type="search" id="conversationSearch" class="form-control" placeholder="Search conversations..." aria-label="Search conversations">
+                        <label style="display:flex; align-items:center; gap:8px; margin-top:10px; font-size:0.85rem; cursor:pointer;">
+                            <input type="checkbox" id="unreadOnly" style="width:auto;"> Unread only
+                        </label>
+                    </div>
+                    <div id="conversationList"></div>
+                </div>
+
+                <!-- Chat panel -->
+                <div class="chat-panel" id="chatPanel">
+                    <div class="chat-panel-header" id="chatHeader">
+                        <strong id="chatPeerName">Select a conversation</strong>
+                        <button class="btn btn-sm btn-outline" id="chatProfileBtn" style="display:none;" onclick="openPeerProfile()">View profile</button>
+                    </div>
+                    <div class="chat-thread" id="chatThread">
+                        <div class="chat-empty">Select a conversation to start messaging.</div>
+                    </div>
+                    <div class="chat-input" id="chatInputBar" style="display:none;">
+                        <textarea id="replyBody" class="form-control" rows="2" placeholder="Type a message..." aria-label="Message text"></textarea>
+                        <button class="btn btn-primary" id="sendReplyBtn" onclick="sendReply()">Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Compose Modal -->
+    <div class="modal" id="composeModal" role="dialog" aria-modal="true" aria-labelledby="composeTitle">
+        <div class="modal-content" style="max-width: 600px; text-align: left;">
+            <div class="modal-header">
+                <h3 id="composeTitle">Compose Message</h3>
+                <button class="btn btn-sm btn-outline" onclick="hideModal('composeModal')" aria-label="Close">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="recipient">To</label>
+                    <select id="recipient" class="form-control" aria-label="Recipient">
+                        <option value="">Select recipient</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="subject">Subject</label>
+                    <input type="text" id="subject" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label for="priority">Priority</label>
+                    <select id="priority" class="form-control" aria-label="Priority">
+                        <option value="normal">Normal</option>
+                        <option value="high">High</option>
+                        <option value="urgent">Urgent</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="composeBody">Message</label>
+                    <textarea id="composeBody" rows="5" class="form-control"></textarea>
+                </div>
+            </div>
+            <div class="modal-actions" style="justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="hideModal('composeModal')">Cancel</button>
+                <button class="btn btn-primary" id="composeSendBtn" onclick="sendCompose()">Send Message</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/i18n.js?v=2.2"></script>
+    <script src="/js/main.js?v=2.1"></script>
+    <script>
+        let conversations = [];
+        let currentPeer = null;
+        let currentUserId = null;
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!bootPage('messages', ['doctor', 'admin'])) return;
+
+            currentUserId = getUser().id;
+
+            document.getElementById('conversationSearch').addEventListener('input', renderConversations);
+            document.getElementById('unreadOnly').addEventListener('change', renderConversations);
+
+            loadConversations();
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const to = urlParams.get('to');
+            const filter = urlParams.get('filter');
+            if (to) {
+                openConversation(Number(to));
+            } else if (filter === 'unread') {
+                loadConversations().then(() => {
+                    const firstUnread = conversations.find(c => c.unread_count > 0);
+                    if (firstUnread) openConversation(firstUnread.peer_id);
+                });
+            }
+        });
+
+        async function loadConversations() {
+            try {
+                conversations = await api('/messages/conversations');
+                renderConversations();
+                return conversations;
+            } catch (err) {
+                document.getElementById('conversationList').innerHTML = '';
+                showErrorState(document.getElementById('conversationList'), 'Unable to load messages. Please try again.', 'loadConversations');
+            }
+        }
+
+        function renderConversations() {
+            const listEl = document.getElementById('conversationList');
+            listEl.innerHTML = '';
+
+            const search = document.getElementById('conversationSearch').value.trim().toLowerCase();
+            const unreadOnly = document.getElementById('unreadOnly').checked;
+
+            let items = conversations.filter(c => {
+                const matchesSearch = !search || (c.peer_name || '').toLowerCase().includes(search);
+                const matchesUnread = !unreadOnly || c.unread_count > 0;
+                return matchesSearch && matchesUnread;
+            });
+
+            if (!items.length) {
+                showEmptyState(listEl, unreadOnly ? 'No unread conversations.' : 'No conversations yet. Compose your first message.');
+                return;
+            }
+
+            items.forEach(c => {
+                const btn = document.createElement('button');
+                btn.className = 'chat-conversation-item' + (currentPeer === c.peer_id ? ' active' : '');
+                btn.setAttribute('aria-label', 'Open conversation with ' + (c.peer_name || 'unknown'));
+                btn.innerHTML = `
+                    <span class="chat-avatar">${escapeHtml((c.peer_name || '?').charAt(0).toUpperCase())}</span>
+                    <span class="chat-conversation-body">
+                        <span class="chat-conversation-name">
+                            <span>${escapeHtml(c.peer_name || 'Unknown')}</span>
+                            <span class="chat-conversation-time">${formatDateTime(c.last_at)}</span>
+                        </span>
+                        <span class="chat-conversation-preview">
+                            <span>${escapeHtml(c.last_message || c.last_subject || '')}</span>
+                            ${c.unread_count > 0 ? `<span class="unread-badge">${c.unread_count}</span>` : ''}
+                        </span>
+                    </span>
+                `;
+                btn.addEventListener('click', () => openConversation(c.peer_id));
+                listEl.appendChild(btn);
+            });
+        }
+
+        async function openConversation(peerId) {
+            currentPeer = peerId;
+            document.getElementById('chatPeerName').textContent = 'Chat';
+            document.getElementById('chatThread').innerHTML = '<div class="chat-empty">Loading conversation...</div>';
+            document.getElementById('chatInputBar').style.display = 'none';
+            document.getElementById('chatProfileBtn').style.display = 'none';
+
+            try {
+                const messages = await api('/messages?conversation_with=' + peerId);
+
+                const peer = conversations.find(c => c.peer_id === peerId);
+                const peerName = peer ? peer.peer_name : 'Patient ' + peerId;
+                document.getElementById('chatPeerName').textContent = peerName;
+                document.getElementById('chatProfileBtn').style.display = 'inline-block';
+
+                const thread = document.getElementById('chatThread');
+                if (!messages.length) {
+                    thread.innerHTML = '<div class="chat-empty">No messages in this conversation yet. Say hello!</div>';
+                } else {
+                    thread.innerHTML = messages.map(m => {
+                        const mine = m.sender_id === currentUserId;
+                        return `
+                            <div class="chat-message ${mine ? 'mine' : 'theirs'}">
+                                ${escapeHtml(m.body)}
+                                <div class="chat-meta">${mine ? 'You' : escapeHtml(m.sender_name)} · ${formatDateTime(m.created_at)}${m.subject ? ' · ' + escapeHtml(m.subject) : ''}</div>
+                            </div>`;
+                    }).join('');
+                }
+
+                // Mark incoming messages as read
+                const unread = messages.filter(m => m.recipient_id === currentUserId && !m.is_read);
+                for (const m of unread) {
+                    try { await api('/messages/' + m.id + '/read', 'PUT'); } catch (e) { /* ignore */ }
+                }
+                if (unread.length) {
+                    showToast(unread.length + ' message' + (unread.length > 1 ? 's' : '') + ' marked as read', 'info');
+                    loadConversations();
+                }
+
+                document.getElementById('chatInputBar').style.display = 'flex';
+                thread.scrollTop = thread.scrollHeight;
+            } catch (err) {
+                document.getElementById('chatThread').innerHTML = '';
+                showErrorState(document.getElementById('chatThread'), 'Unable to load conversation. Please try again.', 'openConversation(' + peerId + ')');
+            }
+        }
+
+        function openPeerProfile() {
+            if (currentPeer) {
+                window.location.href = '/doctor/patients/' + currentPeer;
+            }
+        }
+
+        async function sendReply() {
+            const body = document.getElementById('replyBody').value.trim();
+            if (!body || !currentPeer) return;
+
+            const btn = document.getElementById('sendReplyBtn');
+            btn.disabled = true;
+            try {
+                await api('/messages', 'POST', { recipient_id: currentPeer, body });
+                document.getElementById('replyBody').value = '';
+                showToast('Message sent');
+                await openConversation(currentPeer);
+                await loadConversations();
+                btn.disabled = false;
+            } catch (err) {
+                showToast(err.message, 'error');
+                btn.disabled = false;
+            }
+        }
+
+        document.getElementById('replyBody').addEventListener('keydown', function (e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendReply();
+            }
+        });
+
+        function showComposeModal() {
+            const select = document.getElementById('recipient');
+            select.innerHTML = '<option value="">Loading recipients...</option>';
+            api('/patients')
+                .then(patients => {
+                    select.innerHTML = '<option value="">Select recipient</option>' +
+                        patients.map(p => `<option value="${p.user_id}">${escapeHtml(p.full_name)}</option>`).join('');
+                    document.getElementById('subject').value = '';
+                    document.getElementById('composeBody').value = '';
+                    document.getElementById('priority').value = 'normal';
+                    showModal('composeModal');
+                })
+                .catch(err => showToast(err.message, 'error'));
+        }
+
+        async function sendCompose() {
+            const btn = document.getElementById('composeSendBtn');
+            const recipientId = document.getElementById('recipient').value;
+            const body = document.getElementById('composeBody').value.trim();
+
+            if (!recipientId || !body) {
+                showToast('Recipient and message are required', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            try {
+                await api('/messages', 'POST', {
+                    recipient_id: recipientId,
+                    subject: document.getElementById('subject').value.trim(),
+                    body,
+                    priority: document.getElementById('priority').value
+                });
+                showToast('Message sent');
+                hideModal('composeModal');
+                await loadConversations();
+                openConversation(Number(recipientId));
+                btn.disabled = false;
+            } catch (err) {
+                showToast(err.message, 'error');
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

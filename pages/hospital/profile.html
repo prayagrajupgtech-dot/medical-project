@@ -1,0 +1,123 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Profile - Hospital Portal</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="portal">
+        <nav class="sidebar" id="sidebar">
+            <div class="sidebar-header"><img src="/images/brand-logo.svg" alt="Logo" class="sidebar-logo"><span class="sidebar-brand">Hospital Portal</span></div>
+            <ul class="sidebar-nav">
+                <li><a href="/hospital/dashboard">Dashboard</a></li>
+                <li><a href="/hospital/doctors">Doctors</a></li>
+                <li><a href="/hospital/join-requests">Join Requests</a></li>
+                <li><a href="/hospital/departments">Departments</a></li>
+                <li><a href="/hospital/patients">Patients</a></li>
+                <li><a href="/hospital/staff">Staff</a></li>
+                <li><a href="/hospital/profile" class="active">Hospital Profile</a></li>
+                <li><a href="/hospital/notifications">Notifications</a></li>
+                <li><a href="/hospital/settings">Settings</a></li>
+            </ul>
+            <div class="sidebar-footer"><button class="btn btn-sm btn-outline btn-block" onclick="logout()">Sign Out</button></div>
+        </nav>
+        <main class="main-content">
+            <header class="topbar"><button class="menu-toggle" onclick="toggleSidebar()">☰</button><h1>Hospital Profile</h1><div class="topbar-actions"><button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button></div></header>
+            <div class="content">
+                <div class="card">
+                    <div class="card-header"><h3>Profile Information</h3></div>
+                    <div class="card-body" id="profileInfo"><p class="text-muted">Loading...</p></div>
+                </div>
+                <div class="card hidden" id="profileForm">
+                    <div class="card-header"><h3>Edit Profile</h3></div>
+                    <div class="card-body">
+                        <div class="form-group"><label>Hospital ID</label><input type="text" id="profileHospitalId" class="form-control" disabled></div>
+                        <div class="form-group"><label>Verification Status</label><input type="text" id="profileVerification" class="form-control" disabled></div>
+                        <div class="form-group"><label>Name *</label><input type="text" id="profileName" class="form-control" required></div>
+                        <div class="form-group"><label>Type</label><input type="text" id="profileType" class="form-control"></div>
+                        <div class="form-group"><label>License Number</label><input type="text" id="profileLicense" class="form-control"></div>
+                        <div class="form-group"><label>Address</label><input type="text" id="profileAddress" class="form-control"></div>
+                        <div class="form-group"><label>City</label><input type="text" id="profileCity" class="form-control"></div>
+                        <div class="form-group"><label>State</label><input type="text" id="profileState" class="form-control"></div>
+                        <div class="form-group"><label>Pincode</label><input type="text" id="profilePincode" class="form-control"></div>
+                        <div class="form-group"><label>Phone</label><input type="text" id="profilePhone" class="form-control"></div>
+                        <div class="form-group"><label>Email</label><input type="email" id="profileEmail" class="form-control"></div>
+                        <button class="btn btn-primary" onclick="saveProfile()">Save Changes</button>
+                        <button class="btn btn-outline" onclick="hideProfileForm()">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="/js/i18n.js?v=2.2"></script>
+    <script src="/js/main.js?v=2.1"></script>
+    <script>
+        var currentProfile = null;
+        document.addEventListener('DOMContentLoaded', function() {
+            bootPage('profile', ['hospital_admin']);
+            loadProfile();
+        });
+        async function loadProfile() {
+            try {
+                currentProfile = await api('/api/hospital/my-hospital');
+                var container = document.getElementById('profileInfo');
+                if (!currentProfile) { container.innerHTML = '<p class="text-muted">No profile data</p>'; return; }
+                container.innerHTML = '<table class="table"><tbody>' +
+                    '<tr><td><strong>Hospital ID</strong></td><td>' + (currentProfile.hospital_id||'-') + '</td></tr>' +
+                    '<tr><td><strong>Verification Status</strong></td><td><span class="badge badge-' + (currentProfile.verification_status === 'verified' ? 'success' : 'warning') + '">' + (currentProfile.verification_status||'pending') + '</span></td></tr>' +
+                    '<tr><td><strong>Name</strong></td><td>' + (currentProfile.name||'-') + '</td></tr>' +
+                    '<tr><td><strong>Type</strong></td><td>' + (currentProfile.type||'-') + '</td></tr>' +
+                    '<tr><td><strong>License Number</strong></td><td>' + (currentProfile.license_number||'-') + '</td></tr>' +
+                    '<tr><td><strong>Address</strong></td><td>' + (currentProfile.address||'-') + '</td></tr>' +
+                    '<tr><td><strong>City</strong></td><td>' + (currentProfile.city||'-') + '</td></tr>' +
+                    '<tr><td><strong>State</strong></td><td>' + (currentProfile.state||'-') + '</td></tr>' +
+                    '<tr><td><strong>Pincode</strong></td><td>' + (currentProfile.pincode||'-') + '</td></tr>' +
+                    '<tr><td><strong>Phone</strong></td><td>' + (currentProfile.phone||'-') + '</td></tr>' +
+                    '<tr><td><strong>Email</strong></td><td>' + (currentProfile.email||'-') + '</td></tr>' +
+                    '</tbody></table>' +
+                    '<button class="btn btn-primary" onclick="showProfileForm()">Edit Profile</button>';
+            } catch(e) { console.error(e); }
+        }
+        function showProfileForm() {
+            if (!currentProfile) return;
+            document.getElementById('profileHospitalId').value = currentProfile.hospital_id || '';
+            document.getElementById('profileVerification').value = currentProfile.verification_status || '';
+            document.getElementById('profileName').value = currentProfile.name || '';
+            document.getElementById('profileType').value = currentProfile.type || '';
+            document.getElementById('profileLicense').value = currentProfile.license_number || '';
+            document.getElementById('profileAddress').value = currentProfile.address || '';
+            document.getElementById('profileCity').value = currentProfile.city || '';
+            document.getElementById('profileState').value = currentProfile.state || '';
+            document.getElementById('profilePincode').value = currentProfile.pincode || '';
+            document.getElementById('profilePhone').value = currentProfile.phone || '';
+            document.getElementById('profileEmail').value = currentProfile.email || '';
+            document.getElementById('profileForm').classList.remove('hidden');
+        }
+        function hideProfileForm() { document.getElementById('profileForm').classList.add('hidden'); }
+        async function saveProfile() {
+            var name = document.getElementById('profileName').value.trim();
+            if (!name) { showToast('Name is required', 'error'); return; }
+            try {
+                await api('/api/hospital/my-hospital', 'PUT', {
+                    name: name,
+                    type: document.getElementById('profileType').value.trim(),
+                    license_number: document.getElementById('profileLicense').value.trim(),
+                    address: document.getElementById('profileAddress').value.trim(),
+                    city: document.getElementById('profileCity').value.trim(),
+                    state: document.getElementById('profileState').value.trim(),
+                    pincode: document.getElementById('profilePincode').value.trim(),
+                    phone: document.getElementById('profilePhone').value.trim(),
+                    email: document.getElementById('profileEmail').value.trim()
+                });
+                showToast('Profile updated');
+                hideProfileForm();
+                loadProfile();
+            } catch(e) { showToast('Error updating profile', 'error'); }
+        }
+    </script>
+</body>
+</html>

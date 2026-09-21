@@ -1,0 +1,159 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Patients - AI Doctor Assistant</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="admin-header-content">
+                <div class="admin-brand">
+                    <img src="/favicon.png" alt="AI Doctor Assistant">
+                    <span>AI Doctor Assistant - <span data-i18n="app_name">AI Doctor Assistant</span> - <span data-i18n="doctor_portal">Doctor Portal</span></span>
+                </div>
+                <div class="admin-user">
+                    <span id="userDisplay">Doctor</span>
+                    <button class="btn btn-sm btn-outline" onclick="logout()"><span data-i18n="logout">Logout</span></button>
+                    <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <nav class="admin-nav" aria-label="Main navigation">
+        <div class="container">
+            <button class="admin-nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul>
+                <li><a href="/doctor/dashboard" data-nav="dashboard" data-i18n="dashboard">Dashboard</a></li>
+                <li><a href="/doctor/patients" data-nav="patients" class="active" aria-current="page" data-i18n="patients">Patients</a></li>
+                <li><a href="/doctor/appointments" data-nav="appointments" data-i18n="appointments">Appointments</a></li>
+                <li><a href="/doctor/consultations" data-nav="consultations" data-i18n="consultations">Consultations</a></li>
+                <li><a href="/doctor/messages" data-nav="messages" data-i18n="messages">Messages</a></li>
+                <li><a href="/doctor/reports" data-nav="reports" data-i18n="reports">Reports</a></li>
+                <li><a href="/doctor/profile" data-nav="profile" data-i18n="profile">Profile</a></li>
+                <li><a href="/doctor/settings" data-nav="settings" data-i18n="settings">Settings</a></li>
+                <li><a href="/doctor/ai-assistant" class="admin-nav-item" data-page="ai-assistant" data-i18n="ai_assistant">
+                    <span class="admin-nav-icon">🤖</span>
+                    <span class="admin-nav-label">AI Assistant</span>
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="admin-section">
+        <div class="container">
+            <div class="dashboard-welcome">
+                <h1 data-i18n="my_patients">My Patients</h1>
+                <p data-i18n="patients_connected_desc">Patients connected to you through consultations or appointments</p>
+            </div>
+
+            <div class="admin-card">
+                <div class="toolbar" role="search">
+                    <input type="search" id="searchInput" class="form-control search-input" data-i18n-placeholder="search_by_name_email_phone" placeholder="Search by name, email or phone..." aria-label="Search patients">
+                </div>
+                <div class="table-container">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th data-i18n="patient">Patient</th>
+                                <th data-i18n="age">Age</th>
+                                <th data-i18n="gender">Gender</th>
+                                <th data-i18n="last_appointment">Last Appointment</th>
+                                <th data-i18n="appointment_status">Appointment Status</th>
+                                <th data-i18n="consultation_status">Consultation Status</th>
+                                <th data-i18n="actions">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="patientsList"></tbody>
+                    </table>
+                    <div id="patientsState"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script src="/js/i18n.js?v=2.2"></script>
+    <script src="/js/main.js?v=2.1"></script>
+    <script>
+        const t = function(key) { return typeof ShrijalI18n !== 'undefined' ? ShrijalI18n.t(key) : key; };
+        let allPatients = [];
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!bootPage('patients', ['doctor'])) return;
+
+            document.getElementById('searchInput').addEventListener('input', renderPatients);
+            showSkeleton(document.getElementById('patientsList'), 4, 7);
+            loadPatients();
+        });
+
+        async function loadPatients() {
+            try {
+                allPatients = await api('/doctors/me/patients');
+                renderPatients();
+            } catch (err) {
+                document.getElementById('patientsList').innerHTML = '';
+                showErrorState(document.getElementById('patientsState'), t('unable_to_load_patients') + ' ' + err.message, 'loadPatients');
+            }
+        }
+
+        function calcAge(dob) {
+            if (!dob) return null;
+            const birth = new Date(dob);
+            if (isNaN(birth.getTime())) return null;
+            return Math.floor((Date.now() - birth.getTime()) / (1000 * 60 * 60 * 24 * 365.25));
+        }
+
+        function renderPatients() {
+            const tbody = document.getElementById('patientsList');
+            const state = document.getElementById('patientsState');
+            tbody.innerHTML = '';
+            state.innerHTML = '';
+
+            const search = document.getElementById('searchInput').value.trim().toLowerCase();
+            let list = allPatients.filter(p => {
+                if (!search) return true;
+                return [p.full_name, p.email, p.phone, p.username].filter(Boolean).join(' ').toLowerCase().includes(search);
+            });
+
+            if (!list.length) {
+                showEmptyState(state, allPatients.length ? t('no_patients_match') : t('no_patients_yet'));
+                return;
+            }
+
+            tbody.innerHTML = list.map((p, idx) => {
+                const age = calcAge(p.date_of_birth);
+                return `
+                    <tr>
+                        <td>
+                            <div style="display:flex; align-items:center; gap:10px;">
+                                ${avatarHtml(p.full_name, p.photo, 'sm')}
+                                <a href="/doctor/patients/${p.user_id}"><strong>${escapeHtml(p.full_name || t('unknown'))}</strong></a>
+                            </div>
+                        </td>
+                        <td>${age ? age + ' yrs' : 'N/A'}</td>
+                        <td>${escapeHtml((p.gender || 'N/A').charAt(0).toUpperCase() + (p.gender || 'n/a').slice(1))}</td>
+                        <td>${p.last_appointment_date ? formatDate(p.last_appointment_date) : t('never')}</td>
+                        <td>${p.appointment_status ? statusBadge(p.appointment_status) : '<span class="text-muted">' + t('none') + '</span>'}</td>
+                        <td>${p.consultation_status ? statusBadge(p.consultation_status) : '<span class="text-muted">' + t('none') + '</span>'}</td>
+                        <td>
+                            <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                                <a href="/doctor/patients/${p.user_id}" class="btn btn-sm btn-outline">${t('view_profile')}</a>
+                                <a href="/doctor/consultations?new_patient=${p.user_id}" class="btn btn-sm btn-primary">${t('consult')}</a>
+                                <a href="/doctor/messages?to=${p.user_id}" class="btn btn-sm btn-outline">${t('send_message')}</a>
+                                <a href="/doctor/reports" class="btn btn-sm btn-outline">${t('reports')}</a>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+        }
+    </script>
+</body>
+</html>

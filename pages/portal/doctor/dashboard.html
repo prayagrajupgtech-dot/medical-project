@@ -1,0 +1,196 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor Dashboard - AI Doctor Assistant</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="admin-header-content">
+                <div class="admin-brand">
+                    <img src="/favicon.png" alt="AI Doctor Assistant">
+                    <span>AI Doctor Assistant - <span data-i18n="app_name">AI Doctor Assistant</span> - <span data-i18n="doctor_portal">Doctor Portal</span></span>
+                </div>
+                <div class="admin-user">
+                    <span id="userDisplay">Doctor</span>
+                    <button class="btn btn-sm btn-outline" onclick="logout()"><span data-i18n="logout">Logout</span></button>
+                    <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <nav class="admin-nav" aria-label="Main navigation">
+        <div class="container">
+            <button class="admin-nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul>
+                <li><a href="/doctor/dashboard" data-nav="dashboard" class="active" aria-current="page" data-i18n="dashboard">Dashboard</a></li>
+                <li><a href="/doctor/patients" data-nav="patients" data-i18n="patients">Patients</a></li>
+                <li><a href="/doctor/appointments" data-nav="appointments" data-i18n="appointments">Appointments</a></li>
+                <li><a href="/doctor/consultations" data-nav="consultations" data-i18n="consultations">Consultations</a></li>
+                <li><a href="/doctor/messages" data-nav="messages" data-i18n="messages">Messages</a></li>
+                <li><a href="/doctor/reports" data-nav="reports" data-i18n="reports">Reports</a></li>
+                <li><a href="/doctor/profile" data-nav="profile" data-i18n="profile">Profile</a></li>
+                <li><a href="/doctor/settings" data-nav="settings" data-i18n="settings">Settings</a></li>
+                <li><a href="/doctor/ai-assistant" class="admin-nav-item" data-page="ai-assistant" data-i18n="ai_assistant">
+                    <span class="admin-nav-icon">🤖</span>
+                    <span class="admin-nav-label">AI Assistant</span>
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="admin-section">
+        <div class="container">
+            <div class="dashboard-welcome">
+                <h1><span data-i18n="dashboard">Dashboard</span></h1>
+                <p data-i18n="your_clinical_practice">Your clinical practice at a glance</p>
+            </div>
+
+            <div class="admin-card" id="profileCard">
+                <div class="state-block"><span class="spinner" aria-hidden="true"></span><p data-i18n="loading_profile">Loading profile...</p></div>
+            </div>
+
+            <div class="stats-grid mt-4" id="statsGrid">
+                <div class="stat-card"><div class="stat-title"><span data-i18n="total_patients">Total Patients</span></div><div class="stat-value" id="statPatients">-</div><span class="stat-hint">All connected patients</span></div>
+                <div class="stat-card"><div class="stat-title"><span data-i18n="problems_resolved">Problems Resolved</span></div><div class="stat-value" id="statResolved">-</div><span class="stat-hint">Completed consultations</span></div>
+                <div class="stat-card"><div class="stat-title"><span data-i18n="total_consultations">Total Consultations</span></div><div class="stat-value" id="statConsultations">-</div><span class="stat-hint">All time</span></div>
+                <div class="stat-card"><div class="stat-title"><span data-i18n="appointments_today">Today's Appointments</span></div><div class="stat-value" id="statToday">-</div><span class="stat-hint">Scheduled today</span></div>
+                <div class="stat-card stat-card-link" onclick="window.location.href='/doctor/appointments?filter=pending'" tabindex="0" role="link" aria-label="View pending appointments"><div class="stat-title"><span data-i18n="pending_appointments">Pending Appointments</span></div><div class="stat-value" id="statPending">-</div><span class="stat-hint">Awaiting action &rarr;</span></div>
+                <div class="stat-card"><div class="stat-title"><span data-i18n="upcoming">Upcoming</span></div><div class="stat-value" id="statUpcoming">-</div><span class="stat-hint">Future appointments</span></div>
+                <div class="stat-card stat-card-link" onclick="window.location.href='/doctor/messages?filter=unread'" tabindex="0" role="link" aria-label="View unread messages"><div class="stat-title"><span data-i18n="unread_messages">Unread Messages</span></div><div class="stat-value" id="statUnread">-</div><span class="stat-hint">Open inbox &rarr;</span></div>
+                <div class="stat-card stat-card-link" onclick="window.location.href='/doctor/patients'" tabindex="0" role="link" aria-label="View all patients"><div class="stat-title"><span data-i18n="recent_patients">Recent Patients</span></div><div class="stat-value" id="statRecentPatients">-</div><span class="stat-hint">View list &rarr;</span></div>
+            </div>
+
+            <div class="admin-card mt-4">
+                <div class="admin-card-header">
+                    <h2 data-i18n="recent_appointments">Recent Appointments</h2>
+                    <a href="/doctor/appointments" class="btn btn-sm btn-outline"><span data-i18n="view_all">View All</span></a>
+                </div>
+                <div class="table-container">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th data-i18n="patient">Patient</th>
+                                <th data-i18n="date">Date</th>
+                                <th data-i18n="time">Time</th>
+                                <th data-i18n="reason">Reason</th>
+                                <th data-i18n="status">Status</th>
+                                <th data-i18n="actions">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentList"></tbody>
+                    </table>
+                    <div id="recentState"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <script src="/js/i18n.js?v=2.2"></script>
+    <script src="/js/main.js?v=2.1"></script>
+    <script>
+        const t = function(key) { return typeof ShrijalI18n !== 'undefined' ? ShrijalI18n.t(key) : key; };
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!bootPage('dashboard', ['doctor'])) return;
+
+            showSkeleton(document.getElementById('recentList'), 3, 6);
+            loadProfile();
+            loadStats();
+        });
+
+        async function loadProfile() {
+            try {
+                const p = await api('/doctors/me');
+                const card = document.getElementById('profileCard');
+                const photo = avatarHtml(p.full_name, p.photo, 'lg');
+
+                // Load hospital memberships
+                let hospitalHtml = '';
+                try {
+                    const memberships = await api('/doctors/my-hospitals');
+                    if (memberships && memberships.length > 0) {
+                        const approved = memberships.filter(m => m.status === 'approved');
+                        if (approved.length > 0) {
+                            hospitalHtml = '<p style="margin-top:6px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">' +
+                                approved.map(m => '<span class="badge badge-success" style="font-size:.8rem">🏥 ' + escapeHtml(m.hospital_name) + (m.department ? ' - ' + escapeHtml(m.department) : '') + '</span>').join('') +
+                                '</p>';
+                        } else {
+                            const pending = memberships.filter(m => m.status === 'pending');
+                            if (pending.length > 0) {
+                                hospitalHtml = '<p style="margin-top:6px;display:flex;gap:10px;flex-wrap:wrap;align-items:center;">' +
+                                    pending.map(m => '<span class="badge badge-warning" style="font-size:.8rem">🏥 ' + escapeHtml(m.hospital_name) + ' (Pending)</span>').join('') +
+                                    '</p>';
+                            }
+                        }
+                    }
+                } catch(e) { /* ignore */ }
+
+                card.innerHTML = `
+                    <div class="profile-summary">
+                        ${photo}
+                        <div>
+                            <h1>${escapeHtml(p.full_name || t('doctor'))}</h1>
+                            <p class="text-muted">${escapeHtml(p.specialty || t('general_practice'))}${p.qualification ? ' &middot; ' + escapeHtml(p.qualification) : ''}</p>
+                            ${hospitalHtml}
+                            <p style="margin-top:6px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                                ${p.verified ? '<span class="badge-verified">&#10003; ' + t('verified') + '</span>' : '<span class="badge-unverified">' + t('not_verified') + '</span>'}
+                                ${p.rating ? `<span class="rating-stars" aria-label="Rating ${p.rating} out of 5">&#9733;&#9733;&#9733;&#9733;&#9733;</span><span class="rating-count">${p.rating} (${p.review_count} ${t('reviews')})</span>` : '<span class="rating-count">' + t('no_reviews_yet') + '</span>'}
+                                ${p.experience_years ? `<span class="text-muted">${p.experience_years} ${t('years_experience')}</span>` : ''}
+                            </p>
+                        </div>
+                        <a href="/doctor/profile" class="btn btn-outline" style="margin-left:auto;">${t('edit_profile')}</a>
+                    </div>
+                    ${!hospitalHtml ? '<div style="margin-top:12px;padding:12px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:8px"><strong>' + t('not_affiliated') + '</strong> <a href="/doctor/join-hospital" style="color:var(--primary)">' + t('join_hospital') + '</a> ' + t('or') + ' <a href="/hospital/register" style="color:var(--primary)">' + t('register_own') + '</a>.</div>' : ''}
+                `;
+            } catch (err) {
+                document.getElementById('profileCard').innerHTML = '';
+                showErrorState(document.getElementById('profileCard'), t('unable_to_load_profile') + ' ' + err.message, 'loadProfile');
+            }
+        }
+
+        async function loadStats() {
+            try {
+                const p = await api('/doctors/me');
+                document.getElementById('statPatients').textContent = p.total_patients ?? 0;
+                document.getElementById('statResolved').textContent = p.problems_resolved ?? 0;
+                document.getElementById('statConsultations').textContent = p.total_consultations ?? 0;
+                document.getElementById('statToday').textContent = p.today_appointments ?? 0;
+                document.getElementById('statPending').textContent = p.pending_appointments ?? 0;
+                document.getElementById('statUpcoming').textContent = p.upcoming_appointments ?? 0;
+                document.getElementById('statUnread').textContent = p.unread_messages ?? 0;
+                document.getElementById('statRecentPatients').textContent = p.total_patients ?? 0;
+
+                const appointments = await api('/doctors/me/appointments');
+                const recent = (appointments || []).slice(0, 5);
+                const tbody = document.getElementById('recentList');
+                const state = document.getElementById('recentState');
+                if (!recent.length) {
+                    tbody.innerHTML = '';
+                    showEmptyState(state, t('no_appointments_yet') + '. ' + t('new_bookings_will_appear'));
+                    return;
+                }
+                tbody.innerHTML = recent.map(a => `
+                    <tr>
+                        <td><a href="/doctor/patients/${a.patient_user_id}">${escapeHtml(a.patient_name || t('unknown'))}</a></td>
+                        <td>${formatDate(a.date)}</td>
+                        <td>${escapeHtml(a.appointment_time || 'N/A')}</td>
+                        <td>${escapeHtml(a.reason || 'N/A')}</td>
+                        <td>${statusBadge(a.status)}</td>
+                        <td><a href="/doctor/consultations?id=${a.id}" class="btn btn-sm btn-outline">${t('open')}</a></td>
+                    </tr>
+                `).join('');
+            } catch (err) {
+                showErrorState(document.getElementById('recentState'), t('unable_to_load_dashboard') + ' ' + err.message, 'loadStats');
+            }
+        }
+    </script>
+</body>
+</html>

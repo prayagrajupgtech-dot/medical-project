@@ -1,0 +1,206 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Consultations - AI Doctor Assistant</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="admin-header-content">
+                <div class="admin-brand">
+                    <img src="/favicon.png" alt="AI Doctor Assistant">
+                    <span>AI Doctor Assistant - Admin Panel</span>
+                </div>
+                <div class="admin-user">
+                    <span id="userDisplay">Administrator</span>
+                    <button class="btn btn-sm btn-outline" onclick="logout()"><span data-i18n="logout">Logout</span></button>
+                    <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <nav class="admin-nav" aria-label="Main navigation">
+        <div class="container">
+            <button class="admin-nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul>
+                <li><a href="/admin/dashboard" data-nav="dashboard" data-i18n="dashboard">Dashboard</a></li>
+                <li><a href="/admin/doctors" data-nav="doctors" data-i18n="doctors">Doctors</a></li>
+                <li><a href="/admin/patients" data-nav="patients" data-i18n="patients">Patients</a></li>
+                <li><a href="/admin/appointments" data-nav="appointments" data-i18n="appointments">Appointments</a></li>
+                <li><a href="/admin/consultations" data-nav="consultations" class="active" aria-current="page" data-i18n="consultations">Consultations</a></li>
+                <li><a href="/admin/messages" data-nav="messages" data-i18n="messages">Messages</a></li>
+                <li><a href="/admin/reports" data-nav="reports" data-i18n="reports">Reports</a></li>
+                <li><a href="/admin/audit-logs" data-nav="audit-logs" data-i18n="audit-logs">Audit Logs</a></li>
+                <li><a href="/admin/profile" data-nav="profile" data-i18n="profile">Profile</a></li>
+                <li><a href="/admin/settings" data-nav="settings" data-i18n="settings">Settings</a></li>
+                <li><a href="/admin/knowledge-base" data-nav="knowledge-base" data-i18n="knowledge-base">Knowledge Base</a></li>
+                <li><a href="/admin/ai-assistant" class="admin-nav-item" data-page="ai-assistant" data-i18n="ai_assistant">
+                    <span class="admin-nav-icon">🤖</span>
+                    <span class="admin-nav-label">AI Assistant</span>
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="admin-section">
+        <div class="container">
+            <div class="dashboard-welcome">
+                <h1>Consultations</h1>
+                <p>All consultations across the platform</p>
+            </div>
+
+            <div class="admin-card">
+                <div class="filter-tabs" role="tablist" aria-label="Filter consultations">
+                    <button class="filter-tab active" data-status="" onclick="setFilter(this)">All</button>
+                    <button class="filter-tab" data-status="pending" onclick="setFilter(this)">Pending</button>
+                    <button class="filter-tab" data-status="seen" onclick="setFilter(this)">Seen</button>
+                    <button class="filter-tab" data-status="accepted" onclick="setFilter(this)">Accepted</button>
+                    <button class="filter-tab" data-status="in_progress" onclick="setFilter(this)">In Progress</button>
+                    <button class="filter-tab" data-status="completed" onclick="setFilter(this)">Completed</button>
+                    <button class="filter-tab" data-status="cancelled" onclick="setFilter(this)">Cancelled</button>
+                    <button class="filter-tab" data-status="follow_up" onclick="setFilter(this)">Follow-up</button>
+                </div>
+                <div class="toolbar" role="search">
+                    <input type="search" id="searchInput" class="form-control search-input" placeholder="Search by patient, doctor, reason or diagnosis..." aria-label="Search consultations">
+                </div>
+                <div class="table-container">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th>Doctor</th>
+                                <th>Patient</th>
+                                <th>Date</th>
+                                <th>Time</th>
+                                <th>Reason</th>
+                                <th>Status</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="consultationsList"></tbody>
+                    </table>
+                    <div id="consultationsState"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- View Consultation Modal -->
+    <div class="modal" id="viewModal" role="dialog" aria-modal="true" aria-labelledby="viewTitle">
+        <div class="modal-content modal-lg" style="max-width: 640px; max-height: 85vh; overflow-y: auto; text-align: left;">
+            <div class="modal-header">
+                <h3 id="viewTitle">Consultation Details</h3>
+                <button class="btn btn-sm btn-outline" onclick="hideModal('viewModal')" aria-label="Close">×</button>
+            </div>
+            <div class="modal-body" id="viewDetails">
+                <div class="state-block"><span class="spinner" aria-hidden="true"></span><p>Loading...</p></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/i18n.js?v=2.2"></script>
+    <script src="/js/main.js?v=2.1"></script>
+    <script>
+        let currentFilter = '';
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!bootPage('consultations', ['admin'])) return;
+
+            const urlParams = new URLSearchParams(window.location.search);
+            const filter = urlParams.get('status');
+            if (filter) {
+                const tab = document.querySelector('.filter-tab[data-status="' + filter + '"]');
+                if (tab) setFilter(tab);
+            }
+
+            loadConsultations();
+            document.getElementById('searchInput').addEventListener('input', debounce(loadConsultations, 350));
+        });
+
+        function debounce(fn, ms) {
+            let t;
+            return function () { clearTimeout(t); t = setTimeout(fn, ms); };
+        }
+
+        function setFilter(btn) {
+            currentFilter = btn.getAttribute('data-status');
+            document.querySelectorAll('.filter-tab').forEach(t => t.classList.toggle('active', t === btn));
+            loadConsultations();
+        }
+
+        async function loadConsultations() {
+            const tbody = document.getElementById('consultationsList');
+            const state = document.getElementById('consultationsState');
+            showSkeleton(tbody, 5, 8);
+            state.innerHTML = '';
+            try {
+                const params = new URLSearchParams();
+                if (currentFilter) params.set('status', currentFilter);
+                const search = document.getElementById('searchInput').value.trim();
+                if (search) params.set('search', search);
+                const list = await api('/admin/consultations?' + params.toString());
+                renderList(list);
+            } catch (err) {
+                tbody.innerHTML = '';
+                showErrorState(state, 'Unable to load consultations. ' + err.message, 'loadConsultations');
+            }
+        }
+
+        function renderList(list) {
+            const tbody = document.getElementById('consultationsList');
+            const state = document.getElementById('consultationsState');
+            tbody.innerHTML = ''; state.innerHTML = '';
+
+            if (!list.length) {
+                showEmptyState(state, currentFilter ? 'No consultations in this view.' : 'No consultations yet.');
+                return;
+            }
+
+            tbody.innerHTML = list.map(c => `
+                <tr>
+                    <td><strong>${escapeHtml(c.doctor_name || 'N/A')}</strong></td>
+                    <td>${escapeHtml(c.patient_name || 'N/A')}</td>
+                    <td>${formatDate(c.date)}</td>
+                    <td>${escapeHtml(c.appointment_time || 'N/A')}</td>
+                    <td>${escapeHtml(c.reason || 'N/A')}</td>
+                    <td>${statusBadge(c.status)}</td>
+                    <td>${formatDateTime(c.created_at)}</td>
+                    <td><button class="btn btn-sm btn-outline" onclick="viewConsultation(${c.id})">View</button></td>
+                </tr>`).join('');
+        }
+
+        async function viewConsultation(id) {
+            showModal('viewModal');
+            document.getElementById('viewDetails').innerHTML = '<div class="state-block"><span class="spinner" aria-hidden="true"></span><p>Loading...</p></div>';
+            try {
+                const c = await api('/consultations/' + id);
+                document.getElementById('viewDetails').innerHTML = `
+                    <div class="detail-grid">
+                        <div class="detail-item"><label>Doctor</label><div class="detail-value">${escapeHtml(c.doctor_name || 'N/A')}</div></div>
+                        <div class="detail-item"><label>Patient</label><div class="detail-value">${escapeHtml(c.patient_name || 'N/A')}</div></div>
+                        <div class="detail-item"><label>Date</label><div class="detail-value">${formatDate(c.date)}</div></div>
+                        <div class="detail-item"><label>Time</label><div class="detail-value">${escapeHtml(c.appointment_time || 'N/A')}</div></div>
+                        <div class="detail-item"><label>Status</label><div class="detail-value">${statusBadge(c.status)}</div></div>
+                        <div class="detail-item"><label>Reason</label><div class="detail-value">${escapeHtml(c.reason || 'N/A')}</div></div>
+                        <div class="detail-item"><label>Symptoms</label><div class="detail-value">${escapeHtml(c.symptoms || 'N/A')}</div></div>
+                        <div class="detail-item"><label>Diagnosis</label><div class="detail-value">${escapeHtml(c.diagnosis || 'N/A')}</div></div>
+                        <div class="detail-item"><label>Notes</label><div class="detail-value">${escapeHtml(c.notes || 'N/A')}</div></div>
+                        <div class="detail-item"><label>Created</label><div class="detail-value">${formatDateTime(c.created_at)}</div></div>
+                    </div>
+                    ${c.prescriptions && c.prescriptions.length ? '<h4 style="margin-top:16px;">Prescriptions</h4><div class="detail-grid">' +
+                        c.prescriptions.map(pr => `<div class="detail-item"><label>${escapeHtml(pr.medication_name)}</label><div class="detail-value">${escapeHtml(pr.dosage || '')} ${escapeHtml(pr.frequency || '')} ${escapeHtml(pr.duration || '')}</div></div>`).join('') + '</div>' : ''}`;
+            } catch (err) {
+                document.getElementById('viewDetails').innerHTML = `<div class="state-box" role="alert"><p>${escapeHtml(err.message)}</p></div>`;
+            }
+        }
+    </script>
+</body>
+</html>

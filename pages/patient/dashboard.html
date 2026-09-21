@@ -1,0 +1,343 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patient Dashboard - AI Doctor Assistant</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Admin Header -->
+    <header class="admin-header">
+        <div class="container">
+            <div class="admin-header-content">
+                <div class="admin-brand">
+                    <img src="/favicon.png" alt="AI Doctor Assistant">
+                    <span>AI Doctor Assistant - <span data-i18n="app_name">AI Doctor Assistant</span> - <span data-i18n="patient_portal">Patient Portal</span></span>
+                </div>
+                <div class="admin-user">
+                    <span id="userDisplay">Patient</span>
+                    <button class="btn btn-sm btn-outline" onclick="logout()"><span data-i18n="logout">Logout</span></button>
+                    <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="admin-nav" aria-label="Main navigation">
+        <div class="container">
+            <button class="admin-nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul>
+                <li><a href="/patient/dashboard" data-nav="dashboard" class="active" aria-current="page" data-i18n="dashboard">Dashboard</a></li>
+                <li><a href="/patient/doctors" data-nav="doctors" data-i18n="doctors">Doctors</a></li>
+                <li><a href="/patient/appointments" data-nav="appointments" data-i18n="appointments">Appointments</a></li>
+                <li><a href="/patient/consultations" data-nav="consultations" data-i18n="consultations">Consultations</a></li>
+                <li><a href="/patient/reports" data-nav="reports" data-i18n="reports">Reports</a></li>
+                <li><a href="/patient/prescriptions" data-nav="prescriptions" data-i18n="prescriptions">Prescriptions</a></li>
+                <li><a href="/patient/messages" data-nav="messages" data-i18n="messages">Messages</a></li>
+                <li><a href="/patient/profile" data-nav="profile" data-i18n="profile">Profile</a></li>
+                <li><a href="/patient/settings" data-nav="settings" data-i18n="settings">Settings</a></li>
+                <li><a href="/patient/ai-assistant" class="admin-nav-item" data-page="ai-assistant" data-i18n="ai_assistant">
+                    <span class="admin-nav-icon">🤖</span>
+                    <span class="admin-nav-label">AI Assistant</span>
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Patient Dashboard -->
+    <section class="admin-section">
+        <div class="container">
+            <div class="admin-card" id="profileCard">
+                <div class="state-block"><span class="spinner" aria-hidden="true"></span><p data-i18n="loading_profile">Loading profile...</p></div>
+            </div>
+
+            <!-- Health Stats -->
+            <div class="stats-grid mt-4">
+                <a href="/patient/appointments" class="stat-card stat-card-link" aria-label="View upcoming appointments">
+                    <div class="stat-header">
+                        <span class="stat-title"><span data-i18n="upcoming_appointments">Upcoming Appointments</span></span>
+                        <span class="stat-badge bg-primary"><span data-i18n="calendar">Calendar</span></span>
+                    </div>
+                    <div class="stat-value" id="upcomingCount"><span class="skeleton">0</span></div>
+                </a>
+                <a href="/patient/consultations" class="stat-card stat-card-link" aria-label="View your consultations">
+                    <div class="stat-header">
+                        <span class="stat-title"><span data-i18n="total_consultations">Total Consultations</span></span>
+                        <span class="stat-badge bg-success"><span data-i18n="history">History</span></span>
+                    </div>
+                    <div class="stat-value" id="consultationCount"><span class="skeleton">0</span></div>
+                </a>
+                <a href="/patient/reports" class="stat-card stat-card-link" aria-label="View your reports">
+                    <div class="stat-header">
+                        <span class="stat-title"><span data-i18n="my_reports">My Reports</span></span>
+                        <span class="stat-badge bg-warning"><span data-i18n="files">Files</span></span>
+                    </div>
+                    <div class="stat-value" id="reportCount"><span class="skeleton">0</span></div>
+                </a>
+                <a href="/patient/messages?filter=unread" class="stat-card stat-card-link" aria-label="View unread messages">
+                    <div class="stat-header">
+                        <span class="stat-title"><span data-i18n="unread_messages">Unread Messages</span></span>
+                        <span class="stat-badge bg-danger"><span data-i18n="inbox">Inbox</span></span>
+                    </div>
+                    <div class="stat-value" id="unreadCount"><span class="skeleton">0</span></div>
+                </a>
+            </div>
+
+            <!-- Patient Info Card -->
+            <div class="admin-card mt-4">
+                <div class="admin-card-header">
+                    <h2><span data-i18n="my_health_info">My Health Information</span></h2>
+                    <a href="/patient/profile" class="btn btn-sm btn-outline"><span data-i18n="edit_profile">Edit Profile</span></a>
+                </div>
+                <div class="dashboard-welcome">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label><span data-i18n="blood_type">Blood Type</span></label>
+                            <p id="bloodType">N/A</p>
+                        </div>
+                        <div class="form-group">
+                            <label><span data-i18n="height">Height</span></label>
+                            <p id="heightVal">N/A</p>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label><span data-i18n="weight">Weight</span></label>
+                            <p id="weightVal">N/A</p>
+                        </div>
+                        <div class="form-group">
+                            <label><span data-i18n="emergency_contact">Emergency Contact</span></label>
+                            <p id="emergencyContact">N/A</p>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label><span data-i18n="allergies">Allergies</span></label>
+                        <p id="allergiesList">No known allergies</p>
+                    </div>
+                    <div class="form-group">
+                        <label><span data-i18n="current_medications">Current Medications</span></label>
+                        <p id="medicationsList">None</p>
+                    </div>
+                    <div class="form-group">
+                        <label><span data-i18n="chronic_conditions">Chronic Conditions</span></label>
+                        <p id="conditionsList">None documented</p>
+                    </div>
+                    <div class="mt-3" style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button class="btn btn-primary" onclick="showBookModal()"><span data-i18n="book_appointment">Book Appointment</span></button>
+                        <a href="/patient/doctors" class="btn btn-outline"><span data-i18n="find_doctors">Find Doctors</span></a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Consultations -->
+            <div class="admin-card mt-4">
+                <div class="admin-card-header">
+                    <h2><span data-i18n="recent_consultations">Recent Consultations</span></h2>
+                    <a href="/patient/consultations" class="btn btn-sm btn-outline"><span data-i18n="view_all">View All</span></a>
+                </div>
+                <div class="table-container">
+                    <table class="admin-table">
+                        <thead>
+                            <tr>
+                                <th><span data-i18n="date">Date</span></th>
+                                <th><span data-i18n="doctor">Doctor</span></th>
+                                <th><span data-i18n="specialty">Specialty</span></th>
+                                <th><span data-i18n="diagnosis">Diagnosis</span></th>
+                                <th><span data-i18n="status">Status</span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="recentConsultations"></tbody>
+                    </table>
+                    <div id="recentState"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Book Appointment Modal -->
+    <div class="modal" id="bookModal" role="dialog" aria-modal="true" aria-labelledby="bookTitle">
+        <div class="modal-content" style="max-width: 520px; text-align: left;">
+            <div class="modal-header">
+                <h3 id="bookTitle"><span data-i18n="book_appointment">Book Appointment</span></h3>
+                <button class="btn btn-sm btn-outline" onclick="hideModal('bookModal')" aria-label="Close">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="bookDoctor"><span data-i18n="doctor">Doctor</span></label>
+                    <select id="bookDoctor" class="form-control" aria-label="Doctor"></select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="bookDate"><span data-i18n="date">Date</span></label>
+                        <input type="date" id="bookDate" class="form-control" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="bookTime"><span data-i18n="time">Time</span></label>
+                        <input type="time" id="bookTime" class="form-control">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="bookReason"><span data-i18n="description">Reason</span></label>
+                    <textarea id="bookReason" rows="3" class="form-control" data-i18n-placeholder="description" placeholder="Reason for appointment"></textarea>
+                </div>
+            </div>
+            <div class="modal-actions" style="justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="hideModal('bookModal')"><span data-i18n="cancel">Cancel</span></button>
+                <button class="btn btn-primary" id="bookBtn" onclick="bookAppointment()"><span data-i18n="book_appointment">Request Appointment</span></button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/i18n.js?v=2.2"></script>
+    <script src="/js/main.js?v=2.1"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!bootPage('dashboard', ['patient'])) return;
+
+            loadProfile();
+            loadDashboard();
+            loadDoctors();
+        });
+
+        async function loadProfile() {
+            try {
+                const data = await api('/patients/me');
+                const p = data.patient;
+                const card = document.getElementById('profileCard');
+                const photo = avatarHtml(p.full_name, p.photo, 'lg');
+                const t = function(key) { return typeof ShrijalI18n !== 'undefined' ? ShrijalI18n.t(key) : key; };
+                card.innerHTML = `
+                    <div class="profile-summary">
+                        ${photo}
+                        <div>
+                            <h1>${escapeHtml(p.full_name || 'Patient')}</h1>
+                            <p class="text-muted">${escapeHtml(p.email || '')}${p.phone ? ' &middot; ' + escapeHtml(p.phone) : ''}</p>
+                            <p class="text-muted" style="margin-top:4px;">${p.blood_type ? t('blood_type') + ': ' + escapeHtml(p.blood_type) : ''}${p.date_of_birth ? ' &middot; DOB: ' + escapeHtml(p.date_of_birth) : ''}</p>
+                        </div>
+                        <a href="/patient/profile" class="btn btn-outline" style="margin-left:auto;">${t('view_profile')}</a>
+                    </div>
+                `;
+                document.getElementById('bloodType').textContent = p.blood_type || 'N/A';
+                document.getElementById('heightVal').textContent = p.height ? p.height + ' cm' : 'N/A';
+                document.getElementById('weightVal').textContent = p.weight ? p.weight + ' kg' : 'N/A';
+                document.getElementById('emergencyContact').textContent = p.emergency_contact || 'N/A';
+                document.getElementById('allergiesList').textContent = p.allergies || t('no_known_allergies');
+                document.getElementById('medicationsList').textContent = p.current_medications || t('none');
+                document.getElementById('conditionsList').textContent = p.chronic_conditions || t('none_documented');
+            } catch (err) {
+                document.getElementById('profileCard').innerHTML = '';
+                showErrorState(document.getElementById('profileCard'), 'Unable to load profile. ' + err.message, 'loadProfile');
+            }
+        }
+
+        async function loadDashboard() {
+            try {
+                const [appointments, consultations, reports, unread] = await Promise.all([
+                    api('/patients/me/appointments'),
+                    api('/patients/me/consultations'),
+                    api('/patients/me/reports'),
+                    api('/messages/unread-count')
+                ]);
+
+                const upcoming = appointments.filter(a => ['pending', 'seen', 'accepted', 'in_progress'].includes(a.status)).length;
+                document.getElementById('upcomingCount').textContent = upcoming;
+                document.getElementById('consultationCount').textContent = consultations.length;
+                document.getElementById('reportCount').textContent = reports.length;
+                document.getElementById('unreadCount').textContent = unread.count;
+
+                renderRecent(consultations.slice(0, 5));
+            } catch (err) {
+                document.getElementById('upcomingCount').textContent = '—';
+                document.getElementById('consultationCount').textContent = '—';
+                document.getElementById('reportCount').textContent = '—';
+                document.getElementById('unreadCount').textContent = '—';
+                document.getElementById('recentConsultations').innerHTML = '';
+                showErrorState(document.getElementById('recentState'), 'Unable to load dashboard. Please try again.', 'loadDashboard');
+            }
+        }
+
+        function renderRecent(list) {
+            const tbody = document.getElementById('recentConsultations');
+            const state = document.getElementById('recentState');
+            tbody.innerHTML = '';
+            state.innerHTML = '';
+            const t = function(key) { return typeof ShrijalI18n !== 'undefined' ? ShrijalI18n.t(key) : key; };
+
+            if (!list.length) {
+                showEmptyState(state, t('no_consultations'));
+                return;
+            }
+
+            tbody.innerHTML = list.map(c => `
+                <tr>
+                    <td>${formatDate(c.date)}</td>
+                    <td>${escapeHtml(c.doctor_name || t('doctor'))}</td>
+                    <td>${escapeHtml(c.specialty || 'N/A')}</td>
+                    <td>${escapeHtml((c.diagnosis || 'N/A').substring(0, 40))}</td>
+                    <td>${statusBadge(c.status)}</td>
+                </tr>
+            `).join('');
+        }
+
+        async function loadDoctors() {
+            try {
+                const doctors = await api('/doctors');
+                const select = document.getElementById('bookDoctor');
+                const t = function(key) { return typeof ShrijalI18n !== 'undefined' ? ShrijalI18n.t(key) : key; };
+                select.innerHTML = '<option value="">' + t('select') + '...' + '</option>' +
+                    doctors.map(d => `<option value="${d.id}">${escapeHtml(d.full_name)}${d.specialty ? ' - ' + escapeHtml(d.specialty) : ''}</option>`).join('');
+            } catch (err) {
+                showToast(err.message, 'error');
+            }
+        }
+
+        function showBookModal() {
+            document.getElementById('bookDate').value = new Date().toISOString().split('T')[0];
+            document.getElementById('bookDate').min = new Date().toISOString().split('T')[0];
+            document.getElementById('bookTime').value = '';
+            document.getElementById('bookReason').value = '';
+            showModal('bookModal');
+        }
+
+        async function bookAppointment() {
+            const btn = document.getElementById('bookBtn');
+            const user = getUser();
+            const date = document.getElementById('bookDate').value;
+            const doctorId = document.getElementById('bookDoctor').value;
+
+            if (!doctorId) {
+                showToast('Please choose a doctor', 'error');
+                return;
+            }
+            if (!date) {
+                showToast('Please choose a date', 'error');
+                return;
+            }
+
+            btn.disabled = true;
+            try {
+                await api('/appointments', 'POST', {
+                    patient_id: user.id,
+                    doctor_id: doctorId,
+                    appointment_date: date,
+                    appointment_time: document.getElementById('bookTime').value,
+                    reason: document.getElementById('bookReason').value
+                });
+                showToast('Appointment requested. Your doctor will confirm it.');
+                hideModal('bookModal');
+                loadDashboard();
+                btn.disabled = false;
+            } catch (err) {
+                showToast(err.message, 'error');
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>

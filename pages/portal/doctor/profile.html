@@ -1,0 +1,192 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor Profile - AI Doctor Assistant</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="admin-header-content">
+                <div class="admin-brand">
+                    <img src="/favicon.png" alt="AI Doctor Assistant">
+                    <span>AI Doctor Assistant - <span data-i18n="app_name">AI Doctor Assistant</span> - <span data-i18n="doctor_portal">Doctor Portal</span></span>
+                </div>
+                <div class="admin-user">
+                    <span id="userDisplay">Doctor</span>
+                    <button class="btn btn-sm btn-outline" onclick="logout()"><span data-i18n="logout">Logout</span></button>
+                    <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <nav class="admin-nav" aria-label="Main navigation">
+        <div class="container">
+            <button class="admin-nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul>
+                <li><a href="/doctor/dashboard" data-nav="dashboard" data-i18n="dashboard">Dashboard</a></li>
+                <li><a href="/doctor/patients" data-nav="patients" data-i18n="patients">Patients</a></li>
+                <li><a href="/doctor/appointments" data-nav="appointments" data-i18n="appointments">Appointments</a></li>
+                <li><a href="/doctor/consultations" data-nav="consultations" data-i18n="consultations">Consultations</a></li>
+                <li><a href="/doctor/messages" data-nav="messages" data-i18n="messages">Messages</a></li>
+                <li><a href="/doctor/reports" data-nav="reports" data-i18n="reports">Reports</a></li>
+                <li><a href="/doctor/profile" data-nav="profile" class="active" aria-current="page" data-i18n="profile">Profile</a></li>
+                <li><a href="/doctor/settings" data-nav="settings" data-i18n="settings">Settings</a></li>
+                <li><a href="/doctor/ai-assistant" class="admin-nav-item" data-page="ai-assistant" data-i18n="ai_assistant">
+                    <span class="admin-nav-icon">🤖</span>
+                    <span class="admin-nav-label">AI Assistant</span>
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="admin-section">
+        <div class="container">
+            <div class="dashboard-welcome">
+                <h1 data-i18n="my_profile">My Profile</h1>
+                <p data-i18n="professional_information">Professional information shown to patients</p>
+            </div>
+
+            <div id="profileContent">
+                <div class="state-block"><span class="spinner" aria-hidden="true"></span><p data-i18n="loading_profile">Loading profile...</p></div>
+            </div>
+        </div>
+    </section>
+
+    <script src="/js/i18n.js?v=2.2"></script>
+    <script src="/js/main.js?v=2.1"></script>
+    <script>
+        const t = function(key) { return typeof ShrijalI18n !== 'undefined' ? ShrijalI18n.t(key) : key; };
+        let profile = null;
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!bootPage('profile', ['doctor'])) return;
+            loadProfile();
+        });
+
+        async function loadProfile() {
+            try {
+                profile = await api('/doctors/me');
+                renderProfile();
+            } catch (err) {
+                document.getElementById('profileContent').innerHTML = '';
+                showErrorState(document.getElementById('profileContent'), t('unable_to_load_profile') + ' ' + err.message, 'loadProfile');
+            }
+        }
+
+        function renderProfile() {
+            const p = profile;
+            const avatar = avatarHtml(p.full_name, p.photo, 'xl');
+            document.getElementById('profileContent').innerHTML = `
+                <div class="admin-card">
+                    <div class="profile-summary">
+                        <div class="profile-avatar-block">
+                            ${avatar}
+                            <div class="profile-photo-actions">
+                                <button type="button" class="btn btn-sm btn-outline" onclick="managePhoto('change')">${t('change_photo')}</button>
+                                ${p.photo ? '<button type="button" class="btn btn-sm btn-outline" onclick="managePhoto(\'remove\')">' + t('remove_photo') + '</button>' : ''}
+                            </div>
+                        </div>
+                        <div>
+                            <h1>${escapeHtml(p.full_name || t('doctor'))}</h1>
+                            <p class="text-muted">${escapeHtml(p.specialty || t('general_practice'))}${p.qualification ? ' &middot; ' + escapeHtml(p.qualification) : ''}</p>
+                            <p style="margin-top:6px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+                                ${p.verified ? '<span class="badge-verified">&#10003; ' + t('verified') + '</span>' : '<span class="badge-unverified">' + t('not_verified') + '</span>'}
+                                ${p.rating ? `<span class="rating-stars" aria-label="Rating ${p.rating} out of 5">&#9733;&#9733;&#9733;&#9733;&#9733;</span><span class="rating-count">${p.rating} &middot; ${p.review_count} ${t('reviews')}</span>` : '<span class="rating-count">' + t('no_reviews_yet') + '</span>'}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="stats-grid mt-4" style="grid-template-columns: repeat(4, 1fr);">
+                        <div class="stat-card"><div class="stat-title">${t('total_patients')}</div><div class="stat-value">${p.total_patients ?? 0}</div></div>
+                        <div class="stat-card"><div class="stat-title">${t('total_consultations')}</div><div class="stat-value">${p.total_consultations ?? 0}</div></div>
+                        <div class="stat-card"><div class="stat-title">${t('problems_resolved')}</div><div class="stat-value">${p.problems_resolved ?? 0}</div></div>
+                        <div class="stat-card"><div class="stat-title">${t('rating')}</div><div class="stat-value">${p.rating ? p.rating + ' / 5' : t('new')}</div></div>
+                    </div>
+                </div>
+
+                <div class="admin-card mt-4">
+                    <div class="admin-card-header">
+                        <h2 data-i18n="professional_information">Professional Information</h2>
+                        <button class="btn btn-primary" id="editToggleBtn" onclick="toggleEdit()">${t('edit_profile')}</button>
+                    </div>
+                    <div class="detail-grid" id="viewMode">
+                        <div class="detail-item"><label>${t('specialty')}</label><div class="detail-value">${escapeHtml(p.specialty || 'N/A')}</div></div>
+                        <div class="detail-item"><label>${t('qualification')}</label><div class="detail-value">${escapeHtml(p.qualification || 'N/A')}</div></div>
+                        <div class="detail-item"><label>${t('medical_registration_no')}</label><div class="detail-value">${escapeHtml(p.registration_number || 'N/A')}</div></div>
+                        <div class="detail-item"><label>${t('years_of_experience')}</label><div class="detail-value">${p.experience_years ? p.experience_years + ' years' : 'N/A'}</div></div>
+                        <div class="detail-item"><label>${t('hospital_clinic')}</label><div class="detail-value">${escapeHtml(p.hospital || 'N/A')}</div></div>
+                        <div class="detail-item"><label>${t('consultation_fee')}</label><div class="detail-value">${p.consultation_fee ? '<span class="fee-tag">&#8377;' + p.consultation_fee + '</span>' : 'N/A'}</div></div>
+                        <div class="detail-item"><label>${t('languages')}</label><div class="detail-value">${escapeHtml(p.languages || 'N/A')}</div></div>
+                        <div class="detail-item"><label>${t('availability')}</label><div class="detail-value">${escapeHtml(p.availability || 'N/A')}</div></div>
+                        <div class="detail-item"><label>${t('verification_status')}</label><div class="detail-value">${p.verified ? '<span class="badge-verified">&#10003; ' + t('verified') + '</span>' : '<span class="badge-unverified">' + t('not_verified') + '</span>'}</div></div>
+                        <div class="detail-item"><label>${t('email')}</label><div class="detail-value">${escapeHtml(p.email || 'N/A')}</div></div>
+                        <div class="detail-item" style="grid-column: 1 / -1;"><label>${t('bio')}</label><div class="detail-value">${escapeHtml(p.bio || t('no_bio_added_yet'))}</div></div>
+                    </div>
+
+                    <div id="editMode" style="display:none;">
+                        <div class="profile-edit-grid">
+                            <div class="form-group"><label for="f_qualification">${t('qualification')}</label><input type="text" id="f_qualification" class="form-control" value="${escapeHtml(p.qualification || '')}"></div>
+                            <div class="form-group"><label for="f_registration_number">${t('medical_registration_no')}</label><input type="text" id="f_registration_number" class="form-control" value="${escapeHtml(p.registration_number || '')}"></div>
+                            <div class="form-group"><label for="f_experience_years">${t('years_of_experience')}</label><input type="number" id="f_experience_years" class="form-control" value="${p.experience_years || ''}" min="0"></div>
+                            <div class="form-group"><label for="f_hospital">${t('hospital_clinic')}</label><input type="text" id="f_hospital" class="form-control" value="${escapeHtml(p.hospital || '')}"></div>
+                            <div class="form-group"><label for="f_languages">${t('languages')}</label><input type="text" id="f_languages" class="form-control" value="${escapeHtml(p.languages || '')}"></div>
+                            <div class="form-group"><label for="f_consultation_fee">${t('consultation_fee')} (&#8377;)</label><input type="number" id="f_consultation_fee" class="form-control" value="${p.consultation_fee || ''}" min="0"></div>
+                            <div class="form-group"><label for="f_availability">${t('availability')}</label><input type="text" id="f_availability" class="form-control" value="${escapeHtml(p.availability || '')}"></div>
+                            <div class="form-group"><label for="f_bio">${t('bio')}</label><textarea id="f_bio" rows="3" class="form-control">${escapeHtml(p.bio || '')}</textarea></div>
+                        </div>
+                        <p class="text-muted" style="font-size:0.82rem; margin:10px 0;">${t('rating_verification_notice')}</p>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap;">
+                            <button class="btn btn-primary" onclick="saveProfile()">${t('save_changes')}</button>
+                            <button class="btn btn-secondary" onclick="toggleEdit()">${t('cancel')}</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function toggleEdit() {
+            const view = document.getElementById('viewMode');
+            const edit = document.getElementById('editMode');
+            const btn = document.getElementById('editToggleBtn');
+            const editing = edit.style.display !== 'none';
+            view.style.display = editing ? '' : 'none';
+            edit.style.display = editing ? 'none' : '';
+            btn.textContent = editing ? t('edit_profile') : t('cancel');
+        }
+
+        function managePhoto(action) {
+            openPhotoManager({ role: 'doctor', user: profile, start: action, onUpdated: () => loadProfile() });
+        }
+
+        async function saveProfile() {
+            const btn = event.target;
+            btn.disabled = true;
+            try {
+                await api('/doctors/me', 'PUT', {
+                    qualification: document.getElementById('f_qualification').value,
+                    registration_number: document.getElementById('f_registration_number').value,
+                    experience_years: document.getElementById('f_experience_years').value ? Number(document.getElementById('f_experience_years').value) : null,
+                    hospital: document.getElementById('f_hospital').value,
+                    languages: document.getElementById('f_languages').value,
+                    consultation_fee: document.getElementById('f_consultation_fee').value ? Number(document.getElementById('f_consultation_fee').value) : null,
+                    availability: document.getElementById('f_availability').value,
+                    bio: document.getElementById('f_bio').value
+                });
+                showToast(t('profile_updated_successfully'));
+                await loadProfile();
+            } catch (err) {
+                showToast(err.message, 'error');
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
