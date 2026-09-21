@@ -87,7 +87,7 @@
                                 <div class="ai-orbit-ring ai-orbit-inner"></div>
                                 <div class="ai-center-glow"></div>
                                 <div class="ai-scanner-light"></div>
-                                <img src="/images/brand-logo.svg" alt="Shrijal AI Medical Assistant" class="ai-medical-logo" id="shrijalOrb">
+                                <img src="/images/brand-logo.svg" alt="Shrijal AI Medical Assistant" class="ai-medical-logo" id="shrijalOrb" onerror="this.replaceWith(Object.assign(document.createElement('div'),{id:'shrijalOrb',className:'ai-medical-logo logo-emoji',textContent:'🩺'}))">
                             </div>
                             <div class="ai-side-lines ai-side-right">
                                 <svg viewBox="0 0 200 60" preserveAspectRatio="none"><path class="ai-flow-line" d="M0,30 Q50,10 100,30 T200,30" /><path class="ai-flow-line ai-flow-line-2" d="M0,20 Q50,40 100,20 T200,20" /><path class="ai-flow-line ai-flow-line-3" d="M0,40 Q50,25 100,40 T200,40" /></svg>
@@ -262,6 +262,7 @@
             var lang = ShrijalVoice.getCurrentLanguage();
             var greeting = ShrijalVoice.buildShrijalGreeting(name, role, lang);
             ShrijalVoice.setGreetingShown(true);
+            window._shrijalGreeting = greeting;
 
             var titleEl = document.getElementById('shrijalWelcomeTitle');
             if (titleEl) titleEl.textContent = greeting;
@@ -295,7 +296,10 @@
         function toggleVoiceMode() {
             ShrijalVoice.toggleVoiceMode();
             if (ShrijalVoice.getVoiceMode()) {
-                ShrijalVoice.startListening();
+                if (window._shrijalGreeting) ShrijalVoice.speakText(window._shrijalGreeting);
+                else ShrijalVoice.startListening();
+            } else {
+                ShrijalVoice.stopSpeaking();
             }
         }
 
@@ -558,7 +562,7 @@
                             <div class="ai-orbit-ring ai-orbit-inner"></div>
                             <div class="ai-center-glow"></div>
                             <div class="ai-scanner-light"></div>
-                            <img src="/images/brand-logo.svg" alt="Shrijal AI Medical Assistant" class="ai-medical-logo" id="shrijalOrb">
+                            <img src="/images/brand-logo.svg" alt="Shrijal AI Medical Assistant" class="ai-medical-logo" id="shrijalOrb" onerror="this.replaceWith(Object.assign(document.createElement('div'),{id:'shrijalOrb',className:'ai-medical-logo logo-emoji',textContent:'🩺'}))">
                         </div>
                         <div class="ai-side-lines ai-side-right">
                             <svg viewBox="0 0 200 60" preserveAspectRatio="none"><path class="ai-flow-line" d="M0,30 Q50,10 100,30 T200,30" /><path class="ai-flow-line ai-flow-line-2" d="M0,20 Q50,40 100,20 T200,20" /><path class="ai-flow-line ai-flow-line-3" d="M0,40 Q50,25 100,40 T200,40" /></svg>

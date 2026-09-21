@@ -76,7 +76,7 @@
                             <div class="ai-orbit-ring ai-orbit-inner"></div>
                             <div class="ai-center-glow"></div>
                             <div class="ai-scanner-light"></div>
-                            <img src="/images/brand-logo.svg" alt="Shrijal AI Medical Assistant" class="ai-medical-logo" id="shrijalOrb">
+                            <img src="/images/brand-logo.svg" alt="Shrijal AI Medical Assistant" class="ai-medical-logo" id="shrijalOrb" onerror="this.replaceWith(Object.assign(document.createElement('div'),{id:'shrijalOrb',className:'ai-medical-logo logo-emoji',textContent:'🩺'}))">
                         </div>
                         <div class="ai-side-lines ai-side-right">
                             <svg viewBox="0 0 200 60" preserveAspectRatio="none"><path class="ai-flow-line" d="M0,30 Q50,10 100,30 T200,30" /><path class="ai-flow-line ai-flow-line-2" d="M0,20 Q50,40 100,20 T200,20" /><path class="ai-flow-line ai-flow-line-3" d="M0,40 Q50,25 100,40 T200,40" /></svg>
@@ -189,6 +189,7 @@
             ShrijalVoice.setGreetingShown(true);
             // Keep the welcome orb + quick actions visible on load.
             // The greeting is shown inside the welcome text, chat opens on first message.
+            window._shrijalGreeting = greeting;
             showWelcome(true);
             var welcomePara = document.querySelector('#welcomeScreen p');
             if (welcomePara && greeting) welcomePara.textContent = greeting;
@@ -210,7 +211,15 @@
 
         function toggleVoice() {
             ShrijalVoice.toggleVoiceMode();
-            if (ShrijalVoice.getVoiceMode()) ShrijalVoice.startListening();
+            if (ShrijalVoice.getVoiceMode()) {
+                // Speak the greeting right away so users hear voice immediately.
+                // Listening auto-starts after speech ends (voice service restart timer).
+                var hasMessages = document.querySelectorAll('#chatMessages .shrijal-msg').length > 0;
+                if (!hasMessages && window._shrijalGreeting) ShrijalVoice.speakText(window._shrijalGreeting);
+                else ShrijalVoice.startListening();
+            } else {
+                ShrijalVoice.stopSpeaking();
+            }
         }
 
         function showWelcome(show) {
