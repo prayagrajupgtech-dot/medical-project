@@ -133,6 +133,22 @@ const LanguageDetection = (() => {
         'ਡਾਕਟਰ', 'ਦਵਾਈ', 'ਇਲਾਜ', 'ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ'
     ];
 
+    // ── Nepali Keywords ─────────────────────────────────────────────────────
+
+    const NEPALI_KEYWORDS = [
+        'मलाई', 'मेरो', 'छ', 'के', 'कसरी', 'किन', 'कहिले', 'कहाँ',
+        'दुख्छ', 'ज्वरो', 'टाउको', 'पेट', 'स्वास', 'खोकी', 'बान्ता',
+        'डाक्टर', 'औषधि', 'उपचार', 'नमस्ते'
+    ];
+
+    // ── Assamese Keywords ───────────────────────────────────────────────────
+
+    const ASSAMESE_KEYWORDS = [
+        'মোক', 'মোৰ', 'আছে', 'কি', 'কেনেকৈ', 'কিয়', 'কেতিয়া', 'ক’ত',
+        'বিষ', 'জ্বৰ', 'মাথ', 'পেট', 'শ্বাস', 'কাষি', 'বমি',
+        'ডাক্তৰ', 'ওষুধ', 'চিকিৎসা', 'নমস্কাৰ'
+    ];
+
     // ── Core Detection Function ───────────────────────────────────────────────
 
     function detectLanguage(text) {
@@ -199,8 +215,10 @@ const LanguageDetection = (() => {
 
         // Pure script detection
         if (devanagariCount > latinCount && devanagariCount > 0) {
-            // Check for specific Devanagari languages
             const lower = trimmed.toLowerCase();
+            if (NEPALI_KEYWORDS.some(k => lower.includes(k.toLowerCase()))) {
+                return { language: 'ne', code: 'ne-IN', confidence: 0.85, isHinglish: false };
+            }
             if (MARATHI_KEYWORDS.some(k => lower.includes(k.toLowerCase()))) {
                 return { language: 'mr', code: 'mr-IN', confidence: 0.85, isHinglish: false };
             }
@@ -211,6 +229,10 @@ const LanguageDetection = (() => {
         }
 
         if (bengaliCount > 0) {
+            const lower = trimmed.toLowerCase();
+            if (ASSAMESE_KEYWORDS.some(k => lower.includes(k.toLowerCase()))) {
+                return { language: 'as', code: 'as-IN', confidence: 0.85, isHinglish: false };
+            }
             return { language: 'bn', code: 'bn-IN', confidence: 0.85, isHinglish: false };
         }
         if (tamilCount > 0) {

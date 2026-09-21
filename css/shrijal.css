@@ -282,6 +282,23 @@
     box-shadow: 0 0 18px 7px rgba(16, 185, 129, 0.6);
 }
 
+/* === ERROR STATE (mic denied, TTS error) === */
+.ai-orbit-container.error .ai-orbit-outer {
+    border-color: rgba(239, 68, 68, 0.5);
+    box-shadow: 0 0 30px rgba(239, 68, 68, 0.2);
+}
+.ai-orbit-container.error .ai-scanner-light::before {
+    background: #ef4444;
+    box-shadow: 0 0 20px 8px rgba(239, 68, 68, 0.6);
+}
+.ai-orbit-container.error .ai-center-glow {
+    background: radial-gradient(circle,
+        rgba(239, 68, 68, 0.15) 0%,
+        rgba(239, 68, 68, 0.06) 40%,
+        transparent 70%);
+    animation: glow-pulse 2s ease-in-out infinite;
+}
+
 /* Legacy orb wrapper - hidden, kept for JS compatibility */
 .shrijal-orb-wrapper { display: none; }
 .shrijal-orb { display: none; }

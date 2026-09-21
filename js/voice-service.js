@@ -1,12 +1,26 @@
 /**
- * Shrijal Voice Service — Complete TTS + STT + Language Pipeline
- * Handles: language detection, voice selection, text cleaning, natural speech,
- * personalized greetings, auto-restart listening, voice state visualization.
+ * Shrijal Voice Service — Premium Natural Voice Experience
+ *
+ * Architecture:
+ *   TTSProvider (abstract)
+ *     └─ BrowserTTSProvider (Web Speech API)
+ *
+ * Features:
+ *   - Premium voice selection with dynamic scoring (no hardcoded voice names)
+ *   - Text preprocessing: markdown, URLs, medical abbreviations, numbers
+ *   - Smart sentence-aware pauses
+ *   - Interruption support (user speaks → immediate stop)
+ *   - Voice states: OFF, IDLE, LISTENING, THINKING, SPEAKING, ERROR
+ *   - Concise voice responses (long text summarized for speech)
+ *   - No duplicate TTS, old audio cancelled on new response
+ *   - Privacy: no medical data logged in console
  */
 
 const ShrijalVoice = (() => {
 
-    // ── State ─────────────────────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════════
+    // STATE
+    // ══════════════════════════════════════════════════════════════════════════
 
     let synthesis = null;
     let recognition = null;
@@ -17,10 +31,10 @@ const ShrijalVoice = (() => {
     let currentLanguage = 'en-IN';
     let conversationManager = null;
     let lastResponse = '';
-    let onStateChange = null;
-    let onTranscript = null;
-    let onVoiceModeChange = null;
-    let onOrbStateChange = null;
+    let onStateChange = () => {};
+    let onTranscript = () => {};
+    let onVoiceModeChange = () => {};
+    let onOrbStateChange = () => {};
     let introductionSpoken = false;
     let greetingShown = false;
     let currentUserName = '';
@@ -29,10 +43,23 @@ const ShrijalVoice = (() => {
     let speakResolve = null;
     let recognitionSupported = false;
     let lastReportContext = null;
-    let preferredVoiceName = '';
-    try { preferredVoiceName = localStorage.getItem('shrijal_voice_name') || ''; } catch (e) {}
+    let voiceState = 'OFF'; // OFF | IDLE | LISTENING | THINKING | SPEAKING | ERROR
+    let currentUtterance = null;
 
-    // ── User Name Helpers ─────────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════════
+    // LOCALE MAP — all 15 Indian languages + English
+    // ══════════════════════════════════════════════════════════════════════════
+
+    const LOCALE_MAP = {
+        'en': 'en-IN', 'hi': 'hi-IN', 'bn': 'bn-IN', 'mr': 'mr-IN',
+        'ta': 'ta-IN', 'te': 'te-IN', 'gu': 'gu-IN', 'kn': 'kn-IN',
+        'ml': 'ml-IN', 'pa': 'pa-IN', 'or': 'or-IN', 'as': 'as-IN',
+        'ur': 'ur-IN', 'ne': 'ne-IN', 'sa': 'sa-IN'
+    };
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // USER HELPERS
+    // ══════════════════════════════════════════════════════════════════════════
 
     function getCurrentUserDisplayName() {
         try {
@@ -57,33 +84,6 @@ const ShrijalVoice = (() => {
         return name.trim();
     }
 
-    // ── Greeting Builder ──────────────────────────────────────────────────────
-
-    function buildShrijalGreeting(name, role, lang) {
-        const shortLang = (lang || currentLanguage || 'en-IN').split('-')[0];
-        const safeName = formatUserNameForShrijal(name);
-        const namePart = safeName ? safeName : '';
-
-        const greetings = {
-            'en': 'Hi' + (namePart ? ' ' + namePart : '') + "! I'm Shrijal. How can I help you today?",
-            'hi': '\u0928\u092E\u0938\u094D\u0925\u0947' + (namePart ? ' ' + namePart : '') + ', \u092E\u0948\u0902 Shrijal \u0939\u0942\u0901\u0964 \u092E\u0948\u0902 \u0906\u092A\u0915\u0940 \u0915\u0948\u0938\u0947 \u092E\u0926\u0926 \u0915\u0930 \u0938\u0915\u0924\u0940 \u0939\u0942\u0901?',
-            'bn': '\u09A8\u09AE\u09B8\u09CD\u0995\u09BE\u09B0' + (namePart ? ' ' + namePart : '') + ', \u09A6\u09BF Shrijal\u0964 \u09A6\u09BF \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u0995\u09BF\u09AD\u09BE\u09AC\u09C7 \u09B8\u09BE\u09B9\u09BE\u09AF\u09CD\u09AF \u0995\u09B0\u09A4\u09C7 \u09AA\u09BE\u09B0\u09BF?',
-            'mr': '\u0928\u092E\u0938\u094D\u0925\u094E\u0930' + (namePart ? ' ' + namePart : '') + ', \u092E\u0940 Shrijal \u0906\u0939\u0947\u0964 \u092E\u0940 \u0924\u0941\u092E\u094D\u0939\u093E\u0932\u093E \u0915\u0936\u0940 \u092E\u0926\u0924 \u0915\u0930\u0942 \u0936\u0915\u0924\u0947?',
-            'ta': '\u0935\u0923\u0915\u094D\u0915\u092E\u094D' + (namePart ? ' ' + namePart : '') + ', \u0928\u093E\u0928\u094D Shrijal. \u0928\u093E\u0928\u094D \u0909\u0919\u094D\u0915\u0933\u094D\u0915\u0941 \u090E\u092A\u094D\u092A\u091F\u093F \u0909\u0924\u0935\u093F\u0932\u093E\u092E\u094D?',
-            'te': '\u0928\u092E\u0938\u094D\u0915\u093E\u0930\u0902' + (namePart ? ' ' + namePart : '') + ', \u0928\u0947\u0928\u0941 Shrijal. \u0928\u0947\u0928\u0941 \u092E\u0940\u0915\u0941 \u090E\u0932\u093E \u0938\u0939\u093E\u092F\u094D \u091A\u0947\u092F\u0928\u0928\u0941?',
-            'gu': '\u0928\u092E\u0938\u094D\u0924\u0947' + (namePart ? ' ' + namePart : '') + ', \u0939\u0941\u0902 Shrijal \u091B\u0941\u0902. \u0939\u0941\u0902 \u0924\u092E\u0928\u0947 \u0915\u0947\u0935\u0940 \u0930\u0940\u0924\u0947 \u092E\u0926\u0926 \u0915\u0930\u0940 \u0936\u0915\u0941\u0902?',
-            'kn': '\u0928\u092E\u0938\u094D\u0915\u093E\u0930' + (namePart ? ' ' + namePart : '') + ', \u0928\u093E\u0928\u0941 Shrijal. \u0928\u093E\u0928\u0941 \u0928\u093F\u092E\u0917\u0946 \u0939\u0947\u0917\u0946 \u0938\u0939\u093E\u092F \u092E\u093E\u0921\u093F \u092E\u093E\u0921\u092C\u0939\u0941\u0926\u0941?',
-            'ml': '\u0928\u092E\u0938\u094D\u0915\u093E\u0930\u0902' + (namePart ? ' ' + namePart : '') + ', \u091E\u093E\u0928\u094D Shrijal. \u091E\u093E\u0928\u094D \u0928\u093F\u0902\u0917\u0933\u094D\u0915\u0947 \u090E\u0919\u094D\u0917\u0928\u0946 \u0938\u0939\u093E\u092F \u091A\u0947\u092F\u094D\u0924\u094D?',
-            'pa': '\u0938\u0924\u093F \u0938\u094D\u0930\u0940 \u0905\u0915\u093E\u0932' + (namePart ? ' ' + namePart : '') + ', \u092E\u0948\u0902 Shrijal \u0939\u093E\u0902. \u092E\u0948\u0902 \u0924\u0941\u0939\u093E\u0921\u0940 \u0915\u093F\u0935\u0947\u0902 \u092E\u0926\u0926 \u0915\u0930 \u0938\u0915\u0926\u0940 \u0939\u093E\u0902?',
-            'or': '\u0928\u092E\u0938\u094D\u0915\u093E\u0930' + (namePart ? ' ' + namePart : '') + ', \u092E\u0941\u0939\u093F Shrijal. \u092E\u0941\u0939\u093F \u0906\u092A\u0923\u093E\u0915\u093F \u0915\u093F\u092D\u093E\u092C\u093F \u0938\u093E\u0939\u093E\u092F\u094D\u092F \u0915\u0930\u093F\u092C\u093F?',
-            'ur': '\u0927\u0931\u0948\u0928 \u0939\u0948 ' + (namePart ? namePart + ' ' : '') + '\u092C\u093C\u0940 \u0934\u0940\u0938 Shrijal \u0939\u0948\u0964 \u0945 \u0922 \u0922\u0935\u0940 \u0915\u0940 \u0945 \u092E\u092F\u0932 \u0915\u0930 \u0938\u0915\u0924\u0940 \u0939\u0948\u0964',
-            'ne': '\u0928\u092E\u0938\u094D\u0925\u0947' + (namePart ? ' ' + namePart : '') + ', \u092E Shrijal \u0939\u0941\u0901\u0964 \u092E \u0924\u092A\u093E\u0908\u0902\u0932\u093E\u0908 \u0915\u0938\u0930\u0940 \u0938\u0939\u092F\u094B\u0917 \u0917\u0930\u094D\u0928 \u0938\u0915\u094D\u0924\u0941?',
-            'as': '\u0928\u092E\u0938\u094D\u0915\u093E\u0930' + (namePart ? ' ' + namePart : '') + ', \u09AE\u09C8 Shrijal. \u09AE\u09C8 \u0986\u09AA\u09CB\u09A8\u09BE\u0995\u09C7 \u0995\u09C7\u09A8\u09C7\u0995\u09C8\u09A8\u09C7 \u09B8\u09B9\u09BE\u09AF\u09BC \u0995\u09B0\u09BF \u09AA\u09BE\u09B0\u09BF?'
-        };
-
-        return greetings[shortLang] || greetings['en'];
-    }
-
     function loadCurrentUser() {
         currentUserName = getCurrentUserDisplayName();
         currentUserRole = getCurrentUserRole();
@@ -97,7 +97,403 @@ const ShrijalVoice = (() => {
         if (restartTimer) { clearTimeout(restartTimer); restartTimer = null; }
     }
 
-    // ── Initialization ────────────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════════
+    // GREETING BUILDER (all 15 languages)
+    // ══════════════════════════════════════════════════════════════════════════
+
+    function buildShrijalGreeting(name, role, lang) {
+        const shortLang = (lang || currentLanguage || 'en-IN').split('-')[0];
+        const safeName = formatUserNameForShrijal(name);
+        const n = safeName ? ' ' + safeName : '';
+
+        const greetings = {
+            'en': 'Hi' + n + "! I'm Shrijal. How can I help you today?",
+            'hi': '\u0928\u092E\u0938\u094D\u0925\u0947' + n + ', \u092E\u0948\u0902 Shrijal \u0939\u0942\u0901\u0964 \u092E\u0948\u0902 \u0906\u092A\u0915\u0940 \u0915\u0948\u0938\u0947 \u092E\u0926\u0926 \u0915\u0930 \u0938\u0915\u0924\u0940 \u0939\u0942\u0901?',
+            'bn': '\u09A8\u09AE\u09B8\u09CD\u0995\u09BE\u09B0' + n + ', \u09A6\u09BF Shrijal\u0964 \u09A6\u09BF \u0986\u09AA\u09A8\u09BE\u0995\u09C7 \u0995\u09BF\u09AD\u09BE\u09AC\u09C7 \u09B8\u09BE\u09B9\u09BE\u09AF\u09CD\u09AF \u0995\u09B0\u09A4\u09C7 \u09AA\u09BE\u09B0\u09BF?',
+            'mr': '\u0928\u092E\u0938\u094D\u0925\u094E\u0930' + n + ', \u092E\u0940 Shrijal \u0906\u0939\u0947\u0964 \u092E\u0940 \u0924\u0941\u092E\u094D\u0939\u093E\u0932\u093E \u0915\u0936\u0940 \u092E\u0926\u0924 \u0915\u0930\u0942 \u0936\u0915\u0924\u0947?',
+            'ta': '\u0935\u0923\u0915\u094D\u0915\u092E\u094D' + n + ', \u0928\u093E\u0928\u094D Shrijal. \u0928\u093E\u0928\u094D \u0909\u0919\u094D\u0915\u0933\u094D\u0915\u0941 \u090E\u092A\u094D\u092A\u091F\u093F \u0909\u0924\u0935\u093F\u0932\u093E\u092E\u094D?',
+            'te': '\u0928\u092E\u0938\u094D\u0915\u093E\u0930\u0902' + n + ', \u0928\u0947\u0928\u0941 Shrijal. \u0928\u0947\u0928\u0941 \u092E\u0940\u0915\u0941 \u090E\u0932\u093E \u0938\u0939\u093E\u092F\u094D \u091A\u0947\u092F\u0928\u0928\u0941?',
+            'gu': '\u0928\u092E\u0938\u094D\u0924\u0947' + n + ', \u0939\u0941\u0902 Shrijal \u091B\u0941\u0902. \u0939\u0941\u0902 \u0924\u092E\u0928\u0947 \u0915\u0947\u0935\u0940 \u0930\u0940\u0924\u0947 \u092E\u0926\u0926 \u0915\u0930\u0940 \u0936\u0915\u0941\u0902?',
+            'kn': '\u0928\u092E\u0938\u094D\u0915\u093E\u0930' + n + ', \u0928\u093E\u0928\u0941 Shrijal. \u0928\u093E\u0928\u0941 \u0928\u093F\u092E\u0917\u0946 \u0939\u0947\u0917\u0946 \u0938\u0939\u093E\u092F \u092E\u093E\u0921\u093F \u092E\u093E\u0921\u092C\u0939\u0941\u0926\u0941?',
+            'ml': '\u0928\u092E\u0938\u094D\u0915\u093E\u0930\u0902' + n + ', \u091E\u093E\u0928\u094D Shrijal. \u091E\u093E\u0928\u094D \u0928\u093F\u0902\u0917\u0933\u094D\u0915\u0947 \u090E\u0919\u094D\u0917\u0928\u0946 \u0938\u0939\u093E\u092F \u091A\u0947\u092F\u094D\u0924\u094D?',
+            'pa': '\u0938\u0924\u093F \u0938\u094D\u0930\u0940 \u0905\u0915\u093E\u0932' + n + ', \u092E\u0948\u0902 Shrijal \u0939\u093E\u0902. \u092E\u0948\u0902 \u0924\u0941\u0939\u093E\u0921\u0940 \u0915\u093F\u0935\u0947\u0902 \u092E\u0926\u0926 \u0915\u0930 \u0938\u0915\u0926\u0940 \u0939\u093E\u0902?',
+            'or': '\u0928\u092E\u0938\u094D\u0915\u093E\u0930' + n + ', \u092E\u0941\u0939\u093F Shrijal. \u092E\u0941\u0939\u093F \u0906\u092A\u0923\u093E\u0915\u093F \u0915\u093F\u092D\u093E\u092C\u093F \u0938\u093E\u0939\u093E\u092F\u094D\u092F \u0915\u0930\u093F\u092C\u093F?',
+            'ur': '\u0927\u0931\u0948\u0928 \u0939\u0948 ' + n + ' \u092C\u093C\u0940 \u0932\u0940\u0938 Shrijal \u0939\u0948\u0964 \u0945 \u0922 \u0922\u0935\u0940 \u0915\u0940 \u0945 \u092E\u092F\u0932 \u0915\u0930 \u0938\u0915\u0924\u0940 \u0939\u0948\u0964',
+            'ne': '\u0928\u092E\u0938\u094D\u0925\u0947' + n + ', \u092E Shrijal \u0939\u0941\u0901\u0964 \u092E \u0924\u092A\u093E\u0908\u0902\u0932\u093E\u0908 \u0915\u0938\u0930\u0940 \u0938\u0939\u092F\u094B\u0917 \u0917\u0930\u094D\u0928 \u0938\u0915\u094D\u0924\u0941?',
+            'as': '\u0928\u092E\u0938\u094D\u0915\u093E\u0930' + n + ', \u09AE\u09C8 Shrijal. \u09AE\u09C8 \u0986\u09AA\u09CB\u09A8\u09BE\u0995\u09C7 \u0995\u09C7\u09A8\u09C7\u0995\u09C8\u09A8\u09C7 \u09B8\u09B9\u09BE\u09AF\u09BC \u0995\u09B0\u09BF \u09AA\u09BE\u09B0\u09BF?'
+        };
+
+        return greetings[shortLang] || greetings['en'];
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // TEXT PREPROCESSING — clean markdown, expand medical terms, fix numbers
+    // ══════════════════════════════════════════════════════════════════════════
+
+    const MEDICAL_ABBREVIATIONS = {
+        'ECG': 'E C G', 'EKG': 'E K G', 'CBC': 'C B C', 'BP': 'blood pressure',
+        'HR': 'heart rate', 'BMI': 'B M I', 'RBC': 'red blood cells',
+        'WBC': 'white blood cells', 'BP': 'blood pressure',
+        'CT': 'C T', 'MRI': 'M R I', 'X-ray': 'X ray',
+        'IV': 'I V', 'ICU': 'I C U', 'OPD': 'O P D',
+        'USG': 'ultrasound', 'USG abdomen': 'ultrasound of the abdomen',
+        'TSH': 'T S H', 'HbA1c': 'H b A one c',
+        'LDL': 'L D L', 'HDL': 'H D L', 'VLDL': 'V L D L',
+        'SGPT': 'S G P T', 'SGOT': 'S G O T',
+        'eGFR': 'e G F R', 'ESR': 'E S R',
+        'UA': 'urine analysis', 'PT': 'prothrombin time',
+        'INR': 'I N R', 'APTT': 'A P T T',
+        'CRP': 'C R P', 'ESR': 'E S R',
+        'DNA': 'D N A', 'RNA': 'R N A',
+        'ABG': 'arterial blood gas',
+        'LFT': 'liver function test', 'KFT': 'kidney function test',
+        'PFT': 'pulmonary function test',
+        'DVT': 'deep vein thrombosis',
+        'COPD': 'C O P D',
+        'MI': 'heart attack', 'CHF': 'congestive heart failure',
+        'URI': 'upper respiratory infection',
+        'UTI': 'urinary tract infection',
+        'TB': 'tuberculosis',
+        'SLE': 'S L E',
+        'RA': 'rheumatoid arthritis',
+        'DM': 'diabetes mellitus',
+        'HTN': 'hypertension',
+        'g/dL': 'grams per deciliter',
+        'mg/dL': 'milligrams per deciliter',
+        'mmol/L': 'millimoles per liter',
+        'mmHg': 'millimeters of mercury',
+        'mEq/L': 'milliequivalents per liter',
+        'mcg/dL': 'micrograms per deciliter',
+        'ng/mL': 'nanograms per milliliter',
+        'IU/mL': 'international units per milliliter',
+        'cells/uL': 'cells per microliter',
+        'μL': 'microliters'
+    };
+
+    function preprocessTextForSpeech(text, lang) {
+        if (!text) return '';
+        let c = text;
+
+        // 1. Remove markdown formatting
+        c = c.replace(/^#{1,6}\s+/gm, '');
+        c = c.replace(/\*{1,3}/g, '');
+        c = c.replace(/_{1,3}/g, '');
+        c = c.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+        c = c.replace(/```[\s\S]*?```/g, '');
+        c = c.replace(/`[^`]+`/g, '');
+        c = c.replace(/^[\s]*[-\u2022]\s+/gm, '');
+        c = c.replace(/^\d+\.\s+/gm, '');
+
+        // 2. Remove URLs, emojis, symbols
+        c = c.replace(/https?:\/\/[^\s]+/g, '');
+        c = c.replace(/[\u{1F600}-\u{1F64F}]/gu, '');
+        c = c.replace(/[\u{1F300}-\u{1F5FF}]/gu, '');
+        c = c.replace(/[\u{1F680}-\u{1F6FF}]/gu, '');
+        c = c.replace(/[\u{1F1E0}-\u{1F1FF}]/gu, '');
+        c = c.replace(/[\u2600-\u26FF]/gu, '');
+        c = c.replace(/[\u2700-\u27BF]/gu, '');
+        c = c.replace(/[\uFE00-\uFE0F]/gu, '');
+        c = c.replace(/[\u200D]/gu, '');
+
+        // 3. Remove HTML tags
+        c = c.replace(/<[^>]+>/g, '');
+
+        // 4. Expand medical abbreviations (only for English)
+        const shortLang = (lang || currentLanguage || 'en-IN').split('-')[0];
+        if (shortLang === 'en') {
+            for (const [abbr, expanded] of Object.entries(MEDICAL_ABBREVIATIONS)) {
+                const regex = new RegExp('\\b' + abbr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'g');
+                c = c.replace(regex, expanded);
+            }
+        }
+
+        // 5. Clean up medical values: "13.2 g/dL" → "13.2 grams per deciliter"
+        c = c.replace(/(\d+\.?\d*)\s*g\/dL/gi, '$1 grams per deciliter');
+        c = c.replace(/(\d+\.?\d*)\s*mg\/dL/gi, '$1 milligrams per deciliter');
+        c = c.replace(/(\d+\.?\d*)\s*mmol\/L/gi, '$1 millimoles per liter');
+        c = c.replace(/(\d+\.?\d*)\s*mmHg/gi, '$1 millimeters of mercury');
+        c = c.replace(/(\d+\.?\d*)\s*mEq\/L/gi, '$1 milliequivalents per liter');
+
+        // 6. Fix blood pressure: "120/80 mmHg" → "120 by 80 millimeters of mercury"
+        c = c.replace(/(\d{2,3})\s*\/\s*(\d{2,3})\s*mmHg/gi, '$1 by $2 millimeters of mercury');
+
+        // 7. Clean up punctuation artifacts
+        c = c.replace(/\n{3,}/g, '. ');
+        c = c.replace(/\n{2}/g, '. ');
+        c = c.replace(/\n/g, ' ');
+        c = c.replace(/\.{2,}/g, '.');
+        c = c.replace(/,{2,}/g, ',');
+        c = c.replace(/\s{2,}/g, ' ');
+
+        // 8. Remove disclaimer/source lines for voice (not useful spoken)
+        c = c.replace(/\*?Sources?:\*?\s*[\s\S]*$/gi, '');
+        c = c.replace(/This information is generated by AI[\s\S]*$/gi, '');
+        c = c.replace(/Disclaimer:[\s\S]*$/gi, '');
+
+        c = c.trim();
+        if (c.length < 3) return '';
+        return c;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // SMART PAUSES — insert breathing pauses for natural delivery
+    // ══════════════════════════════════════════════════════════════════════════
+
+    function insertSmartPauses(text) {
+        if (!text) return text;
+        let c = text;
+
+        // After sentence-ending punctuation, ensure a single period (TTS pause)
+        c = c.replace(/([.!?])\s+/g, '$1 ');
+        c = c.replace(/([.!?]){2,}/g, '$1');
+
+        // After colons in lists, add a slight pause marker
+        c = c.replace(/:\s+/g, ': ');
+
+        // Normalize commas
+        c = c.replace(/,\s{2,}/g, ', ');
+
+        return c;
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // VOICE SELECTION — dynamic scoring, no hardcoded voice names
+    // ══════════════════════════════════════════════════════════════════════════
+
+    /**
+     * Score a voice for quality. Higher = better.
+     * Uses dynamic heuristics, not hardcoded voice names.
+     */
+    function scoreVoice(voice, targetLang) {
+        if (!voice) return -1;
+        let score = 0;
+        const name = (voice.name || '').toLowerCase();
+        const lang = (voice.lang || '').toLowerCase();
+        const shortLang = (targetLang || 'en-IN').split('-')[0].toLowerCase();
+
+        // --- Language match (biggest factor) ---
+        if (lang === targetLang.toLowerCase()) {
+            score += 50; // exact locale match
+        } else if (lang.startsWith(shortLang)) {
+            score += 30; // same language family
+        } else if (lang.startsWith('en')) {
+            score += 10; // English fallback
+        }
+
+        // --- Female voice detection (warmth, clarity) ---
+        const femaleHints = [
+            'female', 'woman', 'samantha', 'victoria', 'zira', 'susan',
+            'karen', 'salli', 'joanna', 'ivy', 'kimberly', 'mizuki',
+            'tessa', 'moira', 'fiona', 'alice', 'melina', 'paulina',
+            'google.*female', 'microsoft.*zira', 'microsoft.*hazel',
+            'microsoft.*susan', 'microsoft.*karen', 'apple.*female',
+            'hindi.*female', 'bengali.*female', 'tamil.*female',
+            'telugu.*female', 'kannada.*female', 'malayalam.*female',
+            'google.*english', 'natural', 'neural', 'premium', 'enhanced'
+        ];
+        if (femaleHints.some(h => name.includes(h))) {
+            score += 25;
+        }
+
+        // --- Quality indicators ---
+        const qualityHints = [
+            'natural', 'neural', 'premium', 'enhanced', 'hd', 'pro',
+            'google', 'microsoft', 'apple', 'amazon', 'openai',
+            'smooth', 'clear', 'warm', 'soft', 'gentle'
+        ];
+        if (qualityHints.some(h => name.includes(h))) {
+            score += 15;
+        }
+
+        // --- Penalize low-quality indicators ---
+        const badHints = [
+            'robot', 'default', 'system', 'legacy', 'old',
+            'male', 'man', 'boy', 'deep', 'bass'
+        ];
+        if (badHints.some(h => name.includes(h))) {
+            score -= 20;
+        }
+
+        // --- Prefer voices with "google" (usually highest quality in browsers) ---
+        if (name.includes('google')) {
+            score += 10;
+        }
+
+        return score;
+    }
+
+    /**
+     * Pick the best voice for a given language from available voices.
+     * Uses dynamic scoring — no hardcoded voice names.
+     */
+    function pickBestVoice(voices, targetLang) {
+        if (!voices || !voices.length) return null;
+        const shortLang = (targetLang || 'en-IN').split('-')[0];
+
+        // Try in order of preference: exact locale → same language → English → any
+        const stages = [
+            v => v.lang === targetLang,
+            v => v.lang && v.lang.startsWith(shortLang),
+            v => v.lang && v.lang.startsWith('en'),
+            () => true
+        ];
+
+        for (const filter of stages) {
+            const candidates = voices.filter(filter);
+            if (!candidates.length) continue;
+
+            // Score and pick highest
+            let best = null;
+            let bestScore = -Infinity;
+            for (const v of candidates) {
+                const s = scoreVoice(v, targetLang);
+                if (s > bestScore) {
+                    bestScore = s;
+                    best = v;
+                }
+            }
+            if (best && bestScore > 0) return best;
+        }
+
+        // Absolute fallback: first voice
+        return voices[0] || null;
+    }
+
+    function selectBestIndianFemaleVoice(voices) {
+        if (!voices || voices.length === 0) return;
+        selectedVoice = pickBestVoice(voices, currentLanguage);
+    }
+
+    function getVoiceForLanguage(langCode) {
+        if (!synthesis) return null;
+        const voices = synthesis.getVoices();
+        return pickBestVoice(voices, langCode || currentLanguage);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // TTSProvider ABSTRACTION
+    // ══════════════════════════════════════════════════════════════════════════
+
+    class BrowserTTSProvider {
+        constructor() {
+            this.synth = window.speechSynthesis || null;
+        }
+
+        speak(text, lang) {
+            return new Promise((resolve) => {
+                if (!this.synth) { resolve(); return; }
+
+                // Cancel any in-progress speech (interruption support)
+                this.synth.cancel();
+
+                const cleaned = preprocessTextForSpeech(text, lang);
+                if (!cleaned) { resolve(); return; }
+
+                const withPauses = insertSmartPauses(cleaned);
+
+                isSpeaking = true;
+                setVoiceState('SPEAKING');
+                onOrbStateChange('speaking');
+
+                const utterance = new SpeechSynthesisUtterance(withPauses);
+                const speakLang = lang || currentLanguage;
+                const voice = getVoiceForLanguage(speakLang);
+                if (voice) utterance.voice = voice;
+                utterance.lang = speakLang;
+
+                // Premium voice delivery: calm, warm, natural pace
+                utterance.rate = 0.92;
+                utterance.pitch = 1.15;
+                utterance.volume = 1;
+
+                currentUtterance = utterance;
+
+                utterance.onstart = () => {
+                    isSpeaking = true;
+                    setVoiceState('SPEAKING');
+                };
+
+                utterance.onend = () => {
+                    isSpeaking = false;
+                    currentUtterance = null;
+                    setVoiceState(voiceMode ? 'IDLE' : 'OFF');
+                    onOrbStateChange(voiceMode ? 'voice-active' : '');
+                    speakResolve = null;
+                    resolve();
+                    // Auto-restart listening in voice mode
+                    if (voiceMode) {
+                        restartTimer = setTimeout(() => {
+                            if (voiceMode && !isRecording) {
+                                startListening();
+                            }
+                        }, 700);
+                    }
+                };
+
+                utterance.onerror = (e) => {
+                    isSpeaking = false;
+                    currentUtterance = null;
+                    if (e.error === 'canceled' || e.error === 'interrupted') {
+                        // Interruption — expected, resolve cleanly
+                    } else {
+                        setVoiceState('ERROR');
+                        setTimeout(() => {
+                            setVoiceState(voiceMode ? 'IDLE' : 'OFF');
+                        }, 1500);
+                    }
+                    onOrbStateChange(voiceMode ? 'voice-active' : '');
+                    speakResolve = null;
+                    resolve();
+                };
+
+                speakResolve = resolve;
+                this.synth.speak(utterance);
+            });
+        }
+
+        stop() {
+            if (this.synth) this.synth.cancel();
+            isSpeaking = false;
+            currentUtterance = null;
+            if (speakResolve) { speakResolve(); speakResolve = null; }
+        }
+
+        pause() {
+            if (this.synth && isSpeaking) this.synth.pause();
+        }
+
+        resume() {
+            if (this.synth) this.synth.resume();
+        }
+
+        isSpeaking() {
+            return isSpeaking;
+        }
+    }
+
+    let ttsProvider = null;
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // VOICE STATE MANAGEMENT
+    // ══════════════════════════════════════════════════════════════════════════
+
+    function setVoiceState(state) {
+        voiceState = state;
+        const stateMap = {
+            'OFF': '',
+            'IDLE': 'voice-active',
+            'LISTENING': 'listening',
+            'THINKING': 'thinking',
+            'SPEAKING': 'speaking',
+            'ERROR': 'error'
+        };
+        onStateChange(state.toLowerCase(), state);
+        onOrbStateChange(stateMap[state] || '');
+    }
+
+    // ══════════════════════════════════════════════════════════════════════════
+    // INITIALIZATION
+    // ══════════════════════════════════════════════════════════════════════════
 
     function init(options = {}) {
         synthesis = window.speechSynthesis || null;
@@ -110,7 +506,7 @@ const ShrijalVoice = (() => {
         if (options.preferredLocale) {
             currentLanguage = options.preferredLocale;
         } else if (options.preferredLanguage) {
-            currentLanguage = options.preferredLanguage + '-IN';
+            currentLanguage = (LOCALE_MAP[options.preferredLanguage] || options.preferredLanguage + '-IN');
         }
 
         if (window.LanguageDetection) {
@@ -119,6 +515,10 @@ const ShrijalVoice = (() => {
 
         loadCurrentUser();
 
+        // Initialize TTS provider
+        ttsProvider = new BrowserTTSProvider();
+
+        // Initialize Speech Recognition
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (SpeechRecognition && synthesis) {
             recognitionSupported = true;
@@ -130,8 +530,7 @@ const ShrijalVoice = (() => {
 
             recognition.onstart = function () {
                 isRecording = true;
-                onStateChange('listening', 'Listening...');
-                onOrbStateChange('listening');
+                setVoiceState('LISTENING');
             };
 
             recognition.onresult = function (event) {
@@ -147,27 +546,28 @@ const ShrijalVoice = (() => {
             recognition.onerror = function (event) {
                 isRecording = false;
                 if (event.error === 'not-allowed') {
+                    setVoiceState('ERROR');
                     onStateChange('error', 'Microphone access denied.');
                 } else if (event.error === 'no-speech') {
-                    onStateChange('', '');
+                    setVoiceState(voiceMode ? 'IDLE' : 'OFF');
                 } else {
-                    onStateChange('', '');
+                    setVoiceState(voiceMode ? 'IDLE' : 'OFF');
                 }
-                onOrbStateChange(voiceMode ? 'voice-active' : '');
             };
 
             recognition.onend = function () {
                 isRecording = false;
-                onStateChange('', '');
                 if (voiceMode && !isSpeaking) {
+                    setVoiceState('IDLE');
                     onOrbStateChange('voice-active');
-                    // Auto-restart listening in voice mode after a short delay
+                    // Auto-restart listening in voice mode
                     restartTimer = setTimeout(() => {
                         if (voiceMode && !isRecording && !isSpeaking) {
                             startListening();
                         }
                     }, 600);
                 } else {
+                    setVoiceState('OFF');
                     onOrbStateChange('');
                 }
             };
@@ -179,201 +579,46 @@ const ShrijalVoice = (() => {
         }
     }
 
-    // ── Voice Loading & Selection ─────────────────────────────────────────────
-
     function loadVoices() {
         if (!synthesis) return;
         const voices = synthesis.getVoices();
         if (voices.length > 0) selectBestIndianFemaleVoice(voices);
     }
 
-    // Siri-like natural voices, best first. Only ONE voice is ever used (no picker):
-    // Apple Siri -> Google natural female -> Windows natural female.
-    const SIRI_LIKE_NAMES = [
-        'samantha', 'siri',
-        'google us english', 'google uk english female',
-        'zira', 'hazel',
-        'victoria', 'karen', 'susan', 'moira', 'tessa', 'fiona',
-        'salli', 'joanna', 'ivy', 'kimberly', 'alice', 'melina'
-    ];
-
-    function siriScore(voice) {
-        const name = (voice.name || '').toLowerCase();
-        for (let i = 0; i < SIRI_LIKE_NAMES.length; i++) {
-            if (name.includes(SIRI_LIKE_NAMES[i])) return 100 - i;
-        }
-        return isFemaleVoice(voice) ? 10 : 0;
-    }
-
-    function pickNaturalVoice(voices, langFilter) {
-        const pool = voices.filter(langFilter);
-        if (!pool.length) return null;
-        return pool.slice().sort((a, b) => siriScore(b) - siriScore(a))[0];
-    }
-
-    function selectBestIndianFemaleVoice(voices) {
-        if (!voices || voices.length === 0) return;
-        const lang = currentLanguage || 'en-IN';
-        const shortLang = lang.split('-')[0];
-
-        const stages = [
-            vs => vs.filter(v => v.lang === lang),
-            vs => vs.filter(v => v.lang === 'en-IN'),
-            vs => vs.filter(v => v.lang === 'hi-IN'),
-            vs => vs.filter(v => v.lang && v.lang.startsWith(shortLang)),
-            vs => vs.filter(v => v.lang && v.lang.startsWith('en')),
-            vs => vs
-        ];
-
-        for (const stage of stages) {
-            const match = pickNaturalVoice(voices, v => stage([v]).length > 0);
-            if (match) { selectedVoice = match; return; }
-        }
-        // Last resort: first available voice
-        if (voices.length) selectedVoice = voices[0];
-    }
-
-    function isFemaleVoice(voice) {
-        const name = (voice.name || '').toLowerCase();
-        const indicators = [
-            'female', 'woman', 'samantha', 'victoria', 'zira', 'susan',
-            'karen', 'salli', 'joanna', 'ivy', 'kimberly', 'mizuki',
-            'tessa', 'moira', 'fiona', 'alice', 'melina', 'paulina',
-            'google.*female', 'microsoft.*zira', 'microsoft.*hazel',
-            'microsoft.*susan', 'microsoft.*karen', 'apple.*female',
-            'hindi.*female', 'bengali.*female', 'tamil.*female',
-            'telugu.*female', 'kannada.*female', 'malayalam.*female'
-        ];
-        return indicators.some(i => name.includes(i));
-    }
-
-    function getVoiceForLanguage(langCode) {
-        if (!synthesis) return null;
-        const voices = synthesis.getVoices();
-        const shortLang = (langCode || 'en-IN').split('-')[0];
-
-        // User's manual pick always wins (if still available)
-        if (preferredVoiceName) {
-            const chosen = voices.find(x => x.name === preferredVoiceName);
-            if (chosen) return chosen;
-        }
-
-        let v = pickNaturalVoice(voices, x => x.lang === langCode);
-        if (v) return v;
-        v = pickNaturalVoice(voices, x => x.lang && x.lang.startsWith(shortLang));
-        if (v) return v;
-        v = pickNaturalVoice(voices, x => x.lang && x.lang.startsWith('en'));
-        if (v) return v;
-        return selectedVoice;
-    }
-
-    // ── Text Cleaning for Speech ──────────────────────────────────────────────
-
-    function prepareTextForSpeech(text) {
-        if (!text) return '';
-        let c = text;
-        c = c.replace(/^#{1,6}\s+/gm, '');
-        c = c.replace(/\*{1,3}/g, '');
-        c = c.replace(/_{1,3}/g, '');
-        c = c.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
-        c = c.replace(/https?:\/\/[^\s]+/g, '');
-        c = c.replace(/[\u{1F600}-\u{1F64F}]/gu, '');
-        c = c.replace(/[\u{1F300}-\u{1F5FF}]/gu, '');
-        c = c.replace(/[\u{1F680}-\u{1F6FF}]/gu, '');
-        c = c.replace(/[\u{1F1E0}-\u{1F1FF}]/gu, '');
-        c = c.replace(/[\u{2600}-\u{26FF}]/gu, '');
-        c = c.replace(/[\u{2700}-\u{27BF}]/gu, '');
-        c = c.replace(/[\u{FE00}-\u{FE0F}]/gu, '');
-        c = c.replace(/[\u{200D}]/gu, '');
-        c = c.replace(/\*\*Sources?:\*\*/gi, 'Sources:');
-        c = c.replace(/\d+\.\s*\*\*/g, '');
-        c = c.replace(/<[^>]+>/g, '');
-        c = c.replace(/```[\s\S]*?```/g, '');
-        c = c.replace(/`[^`]+`/g, '');
-        c = c.replace(/^[\s]*[-\u2022]\s+/gm, '');
-        c = c.replace(/^\d+\.\s+/gm, '');
-        c = c.replace(/\n{3,}/g, '. ');
-        c = c.replace(/\n{2}/g, '. ');
-        c = c.replace(/\n/g, ' ');
-        c = c.replace(/\s{2,}/g, ' ');
-        c = c.replace(/\.{2,}/g, '.');
-        c = c.trim();
-        if (c.length < 3) return '';
-        return c;
-    }
-
-    // ── Browser TTS ───────────────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════════
+    // SPEAK — main entry point with interruption + deduplication
+    // ══════════════════════════════════════════════════════════════════════════
 
     function speakText(text, lang) {
-        return new Promise((resolve, reject) => {
-            if (!synthesis) { resolve(); return; }
+        if (!ttsProvider) return Promise.resolve();
 
-            synthesis.cancel();
+        // Cancel any in-progress speech (interruption support)
+        if (isSpeaking) {
+            ttsProvider.stop();
+        }
 
-            const cleaned = prepareTextForSpeech(text);
-            if (!cleaned) { resolve(); return; }
-
-            isSpeaking = true;
-            onStateChange('speaking', 'Speaking...');
-            onOrbStateChange('speaking');
-
-            const utterance = new SpeechSynthesisUtterance(cleaned);
-            const speakLang = lang || currentLanguage;
-            const voice = getVoiceForLanguage(speakLang);
-            if (voice) utterance.voice = voice;
-            utterance.lang = speakLang;
-            // Fixed Siri-like delivery: calm steady pace, bright warm pitch
-            utterance.rate = 0.96;
-            utterance.pitch = 1.28;
-            utterance.volume = 1;
-
-            utterance.onstart = () => {
-                isSpeaking = true;
-            };
-
-            utterance.onend = () => {
-                isSpeaking = false;
-                onStateChange('', '');
-                onOrbStateChange(voiceMode ? 'voice-active' : '');
-                speakResolve = null;
-                resolve();
-                if (voiceMode) {
-                    restartTimer = setTimeout(() => {
-                        if (voiceMode && !isRecording) {
-                            startListening();
-                        }
-                    }, 800);
-                }
-            };
-
-            utterance.onerror = (e) => {
-                isSpeaking = false;
-                onStateChange('', '');
-                onOrbStateChange(voiceMode ? 'voice-active' : '');
-                speakResolve = null;
-                if (e.error === 'canceled' || e.error === 'interrupted') {
-                    resolve();
-                } else {
-                    resolve();
-                }
-            };
-
-            speakResolve = resolve;
-            synthesis.speak(utterance);
-        });
+        return ttsProvider.speak(text, lang);
     }
 
     function stopSpeaking() {
-        if (synthesis) synthesis.cancel();
+        if (ttsProvider) ttsProvider.stop();
         isSpeaking = false;
-        if (speakResolve) { speakResolve(); speakResolve = null; }
+        currentUtterance = null;
+        setVoiceState(voiceMode ? 'IDLE' : 'OFF');
     }
 
-    // ── Listening Control ─────────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════════
+    // LISTENING CONTROL
+    // ══════════════════════════════════════════════════════════════════════════
 
     function startListening() {
         if (!recognition || !recognitionSupported || !voiceMode) return false;
         if (isRecording) return false;
+
+        // Interruption: if speaking, stop immediately when user starts talking
+        if (isSpeaking) {
+            stopSpeaking();
+        }
 
         updateRecognitionLanguage();
 
@@ -407,7 +652,9 @@ const ShrijalVoice = (() => {
         recognition.lang = lang;
     }
 
-    // ── Language Management ───────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════════
+    // LANGUAGE MANAGEMENT
+    // ══════════════════════════════════════════════════════════════════════════
 
     function updateConversationLanguage(text) {
         if (!window.LanguageDetection || !conversationManager) return;
@@ -431,7 +678,9 @@ const ShrijalVoice = (() => {
     function getCurrentLanguage() { return currentLanguage; }
     function getConversationManager() { return conversationManager; }
 
-    // ── Voice Commands ────────────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════════
+    // VOICE COMMANDS
+    // ══════════════════════════════════════════════════════════════════════════
 
     function setReportContext(reportData) {
         lastReportContext = reportData;
@@ -513,11 +762,14 @@ const ShrijalVoice = (() => {
         return null;
     }
 
-    // ── Voice Mode Toggle ─────────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════════
+    // VOICE MODE TOGGLE
+    // ══════════════════════════════════════════════════════════════════════════
 
     function enableVoiceMode() {
         voiceMode = true;
         onVoiceModeChange(true);
+        setVoiceState('IDLE');
         onOrbStateChange('voice-active');
     }
 
@@ -526,8 +778,7 @@ const ShrijalVoice = (() => {
         stopListening();
         stopSpeaking();
         isSpeaking = false;
-        onStateChange('', '');
-        onOrbStateChange('');
+        setVoiceState('OFF');
         onVoiceModeChange(false);
     }
 
@@ -536,7 +787,9 @@ const ShrijalVoice = (() => {
         else enableVoiceMode();
     }
 
-    // ── Public API ────────────────────────────────────────────────────────────
+    // ══════════════════════════════════════════════════════════════════════════
+    // PUBLIC API
+    // ══════════════════════════════════════════════════════════════════════════
 
     function setVoiceMode(enabled) {
         if (enabled) enableVoiceMode();
@@ -555,36 +808,32 @@ const ShrijalVoice = (() => {
     function getCurrentUserName() { loadCurrentUser(); return currentUserName; }
     function getCurrentUserRole_() { loadCurrentUser(); return currentUserRole; }
     function isRecognitionSupported() { return recognitionSupported; }
+    function getState() { return voiceState; }
 
     function setOrbState(state) { onOrbStateChange(state); }
 
-    // ── Manual voice picker (persisted) ─────────────────────────────────────
-
-    function getAvailableVoices() {
-        if (!synthesis) return [];
-        try { return synthesis.getVoices() || []; } catch (e) { return []; }
+    /**
+     * Interrupt: stop current speech + listening immediately.
+     * Call this when user starts speaking while Shrijal is speaking.
+     */
+    function interrupt() {
+        stopSpeaking();
+        stopListening();
+        setVoiceState(voiceMode ? 'IDLE' : 'OFF');
     }
 
-    function setPreferredVoiceName(name) {
-        preferredVoiceName = name || '';
-        try {
-            if (preferredVoiceName) localStorage.setItem('shrijal_voice_name', preferredVoiceName);
-            else localStorage.removeItem('shrijal_voice_name');
-        } catch (e) {}
-        if (synthesis) selectBestIndianFemaleVoice(synthesis.getVoices());
-    }
-
-    function getPreferredVoiceName() { return preferredVoiceName; }
-
-    function getActiveVoiceName() {
-        const v = getVoiceForLanguage(currentLanguage);
-        return v ? v.name : '';
+    /**
+     * Prepare text for speech (exposed for external use).
+     */
+    function prepareTextForSpeech(text, lang) {
+        return preprocessTextForSpeech(text, lang);
     }
 
     return {
         init,
         speakText,
         stopSpeaking,
+        interrupt,
         startListening,
         stopListening,
         checkVoiceCommand,
@@ -595,6 +844,7 @@ const ShrijalVoice = (() => {
         getVoiceMode,
         getIsRecording,
         getIsSpeaking,
+        getState,
         setCurrentLanguage,
         setLanguage: setCurrentLanguage,
         getCurrentLanguage,
@@ -621,10 +871,9 @@ const ShrijalVoice = (() => {
         setReportContext,
         getReportContext,
         hasReportContext,
-        getAvailableVoices,
-        setPreferredVoiceName,
-        getPreferredVoiceName,
-        getActiveVoiceName
+        pickBestVoice,
+        scoreVoice,
+        LOCALE_MAP
     };
 })();
 

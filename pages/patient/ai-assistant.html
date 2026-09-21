@@ -171,7 +171,7 @@
         </div>
     </section>
 
-    <script src="/js/main.js?v=2.1"></script>
+    <script src="/js/main.js?v=3.0"></script>
     <script src="/js/language-detection.js?v=3.0"></script>
     <script src="/js/voice-service.js?v=3.0"></script>
     <script>
@@ -194,7 +194,6 @@
                 onStateChange: function(state, text) {
                     setShrijalState(state, text);
                     const micBtn = document.getElementById('shrijalMicBtn');
-                    const voiceBtn = document.getElementById('voiceToggleBtn');
                     if (state === 'listening') {
                         if (micBtn) micBtn.classList.add('recording');
                         showVoiceBar(text);
@@ -208,6 +207,9 @@
                     } else if (state === 'thinking') {
                         if (micBtn) micBtn.classList.remove('recording');
                         showVoiceBar(text);
+                    } else if (state === 'error') {
+                        if (micBtn) micBtn.classList.remove('recording');
+                        showVoiceBar('Error');
                     } else {
                         if (micBtn) micBtn.classList.remove('recording');
                         hideVoiceBar();
@@ -283,6 +285,9 @@
                 showShrijalMessage('Speech recognition is not supported in your browser. Please try Chrome or Edge.', 'assistant');
                 return;
             }
+            if (ShrijalVoice.getIsSpeaking()) {
+                ShrijalVoice.interrupt();
+            }
             if (ShrijalVoice.getIsRecording()) {
                 ShrijalVoice.stopListening();
             } else {
@@ -294,12 +299,13 @@
         }
 
         function toggleVoiceMode() {
-            ShrijalVoice.toggleVoiceMode();
             if (ShrijalVoice.getVoiceMode()) {
+                ShrijalVoice.disableVoiceMode();
+                ShrijalVoice.stopSpeaking();
+            } else {
+                ShrijalVoice.enableVoiceMode();
                 if (window._shrijalGreeting) ShrijalVoice.speakText(window._shrijalGreeting);
                 else ShrijalVoice.startListening();
-            } else {
-                ShrijalVoice.stopSpeaking();
             }
         }
 
@@ -384,6 +390,10 @@
             if (voiceCmd) {
                 handleVoiceCommand(voiceCmd);
                 return;
+            }
+
+            if (ShrijalVoice.getIsSpeaking()) {
+                ShrijalVoice.interrupt();
             }
 
             ShrijalVoice.updateConversationLanguage(message);

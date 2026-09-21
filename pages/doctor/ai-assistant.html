@@ -137,7 +137,7 @@
         </div>
     </section>
 
-    <script src="/js/main.js?v=2.1"></script>
+    <script src="/js/main.js?v=3.0"></script>
     <script src="/js/language-detection.js?v=3.0"></script>
     <script src="/js/voice-service.js?v=3.0"></script>
     <script>
@@ -163,16 +163,19 @@
                     var orbit = document.querySelector('.ai-orbit-container');
                     if (state === 'listening') {
                         if (micBtn) micBtn.classList.add('recording');
-                        if (orbit) { orbit.classList.remove('speaking', 'thinking'); orbit.classList.add('listening'); }
+                        if (orbit) { orbit.className = 'ai-orbit-container listening'; }
                     } else if (state === 'speaking') {
                         if (micBtn) micBtn.classList.remove('recording');
-                        if (orbit) { orbit.classList.remove('listening', 'thinking'); orbit.classList.add('speaking'); }
+                        if (orbit) { orbit.className = 'ai-orbit-container speaking'; }
                     } else if (state === 'thinking') {
                         if (micBtn) micBtn.classList.remove('recording');
-                        if (orbit) { orbit.classList.remove('listening', 'speaking'); orbit.classList.add('thinking'); }
+                        if (orbit) { orbit.className = 'ai-orbit-container thinking'; }
+                    } else if (state === 'error') {
+                        if (micBtn) micBtn.classList.remove('recording');
+                        if (orbit) { orbit.className = 'ai-orbit-container error'; }
                     } else {
                         if (micBtn) micBtn.classList.remove('recording');
-                        if (orbit) { orbit.classList.remove('listening', 'thinking', 'speaking'); }
+                        if (orbit) { orbit.className = 'ai-orbit-container'; }
                         if (ShrijalVoice.getVoiceMode()) orbit.classList.add('voice-active');
                     }
                 },
@@ -229,6 +232,9 @@
                 showToast('Voice input is not supported in this browser', 'error');
                 return;
             }
+            if (ShrijalVoice.getIsSpeaking()) {
+                ShrijalVoice.interrupt();
+            }
             if (ShrijalVoice.getIsRecording()) {
                 ShrijalVoice.stopListening();
             } else {
@@ -238,13 +244,14 @@
         }
 
         function toggleVoice() {
-            ShrijalVoice.toggleVoiceMode();
             if (ShrijalVoice.getVoiceMode()) {
+                ShrijalVoice.disableVoiceMode();
+                ShrijalVoice.stopSpeaking();
+            } else {
+                ShrijalVoice.enableVoiceMode();
                 var hasMessages = document.querySelectorAll('#chatMessages .shrijal-msg').length > 0;
                 if (!hasMessages && window._shrijalGreeting) ShrijalVoice.speakText(window._shrijalGreeting);
                 else ShrijalVoice.startListening();
-            } else {
-                ShrijalVoice.stopSpeaking();
             }
         }
 
@@ -355,10 +362,11 @@
         function showTyping(show) {
             const el = document.getElementById('typingIndicator');
             el.style.display = show ? 'flex' : 'none';
-            const container = document.querySelector('.ai-orbit-container');
-            if (container) {
-                if (show) container.classList.add('thinking');
-                else container.classList.remove('thinking');
+            const c = document.querySelector('.ai-orbit-container');
+            if (c) {
+                if (show) c.className = 'ai-orbit-container thinking';
+                else if (ShrijalVoice.getVoiceMode()) c.className = 'ai-orbit-container voice-active';
+                else c.className = 'ai-orbit-container';
             }
         }
 
@@ -380,6 +388,10 @@
             const input = document.getElementById('chatInput');
             const message = input.value.trim();
             if (!message) return;
+
+            if (ShrijalVoice.getIsSpeaking()) {
+                ShrijalVoice.interrupt();
+            }
 
             ShrijalVoice.updateConversationLanguage(message);
 
