@@ -187,8 +187,11 @@
             var lang = ShrijalVoice.getCurrentLanguage();
             var greeting = ShrijalVoice.buildShrijalGreeting(name, role, lang);
             ShrijalVoice.setGreetingShown(true);
-            showWelcome(false);
-            addMessage(formatResponse(greeting), 'assistant');
+            // Keep the welcome orb + quick actions visible on load.
+            // The greeting is shown inside the welcome text, chat opens on first message.
+            showWelcome(true);
+            var welcomePara = document.querySelector('#welcomeScreen p');
+            if (welcomePara && greeting) welcomePara.textContent = greeting;
             if (ShrijalVoice.getVoiceMode()) ShrijalVoice.speakText(greeting);
         }
 

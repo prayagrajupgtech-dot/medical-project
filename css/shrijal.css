@@ -386,7 +386,8 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    height: 700px;
+    height: min(660px, calc(100vh - 250px));
+    min-height: 520px;
     max-width: 800px;
     margin: 0 auto;
     position: relative;
