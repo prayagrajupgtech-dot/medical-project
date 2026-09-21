@@ -185,29 +185,49 @@ const ShrijalVoice = (() => {
         if (voices.length > 0) selectBestIndianFemaleVoice(voices);
     }
 
+    // Siri-like natural voices, best first (Apple Siri -> Windows natural -> Google natural)
+    const SIRI_LIKE_NAMES = [
+        'samantha', 'siri',
+        'zira',
+        'google us english', 'google uk english female',
+        'hazel', 'victoria', 'karen', 'susan', 'moira', 'tessa', 'fiona',
+        'salli', 'joanna', 'ivy', 'kimberly', 'alice', 'melina'
+    ];
+
+    function siriScore(voice) {
+        const name = (voice.name || '').toLowerCase();
+        for (let i = 0; i < SIRI_LIKE_NAMES.length; i++) {
+            if (name.includes(SIRI_LIKE_NAMES[i])) return 100 - i;
+        }
+        return isFemaleVoice(voice) ? 10 : 0;
+    }
+
+    function pickNaturalVoice(voices, langFilter) {
+        const pool = voices.filter(langFilter);
+        if (!pool.length) return null;
+        return pool.slice().sort((a, b) => siriScore(b) - siriScore(a))[0];
+    }
+
     function selectBestIndianFemaleVoice(voices) {
         if (!voices || voices.length === 0) return;
         const lang = currentLanguage || 'en-IN';
         const shortLang = lang.split('-')[0];
 
-        const preferences = [
-            v => v.lang === lang && isFemaleVoice(v),
-            v => v.lang === lang,
-            v => v.lang === 'en-IN' && isFemaleVoice(v),
-            v => v.lang === 'en-IN',
-            v => v.lang === 'hi-IN' && isFemaleVoice(v),
-            v => v.lang === 'hi-IN',
-            v => v.lang.startsWith(shortLang) && isFemaleVoice(v),
-            v => v.lang.startsWith(shortLang),
-            v => isFemaleVoice(v) && v.lang.startsWith('en'),
-            v => isFemaleVoice(v),
-            v => true
+        const stages = [
+            vs => vs.filter(v => v.lang === lang),
+            vs => vs.filter(v => v.lang === 'en-IN'),
+            vs => vs.filter(v => v.lang === 'hi-IN'),
+            vs => vs.filter(v => v.lang && v.lang.startsWith(shortLang)),
+            vs => vs.filter(v => v.lang && v.lang.startsWith('en')),
+            vs => vs
         ];
 
-        for (const predicate of preferences) {
-            const match = voices.find(predicate);
+        for (const stage of stages) {
+            const match = pickNaturalVoice(voices, v => stage([v]).length > 0);
             if (match) { selectedVoice = match; return; }
         }
+        // Last resort: first available voice
+        if (voices.length) selectedVoice = voices[0];
     }
 
     function isFemaleVoice(voice) {
@@ -229,13 +249,11 @@ const ShrijalVoice = (() => {
         const voices = synthesis.getVoices();
         const shortLang = (langCode || 'en-IN').split('-')[0];
 
-        let v = voices.find(x => x.lang === langCode && isFemaleVoice(x));
+        let v = pickNaturalVoice(voices, x => x.lang === langCode);
         if (v) return v;
-        v = voices.find(x => x.lang === langCode);
+        v = pickNaturalVoice(voices, x => x.lang && x.lang.startsWith(shortLang));
         if (v) return v;
-        v = voices.find(x => x.lang.startsWith(shortLang) && isFemaleVoice(x));
-        if (v) return v;
-        v = voices.find(x => x.lang.startsWith(shortLang));
+        v = pickNaturalVoice(voices, x => x.lang && x.lang.startsWith('en'));
         if (v) return v;
         return selectedVoice;
     }
@@ -295,8 +313,9 @@ const ShrijalVoice = (() => {
             const voice = getVoiceForLanguage(speakLang);
             if (voice) utterance.voice = voice;
             utterance.lang = speakLang;
-            utterance.rate = 0.97;
-            utterance.pitch = 1.05;
+            // Siri-like delivery: steady pace, bright friendly pitch
+            utterance.rate = 1.02;
+            utterance.pitch = 1.12;
             utterance.volume = 1;
 
             utterance.onstart = () => {
