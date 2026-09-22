@@ -520,7 +520,19 @@ async function processReportImage(imagePath, originalName) {
         const extractedData = extractStructuredData(ocrResult.text, ocrResult.lines);
         result.extractedData = extractedData;
 
-        // Step 7: Determine final result
+        // Step 7: Detect report type from OCR text
+        try {
+            const reportTypeAnalyzer = require('./report-type-analyzer');
+            const reportTypeResult = reportTypeAnalyzer.detectReportType(ocrResult.text);
+            result.reportType = reportTypeResult.type !== 'unknown' ? reportTypeResult : null;
+            if (result.reportType) {
+                result.extractedData.reportType = result.reportType.name || result.extractedData.reportType;
+            }
+        } catch (e) {
+            result.reportType = null;
+        }
+
+        // Step 8: Determine final result
         if (extractedData.tests.length > 0) {
             result.success = true;
         } else if (ocrResult.text.length > 20) {

@@ -754,10 +754,15 @@
                 
                 let responseText = '';
                 
+                // Report type badge
+                const reportTypeBadge = data.reportType ? data.reportType.name : null;
+                const specializedData = data.specializedAnalysis || null;
+                
                 // Show extracted report data if available
                 if (data.ocr && data.ocr.extractedData && data.ocr.extractedData.tests && data.ocr.extractedData.tests.length > 0) {
                     shrijalReportContext = {
-                        reportType: data.ocr.extractedData.reportType || 'Medical Report',
+                        reportType: reportTypeBadge || data.ocr.extractedData.reportType || 'Medical Report',
+                        reportTypeData: data.reportType || null,
                         tests: data.ocr.extractedData.tests,
                         ocrText: data.ocr.text || '',
                         timestamp: Date.now()
@@ -766,7 +771,12 @@
 
                     const ext = data.ocr.extractedData;
                     responseText += '**Extracted Report**';
-                    if (ext.reportType) responseText += ' — ' + ext.reportType;
+                    if (reportTypeBadge) {
+                        responseText += ' — ' + reportTypeBadge;
+                        responseText += '\n🏷️ Report type: **' + reportTypeBadge + '**';
+                    } else if (ext.reportType) {
+                        responseText += ' — ' + ext.reportType;
+                    }
                     responseText += '\n\n';
                     
                     for (const test of ext.tests) {
@@ -781,10 +791,35 @@
                     if (data.ocr.quality) {
                         responseText += '*Image quality: ' + data.ocr.quality.quality + ' (OCR confidence: ' + Math.round(data.ocr.confidence) + '%)*\n\n';
                     }
+                } else if (specializedData && specializedData.findings && specializedData.findings.length > 0) {
+                    // Use specialized analysis for non-lab reports
+                    shrijalReportContext = {
+                        reportType: reportTypeBadge || 'Medical Report',
+                        reportTypeData: data.reportType || null,
+                        tests: specializedData.findings.map(f => ({
+                            name: f.name,
+                            value: f.value,
+                            unit: f.unit || '',
+                            referenceRange: f.referenceRange || '',
+                            status: f.status || 'check'
+                        })),
+                        ocrText: (data.ocr && data.ocr.text) || '',
+                        timestamp: Date.now()
+                    };
+                    ShrijalVoice.setReportContext(shrijalReportContext);
+
+                    responseText += '**' + (reportTypeBadge || 'Report') + '**\n\n';
+                    for (const f of specializedData.findings) {
+                        const icon = f.status === 'normal' || f.status === 'negative' ? '✅' : f.status === 'high' || f.status === 'positive' ? '⬆️' : f.status === 'low' ? '⬇️' : '❓';
+                        responseText += icon + ' **' + f.name + '**: ' + f.value + ' ' + (f.unit || '');
+                        if (f.referenceRange) responseText += ' (Ref: ' + f.referenceRange + ')';
+                        responseText += '\n';
+                    }
+                    responseText += '\n';
                 }
                 
                 if (data.analysis) {
-                    if (data.analysis.findings && data.analysis.findings.length > 0) {
+                    if (data.analysis.findings && data.analysis.findings.length > 0 && responseText.indexOf('Extracted Report') === -1) {
                         responseText += '**Analysis:**\n\n';
                         for (const f of data.analysis.findings) {
                             responseText += '- **' + f.name + '**: ' + f.value + ' ' + f.unit + ' (' + f.status.toUpperCase() + ')\n';
@@ -802,6 +837,25 @@
                         for (const q of data.analysis.questionsForDoctor) responseText += '- ' + q + '\n';
                         responseText += '\n';
                     }
+                }
+                
+                // Quick actions for the report type
+                if (specializedData && specializedData.questionsForDoctor && specializedData.questionsForDoctor.length > 0) {
+                    responseText += '**What you can ask me:**\n';
+                    const quickActions = specializedData.questionsForDoctor.slice(0, 5);
+                    for (const action of quickActions) {
+                        responseText += '- 💬 ' + action + '\n';
+                    }
+                    responseText += '\n';
+                }
+                
+                // Critical alerts
+                if (specializedData && specializedData.criticalAlerts && specializedData.criticalAlerts.length > 0) {
+                    responseText += '🚨 **Urgent Findings:**\n';
+                    for (const alert of specializedData.criticalAlerts) {
+                        responseText += '- ⚠️ ' + alert + '\n';
+                    }
+                    responseText += '\n';
                 }
                 
                 // If no structured data was found but we got raw OCR text

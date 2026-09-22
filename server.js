@@ -1645,6 +1645,10 @@ app.post('/api/ai/analyze-report', authenticateToken, upload.single('report'), a
             ? ocrResult.medicalDetection || aiService.classifyDocument(content, req.file.mimetype)
             : aiService.classifyDocument(content, req.file.mimetype);
 
+        // ── Report Type Detection ────────────────────────────────────────────
+        const reportTypeAnalyzer = require('./api/report-type-analyzer');
+        const reportTypeResult = reportTypeAnalyzer.detectReportType(content);
+
         // Pass OCR-extracted tests directly to analysis for accurate results
         const preExtractedTests = (ocrResult && ocrResult.extractedData && ocrResult.extractedData.tests.length > 0)
             ? ocrResult.extractedData.tests
@@ -1652,10 +1656,18 @@ app.post('/api/ai/analyze-report', authenticateToken, upload.single('report'), a
 
         const analysis = aiService.analyzeReport(content, req.file.mimetype, req.body.report_type, preExtractedTests);
 
+        // Run specialized analysis for non-lab report types
+        let specializedAnalysis = null;
+        if (reportTypeResult.type !== 'unknown' && reportTypeResult.type !== 'prescription') {
+            specializedAnalysis = reportTypeAnalyzer.analyzeByType(content, reportTypeResult.type);
+        }
+
         // Build response with OCR data if available
         const response = {
             analysis,
             classification,
+            reportType: reportTypeResult.type !== 'unknown' ? reportTypeResult : null,
+            specializedAnalysis,
             fileName: req.file.originalname,
             fileType: validation.fileType,
             savedTo: req.file.path
@@ -1730,9 +1742,19 @@ app.post('/api/ai/analyze-photo', authenticateToken, upload.single('photo'), asy
 
             const analysis = aiService.analyzeReport(content, req.file.mimetype, 'photo_report');
 
+            // Report type detection for photo reports
+            const reportTypeAnalyzer2 = require('./api/report-type-analyzer');
+            const reportTypeResult2 = reportTypeAnalyzer2.detectReportType(content);
+            let specializedAnalysis2 = null;
+            if (reportTypeResult2.type !== 'unknown' && reportTypeResult2.type !== 'prescription') {
+                specializedAnalysis2 = reportTypeAnalyzer2.analyzeByType(content, reportTypeResult2.type);
+            }
+
             res.json({
                 analysis,
                 type: 'report',
+                reportType: reportTypeResult2.type !== 'unknown' ? reportTypeResult2 : null,
+                specializedAnalysis: specializedAnalysis2,
                 ocr: {
                     text: ocrResult.ocrText,
                     confidence: ocrResult.ocrConfidence,

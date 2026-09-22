@@ -1,4 +1,5 @@
 const path = require('path');
+const reportTypeAnalyzer = require('./report-type-analyzer');
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Medical Knowledge Base
@@ -457,9 +458,19 @@ function analyzeReport(fileContent, fileType, reportType, preExtractedTests) {
     const abnormalCount = findings.filter(f => f.status !== 'normal').length;
     const criticalCount = findings.filter(f => f.status === 'critical').length;
 
+    // ── Multi-modal report analysis (for non-lab report types) ─────────────
+    // If few or no lab-style findings were extracted, try the specialized analyzer
+    const reportTypeDetection = reportTypeAnalyzer.detectReportType(fileContent || '');
+    let specializedAnalysis = null;
+    if (reportTypeDetection.type !== 'unknown' && reportTypeDetection.type !== 'prescription' && findings.length < 3) {
+        specializedAnalysis = reportTypeAnalyzer.analyzeByType(fileContent, reportTypeDetection.type);
+    }
+
     let summaryTitle = 'Medical Report Analysis';
     if (reportType) {
         summaryTitle = reportType.charAt(0).toUpperCase() + reportType.slice(1) + ' Report Analysis';
+    } else if (specializedAnalysis) {
+        summaryTitle = specializedAnalysis.summary.title;
     } else if (fileType) {
         if (fileType.includes('pdf')) summaryTitle = 'PDF Medical Report Analysis';
         else if (fileType.includes('image')) summaryTitle = 'Image Medical Report Analysis';
@@ -500,11 +511,12 @@ function analyzeReport(fileContent, fileType, reportType, preExtractedTests) {
 
     return {
         summary,
-        findings,
-        explanation,
-        concerns,
-        questionsForDoctor: getQuestionsForDoctor(findings),
-        whenToSeekHelp: getWhenToSeekHelp(findings),
+        findings: specializedAnalysis ? (specializedAnalysis.findings.length > 0 ? specializedAnalysis.findings : findings) : findings,
+        explanation: specializedAnalysis ? specializedAnalysis.explanation : explanation,
+        concerns: specializedAnalysis ? (specializedAnalysis.criticalAlerts.length > 0 ? specializedAnalysis.criticalAlerts : concerns) : concerns,
+        questionsForDoctor: specializedAnalysis ? specializedAnalysis.questionsForDoctor : getQuestionsForDoctor(findings),
+        whenToSeekHelp: specializedAnalysis ? specializedAnalysis.whenToSeekHelp : getWhenToSeekHelp(findings),
+        reportType: reportTypeDetection.type !== 'unknown' ? reportTypeDetection : null,
         disclaimer: DISCLAIMER
     };
 }
@@ -1336,6 +1348,9 @@ function classifyDocument(text, mimeType) {
 
     const isMedical = confidence >= 15;
 
+    // ── Report Type Detection (via specialized analyzer) ────────────────────
+    const reportTypeResult = reportTypeAnalyzer.detectReportType(text);
+
     return {
         isMedical,
         confidence: Math.round(confidence * 10) / 10,
@@ -1345,14 +1360,139 @@ function classifyDocument(text, mimeType) {
         labValueCount,
         structureMatches,
         reasons: reasons.length > 0 ? reasons : undefined,
+        reportType: reportTypeResult.type !== 'unknown' ? reportTypeResult : null,
         summary: isMedical
-            ? `This document appears to be a medical document (category: ${category}) with ${Math.round(confidence)}% confidence.`
+            ? `This document appears to be a medical document (category: ${category}, type: ${reportTypeResult.name || 'general'}) with ${Math.round(confidence)}% confidence.`
             : `This document does not appear to be primarily a medical document (confidence: ${Math.round(confidence)}%).`
     };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // chat
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Report Type Quick Actions
+// ─────────────────────────────────────────────────────────────────────────────
+
+function getReportTypeQuickActions(reportTypeData, tests) {
+    if (!reportTypeData) return [];
+    const type = reportTypeData.type;
+    const actions = [];
+
+    const abnormal = (tests || []).filter(t => t.status === 'high' || t.status === 'low');
+    const hasCritical = reportTypeData.criticalAlerts && reportTypeData.criticalAlerts.length > 0;
+
+    const typeActionMap = {
+        cbc: [
+            'Explain what each blood cell type means',
+            'What could cause low/high hemoglobin?',
+            'Show questions to ask my doctor'
+        ],
+        cmp: [
+            'Explain my liver and kidney function',
+            'What do sodium/potassium levels mean?',
+            'Show questions to ask my doctor'
+        ],
+        lipid: [
+            'Explain my cardiovascular risk',
+            'What is the difference between LDL and HDL?',
+            'Show lifestyle recommendations'
+        ],
+        thyroid: [
+            'Explain hypothyroidism vs hyperthyroidism',
+            'What does my TSH level mean?',
+            'Do I need to see an endocrinologist?'
+        ],
+        diabetes: [
+            'Explain what my A1C means',
+            'How is diabetes managed?',
+            'Show questions for my doctor'
+        ],
+        ecg: [
+            'Explain my heart rhythm',
+            'What does ST segment mean?',
+            'Do I need a cardiology follow-up?'
+        ],
+        xray: [
+            'Explain what the X-ray shows',
+            'What does the impression mean?',
+            'Do I need additional imaging?'
+        ],
+        ct: [
+            'Explain what the CT scan found',
+            'What does enhancement/attenuation mean?',
+            'Do I need a follow-up scan?'
+        ],
+        mri: [
+            'Explain what the MRI shows',
+            'What do signal intensities mean?',
+            'Do I need to see a specialist?'
+        ],
+        ultrasound: [
+            'Explain what the ultrasound found',
+            'What do the measurements mean?',
+            'Do I need follow-up imaging?'
+        ],
+        urine: [
+            'Explain what each urine test means',
+            'Do I have a UTI?',
+            'What does protein in urine mean?'
+        ],
+        pregnancy: [
+            'Explain my pregnancy scan results',
+            'What do the fetal measurements mean?',
+            'Is my pregnancy progressing normally?'
+        ],
+        histology: [
+            'Explain what the biopsy found',
+            'What does the pathology report say?',
+            'Do I need treatment?'
+        ],
+        eye: [
+            'Explain my vision test results',
+            'What does my IOP reading mean?',
+            'Do I need to see an eye specialist?'
+        ],
+        ear: [
+            'Explain my hearing test results',
+            'What do the audiometry numbers mean?',
+            'Do I need hearing aids?'
+        ],
+        neurology: [
+            'Explain my nerve study results',
+            'What do the EEG findings mean?',
+            'Do I need a neurology referral?'
+        ],
+        allergy: [
+            'Explain my allergy test results',
+            'How can I avoid my allergens?',
+            'Do I need an EpiPen?'
+        ],
+        prescription: [
+            'Explain each medication',
+            'Are there side effects to watch for?',
+            'Are there drug interactions?'
+        ]
+    };
+
+    const defaults = typeActionMap[type] || [
+        'Summarize this report',
+        'What questions should I ask my doctor?',
+        'Are there any urgent concerns?'
+    ];
+
+    actions.push(...defaults);
+
+    if (hasCritical) {
+        actions.unshift('⚠️ What are the critical findings?');
+    }
+
+    return actions.slice(0, 5);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// detectMessageLanguage
 // ─────────────────────────────────────────────────────────────────────────────
 
 function detectMessageLanguage(text) {
@@ -1535,6 +1675,7 @@ async function chat(message, context = {}) {
         if (isReportQuery) {
             const tests = reportContext.tests;
             const reportType = reportContext.reportType || 'Medical Report';
+            const reportTypeData = reportContext.reportTypeData || null;
 
             // Find abnormal values
             const abnormal = tests.filter(t => t.status === 'high' || t.status === 'low');
@@ -1682,6 +1823,17 @@ async function chat(message, context = {}) {
                 }
 
                 response += '⚠️ Please share these results with your healthcare provider for personalized guidance.\n\n';
+
+                // Type-specific quick actions
+                const quickActions = getReportTypeQuickActions(reportTypeData, tests);
+                if (quickActions.length > 0) {
+                    response += '**Quick Actions:**\n';
+                    for (const action of quickActions) {
+                        response += `- ${action}\n`;
+                    }
+                    response += '\n';
+                }
+
                 response += DISCLAIMER;
             }
 
@@ -1987,5 +2139,6 @@ module.exports = {
     classifyDocument,
     MEDICAL_KB,
     DISCLAIMER,
-    EMERGENCY_DISCLAIMER
+    EMERGENCY_DISCLAIMER,
+    reportTypeAnalyzer
 };
