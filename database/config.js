@@ -1,6 +1,17 @@
-const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const fs = require('fs');
+
+// Load .env early so USE_SUPABASE is visible before the switch below
+try { require('dotenv').config({ path: path.join(__dirname, '..', '.env') }); } catch (e) {}
+
+// Supabase switch: USE_SUPABASE=true uses PostgreSQL instead of SQLite.
+// All consumers (server.js, api/*) keep `require('./database/config')` unchanged.
+if (process.env.USE_SUPABASE === 'true') {
+    module.exports = require('./pg-config');
+    return;
+}
+
+const sqlite3 = require('sqlite3').verbose();
 
 const dbPath = process.env.DB_PATH || './database/medical.db';
 
