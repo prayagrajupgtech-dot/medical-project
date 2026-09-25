@@ -981,11 +981,17 @@ button:disabled, .btn:disabled, .btn.disabled { opacity: 0.55; cursor: not-allow
     border-radius: 10px;
     font-size: 0.98rem;
     background: #e0fcff;
+    color: #0f172a;
 }
 .auth-card .form-control:focus {
     background: #e0fcff;
+    color: #0f172a;
     border-color: var(--primary);
     box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.18);
+}
+.auth-card .form-control::placeholder {
+    color: #64748b;
+    opacity: 1;
 }
 .auth-card label { font-size: 0.88rem; font-weight: 600; color: #33415c; margin-bottom: 6px; }
 

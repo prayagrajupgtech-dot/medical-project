@@ -99,7 +99,7 @@
     </section>
 
     <script src="/js/main.js?v=2.1"></script>
-    <script src="/js/i18n.js?v=2.2"></script>
+    <script src="/js/i18n.js?v=2.3"></script>
     <script>
         const SETTINGS_KEY = 'adminSettings';
 
@@ -107,11 +107,18 @@
             if (!bootPage('settings', ['admin'])) return;
             loadSettings();
 
-            ShrijalI18n.setOnLanguageChange(function() { location.reload(); });
-            try {
-                ShrijalI18n.createLanguageSelector('languageContainer');
-                ShrijalI18n.applyLanguageToDOM();
-            } catch(e) {}
+            // Init first so the selector shows the SAVED language, then build it
+            ShrijalI18n.init({ onLanguageChange: function() { location.reload(); } }).then(function() {
+                try {
+                    ShrijalI18n.createLanguageSelector('languageContainer');
+                    ShrijalI18n.applyLanguageToDOM();
+                } catch(e) {}
+            }).catch(function() {
+                try {
+                    ShrijalI18n.createLanguageSelector('languageContainer');
+                    ShrijalI18n.applyLanguageToDOM();
+                } catch(e) {}
+            });
         });
 
         function loadSettings() {

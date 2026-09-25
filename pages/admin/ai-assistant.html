@@ -121,7 +121,8 @@
 
             var user = null;
             try { user = JSON.parse(localStorage.getItem('user')); } catch(e) {}
-            var preferredLocale = (user && user.preferredLocale) || 'en-IN';
+            var preferredLocale = (user && user.preferredLocale) || 'en-US';
+            if (preferredLocale === 'en-IN') preferredLocale = 'en-US';
             var preferredLang = (user && user.preferredLanguage) || 'en';
 
             ShrijalVoice.init({

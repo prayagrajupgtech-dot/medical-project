@@ -90,18 +90,25 @@
     </section>
 
     <script src="/js/main.js?v=2.1"></script>
-    <script src="/js/i18n.js?v=2.2"></script>
+    <script src="/js/i18n.js?v=2.3"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             if (!bootPage('settings', ['patient'])) return;
             document.getElementById('emailNotif').checked = localStorage.getItem('pat_notif_email') !== '0';
             document.getElementById('smsNotif').checked = localStorage.getItem('pat_notif_sms') === '1';
 
-            ShrijalI18n.setOnLanguageChange(function() { location.reload(); });
-            try {
-                ShrijalI18n.createLanguageSelector('languageContainer');
-                ShrijalI18n.applyLanguageToDOM();
-            } catch(e) {}
+            // Init first so the selector shows the SAVED language, then build it
+            ShrijalI18n.init({ onLanguageChange: function() { location.reload(); } }).then(function() {
+                try {
+                    ShrijalI18n.createLanguageSelector('languageContainer');
+                    ShrijalI18n.applyLanguageToDOM();
+                } catch(e) {}
+            }).catch(function() {
+                try {
+                    ShrijalI18n.createLanguageSelector('languageContainer');
+                    ShrijalI18n.applyLanguageToDOM();
+                } catch(e) {}
+            });
         });
 
         async function changePassword() {

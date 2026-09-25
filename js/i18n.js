@@ -7,7 +7,7 @@
 const ShrijalI18n = (() => {
 
     let currentLanguage = 'en';
-    let currentLocale = 'en-IN';
+    let currentLocale = 'en-US';
     let translations = {};
     let fallbackTranslations = {};
     let onLanguageChange = null;
@@ -16,7 +16,7 @@ const ShrijalI18n = (() => {
 
     const SUPPORTED = ['en','hi','bn','mr','ta','te','gu','kn','ml','pa','or','as','ur','ne'];
     const LOCALES = {
-        'en':'en-IN','hi':'hi-IN','bn':'bn-IN','mr':'mr-IN','ta':'ta-IN',
+        'en':'en-US','hi':'hi-IN','bn':'bn-IN','mr':'mr-IN','ta':'ta-IN',
         'te':'te-IN','gu':'gu-IN','kn':'kn-IN','ml':'ml-IN','pa':'pa-IN',
         'or':'or-IN','as':'as-IN','ur':'ur-IN','ne':'ne-IN'
     };
@@ -117,7 +117,7 @@ const ShrijalI18n = (() => {
         if (!SUPPORTED.includes(lang)) lang = 'en';
         var oldLang = currentLanguage;
         currentLanguage = lang;
-        currentLocale = LOCALES[lang] || 'en-IN';
+        currentLocale = LOCALES[lang] || 'en-US';
 
         await loadTranslations(lang);
 
@@ -155,12 +155,18 @@ const ShrijalI18n = (() => {
 
     // ── DOM Application ────────────────────────────────────────────────────
 
+    function hasTranslation(key) {
+        return getNestedValue(translations, key) !== undefined ||
+               getNestedValue(fallbackTranslations, key) !== undefined;
+    }
+
     function applyLanguageToDOM() {
         document.documentElement.lang = currentLanguage;
         document.documentElement.dir = RTL_LANGUAGES.includes(currentLanguage) ? 'rtl' : 'ltr';
 
         document.querySelectorAll('[data-i18n]').forEach(function(el) {
             var key = el.getAttribute('data-i18n');
+            if (!hasTranslation(key)) return; // keep original text, never show raw keys
             var val = t(key);
             if (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA') {
                 if (el.hasAttribute('placeholder')) {
@@ -175,16 +181,19 @@ const ShrijalI18n = (() => {
 
         document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el) {
             var key = el.getAttribute('data-i18n-placeholder');
+            if (!hasTranslation(key)) return;
             el.setAttribute('placeholder', t(key));
         });
 
         document.querySelectorAll('[data-i18n-title]').forEach(function(el) {
             var key = el.getAttribute('data-i18n-title');
+            if (!hasTranslation(key)) return;
             el.setAttribute('title', t(key));
         });
 
         document.querySelectorAll('[data-i18n-aria]').forEach(function(el) {
             var key = el.getAttribute('data-i18n-aria');
+            if (!hasTranslation(key)) return;
             el.setAttribute('aria-label', t(key));
         });
     }
@@ -218,6 +227,15 @@ const ShrijalI18n = (() => {
         var select = document.getElementById('languageSelect');
         if (!select) return;
         var lang = select.value;
+        // Save locally FIRST so reload shows the right language even if server is slow
+        try {
+            var user = JSON.parse(localStorage.getItem('user') || 'null');
+            if (user) {
+                user.preferredLanguage = lang;
+                user.preferredLocale = LOCALES[lang] || 'en-US';
+                localStorage.setItem('user', JSON.stringify(user));
+            }
+        } catch (e) {}
         setLanguage(lang, true).then(function() {
             var msg = document.getElementById('langSaveMsg');
             if (msg) {

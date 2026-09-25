@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Assistant - AI Doctor Assistant</title>
     <link rel="stylesheet" href="/css/style.css">
-    <link rel="stylesheet" href="/css/shrijal.css?v=2.1">
+    <link rel="stylesheet" href="/css/shrijal.css?v=2.4">
     <link rel="icon" href="/favicon.png" type="image/x-icon">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
 </head>
@@ -58,6 +58,7 @@
                     </div>
                     <div class="shrijal-header-status">
                         <span><span data-i18n="online">Online</span></span>
+                        <button class="shrijal-newchat-btn" onclick="startNewShrijalChat()" title="Start a new chat">➕ New Chat</button>
                     </div>
                 </div>
                 
@@ -149,7 +150,7 @@
                 
                 <!-- Voice bar (shown during voice interaction) -->
                 <div class="shrijal-voice-bar" id="shrijalVoiceBar" style="display:none;">
-                    <span class="voice-label">Voice:</span>
+                    <span class="voice-label">Voice: <span id="shrijalVoiceName"></span></span>
                     <span class="voice-status" id="shrijalVoiceStatus">Ready</span>
                     <div class="shrijal-waveform" id="shrijalVoiceWaveform" style="opacity:1;">
                         <div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div><div class="bar"></div>
@@ -161,10 +162,12 @@
                     <button class="shrijal-voice-toggle" id="voiceToggleBtn" onclick="toggleVoiceMode()" data-i18n-title="voice_on" title="Voice On">
                         🔊 Voice
                     </button>
+                    <select id="shrijalVoiceSelect" title="Choose voice" style="max-width:150px;background:#0f2b26;color:#7ef0c1;border:1px solid #1f5c4d;border-radius:10px;padding:6px;font-size:11px;"></select>
                     <div class="shrijal-input-wrapper">
                         <textarea id="shrijalInput" rows="1" data-i18n-placeholder="type_health_question" placeholder="Ask about your health..." aria-label="Chat message input"></textarea>
                         <button class="shrijal-send-btn" onclick="sendShrijalChat()" id="shrijalSendBtn" aria-label="Send message">➤</button>
                     </div>
+                    <button class="shrijal-mic-btn" id="shrijalUploadBtn" onclick="toggleShrijalUploads()" aria-label="Upload report or photo" title="Upload report / photo">📎</button>
                     <button class="shrijal-mic-btn" id="shrijalMicBtn" onclick="toggleRecording()" data-i18n-aria="ai_assistant" aria-label="AI Assistant" title="Hold to talk">🎙</button>
                 </div>
             </div>
@@ -185,7 +188,8 @@
             // Get user's preferred language from account
             var user = null;
             try { user = JSON.parse(localStorage.getItem('user')); } catch(e) {}
-            var preferredLocale = (user && user.preferredLocale) || 'en-IN';
+            var preferredLocale = (user && user.preferredLocale) || 'en-US';
+            if (preferredLocale === 'en-IN') preferredLocale = 'en-US';
             var preferredLang = (user && user.preferredLanguage) || 'en';
 
             ShrijalVoice.init({
@@ -238,6 +242,28 @@
             setupShrijalDragDrop('reportDropzone', 'reportFileInput', 'report');
             setupShrijalDragDrop('photoDropzone', 'photoFileInput', 'photo');
 
+            // Voice picker: list English voices so user can choose besides Zira
+            populateShrijalVoices();
+            setTimeout(populateShrijalVoices, 1500);
+            if (window.speechSynthesis) {
+                var prevVoicesChanged = window.speechSynthesis.onvoiceschanged;
+                window.speechSynthesis.onvoiceschanged = function() {
+                    if (prevVoicesChanged) prevVoicesChanged();
+                    populateShrijalVoices();
+                };
+            }
+            var voiceSelect = document.getElementById('shrijalVoiceSelect');
+            if (voiceSelect) {
+                voiceSelect.addEventListener('change', function() {
+                    ShrijalVoice.stopSpeaking();
+                    if (ShrijalVoice.setVoiceByName(voiceSelect.value)) {
+                        var nameEl = document.getElementById('shrijalVoiceName');
+                        if (nameEl) nameEl.textContent = ShrijalVoice.getSelectedVoiceName();
+                        ShrijalVoice.speakText("Hi! I'm Shrijal. This is how I sound now.");
+                    }
+                });
+            }
+
             const input = document.getElementById('shrijalInput');
             input.addEventListener('keydown', function(e) {
                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -254,6 +280,9 @@
                 var orb = document.getElementById('shrijalOrb');
                 if (orb) orb.style.animationPlayState = 'running';
                 showPersonalizedGreeting();
+                // Always start at top — browser may restore old scroll position
+                var mc = document.getElementById('shrijalMessages');
+                if (mc) mc.scrollTop = 0;
             }, 500);
         });
 
@@ -280,21 +309,34 @@
             btn.textContent = enabled ? '\uD83D\uDD0A Voice ON' : '\uD83D\uDD07 Voice OFF';
         }
 
-        function toggleRecording() {
+        async function toggleRecording() {
             if (!ShrijalVoice.isRecognitionSupported()) {
-                showShrijalMessage('Speech recognition is not supported in your browser. Please try Chrome or Edge.', 'assistant');
+                showShrijalMessage('<div class="msg-label">System</div>Speech recognition is not supported in your browser. Please use Chrome or Edge. You can still type your message below.', 'assistant');
                 return;
             }
             if (ShrijalVoice.getIsSpeaking()) {
                 ShrijalVoice.interrupt();
             }
             if (ShrijalVoice.getIsRecording()) {
-                ShrijalVoice.stopListening();
+                // Mic click while recording = full stop (no auto-restart)
+                ShrijalVoice.disableVoiceMode();
+                hideVoiceBar();
+                return;
             } else {
+                // Ask mic permission first so recording actually captures voice
+                var allowed = await ShrijalVoice.ensureMicAccess();
+                if (!allowed) {
+                    showShrijalMessage('<div class="msg-label">System</div>🎤 Microphone blocked hai. Address bar me <strong>🔒 icon → Site settings → Microphone → Allow</strong> karo, page refresh karo, phir 🎙 dabao. Tab tak neeche type karke baat kar sakte ho.', 'assistant');
+                    return;
+                }
                 if (!ShrijalVoice.getVoiceMode()) {
                     ShrijalVoice.enableVoiceMode();
                 }
-                ShrijalVoice.startListening();
+                var started = ShrijalVoice.startListening();
+                if (!started) {
+                    showShrijalMessage('<div class="msg-label">System</div>Could not start the microphone. Please try again. You can still type your message below.', 'assistant');
+                }
+            }
             }
         }
 
@@ -331,6 +373,31 @@
             var statusEl = document.getElementById('shrijalVoiceStatus');
             if (bar) bar.style.display = 'flex';
             if (statusEl) statusEl.textContent = status;
+            var nameEl = document.getElementById('shrijalVoiceName');
+            if (nameEl && ShrijalVoice.getSelectedVoiceName) {
+                nameEl.textContent = ShrijalVoice.getSelectedVoiceName();
+            }
+            populateShrijalVoices();
+        }
+
+        function populateShrijalVoices() {
+            var select = document.getElementById('shrijalVoiceSelect');
+            if (!select || !ShrijalVoice.getAvailableVoices) return;
+            var voices = ShrijalVoice.getAvailableVoices();
+            if (!voices.length || select.options.length === voices.length) return;
+            var current = ShrijalVoice.getSelectedVoiceName();
+            select.innerHTML = '';
+            voices.forEach(function(v) {
+                var opt = document.createElement('option');
+                opt.value = v.name;
+                opt.textContent = (v.female ? '♀ ' : '♂ ') + v.name + ' (' + v.lang + ')';
+                select.appendChild(opt);
+            });
+            for (var i = 0; i < select.options.length; i++) {
+                if (current.indexOf(select.options[i].value) === 0) { select.selectedIndex = i; break; }
+            }
+            var nameEl = document.getElementById('shrijalVoiceName');
+            if (nameEl && current) nameEl.textContent = current;
         }
 
         function hideVoiceBar() {
@@ -396,7 +463,7 @@
                 ShrijalVoice.interrupt();
             }
 
-            ShrijalVoice.updateConversationLanguage(message);
+            try { ShrijalVoice.updateConversationLanguage(message); } catch (e) {}
 
             showShrijalMessage('<div class="msg-label">You</div>' + escapeHtml(message), 'user');
             shrijalConversation.push({ role: 'user', content: message });
@@ -425,7 +492,10 @@
                     })
                 });
 
-                if (!response.ok) throw new Error('Failed to get response');
+                if (response.status === 401 || response.status === 403) {
+                    throw new Error('SESSION_EXPIRED');
+                }
+                if (!response.ok) throw new Error('Failed to get response (server error ' + response.status + ')');
                 var data = await response.json();
 
                 removeShrijalTyping();
@@ -444,7 +514,7 @@
                         'te': 'te-IN', 'gu': 'gu-IN', 'kn': 'kn-IN', 'ml': 'ml-IN',
                         'pa': 'pa-IN', 'or': 'or-IN', 'as': 'as-IN', 'ur': 'ur-IN', 'ne': 'ne-IN'
                     };
-                    var newLocale = langMap[data.languageSwitch] || 'en-IN';
+                    var newLocale = langMap[data.languageSwitch] || 'en-US';
                     ShrijalVoice.setLanguage(newLocale);
                     var langName = data.languageName || data.languageSwitch;
                     showShrijalMessage('<div class="msg-label">System</div>\u2728 Language switched to <strong>' + langName + '</strong>. Shrijal will now respond in ' + langName + '.', 'assistant');
@@ -456,7 +526,13 @@
                 removeShrijalTyping();
                 setOrbState('');
                 setShrijalState('', '');
-                showShrijalMessage('<div class="msg-label">System</div>Sorry, I encountered an error: ' + escapeHtml(err.message) + '. Please try again.', 'assistant');
+                if (err.message === 'SESSION_EXPIRED') {
+                    showShrijalMessage('<div class="msg-label">System</div>Your session has expired. Please <a href="/login"><strong>login again</strong></a> and come back.', 'assistant');
+                } else if (err.message === 'Failed to fetch' || (err.message && err.message.indexOf('network') !== -1)) {
+                    showShrijalMessage('<div class="msg-label">System</div>Cannot reach the server. Please check that the server is running, then try again.', 'assistant');
+                } else {
+                    showShrijalMessage('<div class="msg-label">System</div>Sorry, I encountered an error: ' + escapeHtml(err.message) + '. Please try again.', 'assistant');
+                }
             }
         }
 
@@ -555,10 +631,27 @@
             }
         }
 
+        function startNewShrijalChat() {
+            if (!isShrijalChatEmpty()) {
+                if (!confirm('Start a new chat? Current conversation and report will be cleared.')) return;
+            }
+            clearShrijalChat();
+        }
+
         function clearShrijalChat() {
             const container = document.getElementById('shrijalMessages');
             container.innerHTML = '';
             shrijalConversation.length = 0;
+            // Clear old report + files so the new chat starts fully fresh
+            pendingFiles = { report: null, photo: null };
+            shrijalReportContext = null;
+            if (window.ShrijalVoice) {
+                ShrijalVoice.setReportContext(null);
+                ShrijalVoice.setLastResponse('');
+                ShrijalVoice.stopSpeaking();
+            }
+            var input = document.getElementById('shrijalInput');
+            if (input) { input.value = ''; }
             
             container.innerHTML = `
                 <div class="shrijal-welcome" id="shrijalWelcome">
@@ -631,6 +724,32 @@
 
             setupShrijalDragDrop('reportDropzone', 'reportFileInput', 'report');
             setupShrijalDragDrop('photoDropzone', 'photoFileInput', 'photo');
+            container.scrollTop = 0;
+        }
+
+        function isShrijalChatEmpty() {
+            return shrijalConversation.length === 0 &&
+                document.querySelectorAll('#shrijalMessages .shrijal-msg').length === 0;
+        }
+
+        function toggleShrijalUploads() {
+            var uploads = document.getElementById('shrijalUploads');
+            var welcome = document.getElementById('shrijalWelcome');
+            if (!uploads) return;
+            var isHidden = uploads.style.display === 'none' || uploads.style.display === '';
+            uploads.style.display = isHidden ? 'block' : 'none';
+            // Hide welcome while uploads open so cards show without scrolling
+            if (welcome && isShrijalChatEmpty()) {
+                welcome.style.display = isHidden ? 'none' : 'flex';
+            }
+            if (isHidden) scrollShrijalToBottom();
+        }
+
+        function scrollShrijalToBottom() {
+            var container = document.getElementById('shrijalMessages');
+            if (container) container.scrollTop = container.scrollHeight;
+            var uploads = document.getElementById('shrijalUploads');
+            if (uploads) uploads.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }
 
         function shrijalQuickAction(action) {
@@ -643,6 +762,9 @@
                     var uploads = document.getElementById('shrijalUploads');
                     if (uploads) {
                         uploads.style.display = 'block';
+                        var welcome = document.getElementById('shrijalWelcome');
+                        if (welcome && isShrijalChatEmpty()) welcome.style.display = 'none';
+                        scrollShrijalToBottom();
                         var dropzone = document.getElementById('reportDropzone');
                         if (dropzone) dropzone.click();
                     }

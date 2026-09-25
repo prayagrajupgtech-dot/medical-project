@@ -405,9 +405,9 @@
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    height: min(660px, calc(100vh - 250px));
-    min-height: 520px;
-    max-width: 800px;
+    height: min(800px, calc(100vh - 140px));
+    min-height: 580px;
+    max-width: 840px;
     margin: 0 auto;
     position: relative;
 }
@@ -468,6 +468,26 @@
     border-radius: 50%;
     background: var(--success);
     animation: status-pulse 2s ease-in-out infinite;
+}
+
+.shrijal-newchat-btn {
+    margin-left: 10px;
+    padding: 6px 14px;
+    border-radius: 999px;
+    border: 1.5px solid var(--shrijal-primary);
+    background: transparent;
+    color: var(--shrijal-primary);
+    font-size: 0.78rem;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+.shrijal-newchat-btn:hover {
+    background: var(--shrijal-primary);
+    color: #fff;
 }
 
 @keyframes status-pulse {
@@ -741,7 +761,7 @@
     flex-direction: column;
     align-items: center;
     justify-content: flex-start;
-    padding: 20px 24px 24px;
+    padding: 16px 24px;
     text-align: center;
     flex: 1;
     min-height: 0;
@@ -1028,6 +1048,26 @@
     .shrijal-orb-wrapper { display: none; }
     .shrijal-orb { display: none; }
     .shrijal-quick-actions { grid-template-columns: 1fr; max-width: 280px; }
+}
+
+/* Short screens (e.g. 768px height laptops): shrink orb so full welcome fits */
+@media (max-height: 860px) {
+    .ai-medical-core { height: 120px; }
+    .ai-orbit-container { width: 95px; height: 95px; }
+    .ai-medical-logo { width: 48px; height: 48px; }
+    .ai-orbit-outer { width: 95px; height: 95px; }
+    .ai-orbit-mid { width: 78px; height: 78px; }
+    .ai-orbit-inner { width: 62px; height: 62px; }
+    .ai-scanner-light { width: 95px; height: 95px; }
+    .ai-center-glow { width: 72px; height: 72px; }
+    .ai-side-lines { opacity: 0.5; }
+    .shrijal-welcome { padding: 10px 24px; }
+    .shrijal-welcome h2 { margin: 6px 0 4px; font-size: 1.25rem; }
+    .shrijal-welcome p { margin: 4px 0 10px; font-size: 0.85rem; }
+    .shrijal-quick-actions { margin-top: 8px; gap: 8px; }
+    .shrijal-quick-btn { padding: 10px 14px; }
+    .shrijal-messages { padding: 12px 24px; gap: 10px; }
+    .shrijal-chat-header { padding: 12px 24px; }
 }
 
 /* --- 17. Scrollbar Styling --- */

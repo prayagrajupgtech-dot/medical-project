@@ -28,7 +28,9 @@ const ShrijalVoice = (() => {
     let voiceMode = false;
     let isRecording = false;
     let isSpeaking = false;
-    let currentLanguage = 'en-IN';
+    let currentLanguage = 'en-US';
+    let userPickedVoice = false;
+    let micBlocked = false;
     let conversationManager = null;
     let lastResponse = '';
     let onStateChange = () => {};
@@ -51,7 +53,7 @@ const ShrijalVoice = (() => {
     // ══════════════════════════════════════════════════════════════════════════
 
     const LOCALE_MAP = {
-        'en': 'en-IN', 'hi': 'hi-IN', 'bn': 'bn-IN', 'mr': 'mr-IN',
+        'en': 'en-US', 'hi': 'hi-IN', 'bn': 'bn-IN', 'mr': 'mr-IN',
         'ta': 'ta-IN', 'te': 'te-IN', 'gu': 'gu-IN', 'kn': 'kn-IN',
         'ml': 'ml-IN', 'pa': 'pa-IN', 'or': 'or-IN', 'as': 'as-IN',
         'ur': 'ur-IN', 'ne': 'ne-IN', 'sa': 'sa-IN'
@@ -94,6 +96,8 @@ const ShrijalVoice = (() => {
         introductionSpoken = false;
         currentUserName = '';
         currentUserRole = '';
+        userPickedVoice = false;
+        try { localStorage.removeItem('shrijal_voice_name'); } catch (e) {}
         if (restartTimer) { clearTimeout(restartTimer); restartTimer = null; }
     }
 
@@ -361,13 +365,16 @@ const ShrijalVoice = (() => {
 
     function selectBestIndianFemaleVoice(voices) {
         if (!voices || voices.length === 0) return;
+        if (userPickedVoice && selectedVoice) return;
         selectedVoice = pickBestVoice(voices, currentLanguage);
     }
 
     function getVoiceForLanguage(langCode) {
+        // User's manual voice choice always wins
+        if (userPickedVoice && selectedVoice) return selectedVoice;
         if (!synthesis) return null;
         const voices = synthesis.getVoices();
-        return pickBestVoice(voices, langCode || currentLanguage);
+        return pickBestVoice(voices, normalizeSpeechLocale(langCode || currentLanguage));
     }
 
     // ══════════════════════════════════════════════════════════════════════════
@@ -502,9 +509,9 @@ const ShrijalVoice = (() => {
         onVoiceModeChange = options.onVoiceModeChange || (() => {});
         onOrbStateChange = options.onOrbStateChange || (() => {});
 
-        // Use account's preferred language as default
+        // Use account's preferred language as default (English = American en-US)
         if (options.preferredLocale) {
-            currentLanguage = options.preferredLocale;
+            currentLanguage = normalizeSpeechLocale(options.preferredLocale);
         } else if (options.preferredLanguage) {
             currentLanguage = (LOCALE_MAP[options.preferredLanguage] || options.preferredLanguage + '-IN');
         }
@@ -530,8 +537,23 @@ const ShrijalVoice = (() => {
 
             recognition.onstart = function () {
                 isRecording = true;
+                micBlocked = false;
                 setVoiceState('LISTENING');
             };
+
+    // Ask browser for mic permission explicitly before starting recognition
+    async function ensureMicAccess() {
+        try {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return true;
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            stream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+            micBlocked = false;
+            return true;
+        } catch (e) {
+            micBlocked = true;
+            return false;
+        }
+    }
 
             recognition.onresult = function (event) {
                 let transcript = '';
@@ -545,11 +567,18 @@ const ShrijalVoice = (() => {
 
             recognition.onerror = function (event) {
                 isRecording = false;
-                if (event.error === 'not-allowed') {
+                if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+                    micBlocked = true;
                     setVoiceState('ERROR');
-                    onStateChange('error', 'Microphone access denied.');
+                    onStateChange('error', 'Microphone blocked. Allow mic access and try again.');
+                    onOrbStateChange('');
                 } else if (event.error === 'no-speech') {
-                    setVoiceState(voiceMode ? 'IDLE' : 'OFF');
+                    onStateChange('listening', 'Awaz sunai nahi di — thoda paas se, zor se bolo...');
+                    onOrbStateChange('listening');
+                } else if (event.error === 'audio-capture') {
+                    setVoiceState('ERROR');
+                    onStateChange('error', 'No microphone found on this device.');
+                    onOrbStateChange('');
                 } else {
                     setVoiceState(voiceMode ? 'IDLE' : 'OFF');
                 }
@@ -557,6 +586,10 @@ const ShrijalVoice = (() => {
 
             recognition.onend = function () {
                 isRecording = false;
+                if (micBlocked) {
+                    onOrbStateChange('');
+                    return;
+                }
                 if (voiceMode && !isSpeaking) {
                     setVoiceState('IDLE');
                     onOrbStateChange('voice-active');
@@ -579,15 +612,82 @@ const ShrijalVoice = (() => {
         }
     }
 
+    // ── Voice Loading & Selection ─────────────────────────────────────────────
+
+    // English always uses the American (en-US) voice, other languages keep -IN
+    function normalizeSpeechLocale(locale) {
+        if (!locale || typeof locale !== 'string') return 'en-US';
+        if (locale === 'en-IN' || locale === 'en') return 'en-US';
+        return locale;
+    }
+
     function loadVoices() {
         if (!synthesis) return;
         const voices = synthesis.getVoices();
-        if (voices.length > 0) selectBestIndianFemaleVoice(voices);
+        if (voices.length === 0) return;
+        // Restore the user's saved voice choice first (survives page refresh)
+        if (!userPickedVoice) {
+            try {
+                const saved = localStorage.getItem('shrijal_voice_name');
+                if (saved) {
+                    const match = voices.find(v => v.name === saved);
+                    if (match) { selectedVoice = match; userPickedVoice = true; return; }
+                }
+            } catch (e) {}
+        }
+        if (userPickedVoice && selectedVoice) return;
+        selectBestIndianFemaleVoice(voices);
     }
 
     // ══════════════════════════════════════════════════════════════════════════
     // SPEAK — main entry point with interruption + deduplication
     // ══════════════════════════════════════════════════════════════════════════
+    function isFemaleVoice(voice) {
+        const name = (voice.name || '').toLowerCase();
+        const indicators = [
+            'female', 'woman', 'samantha', 'victoria', 'zira', 'susan',
+            'karen', 'salli', 'joanna', 'ivy', 'kimberly', 'mizuki',
+            'tessa', 'moira', 'fiona', 'alice', 'melina', 'paulina',
+            'jenny', 'aria', 'sara', 'emma', 'olivia', 'ava', 'sophia',
+            'alyssa', 'jane', 'stephanie', 'serena', 'amber', 'ashley',
+            'michelle', 'google us english', 'google uk english female',
+            'microsoft.*zira', 'microsoft.*jenny', 'microsoft.*aria',
+            'microsoft.*hazel', 'microsoft.*susan', 'microsoft.*karen',
+            'microsoft.*sara', 'microsoft.*emma', 'apple.*female',
+            'hindi.*female', 'bengali.*female', 'tamil.*female',
+            'telugu.*female', 'kannada.*female', 'malayalam.*female'
+        ];
+        return indicators.some(i => name.includes(i));
+    }
+    function getSelectedVoiceName() {
+        return selectedVoice ? (selectedVoice.name + ' (' + selectedVoice.lang + ')') : '';
+    }
+    function getAvailableVoices() {
+        if (!synthesis) return [];
+        const all = synthesis.getVoices();
+        const en = all
+            .filter(v => v.lang && v.lang.toLowerCase().startsWith('en'))
+            .map(v => ({ name: v.name, lang: v.lang, female: isFemaleVoice(v) }));
+        en.sort((a, b) => {
+            const aUS = a.lang.toLowerCase() === 'en-us' ? 0 : 1;
+            const bUS = b.lang.toLowerCase() === 'en-us' ? 0 : 1;
+            if (aUS !== bUS) return aUS - bUS;
+            if (a.female !== b.female) return a.female ? -1 : 1;
+            return a.name.localeCompare(b.name);
+        });
+        return en;
+    }
+    function setVoiceByName(name) {
+        if (!synthesis || !name) return false;
+        const v = synthesis.getVoices().find(x => x.name === name);
+        if (v) {
+            selectedVoice = v;
+            userPickedVoice = true;
+            try { localStorage.setItem('shrijal_voice_name', name); } catch (e) {}
+            return true;
+        }
+        return false;
+    }
 
     function speakText(text, lang) {
         if (!ttsProvider) return Promise.resolve();
@@ -597,6 +697,7 @@ const ShrijalVoice = (() => {
             ttsProvider.stop();
         }
 
+        stopListening();
         return ttsProvider.speak(text, lang);
     }
 
@@ -660,7 +761,7 @@ const ShrijalVoice = (() => {
         if (!window.LanguageDetection || !conversationManager) return;
         const detected = conversationManager.updateLanguage(text);
         if (detected && detected.confidence >= 0.5) {
-            const newLang = detected.code || 'en-IN';
+            const newLang = normalizeSpeechLocale(detected.code || 'en-US');
             if (newLang !== currentLanguage) {
                 currentLanguage = newLang;
                 updateRecognitionLanguage();
@@ -670,7 +771,7 @@ const ShrijalVoice = (() => {
     }
 
     function setCurrentLanguage(lang) {
-        currentLanguage = lang;
+        currentLanguage = normalizeSpeechLocale(lang);
         updateRecognitionLanguage();
         if (synthesis) selectBestIndianFemaleVoice(synthesis.getVoices());
     }
@@ -864,6 +965,10 @@ const ShrijalVoice = (() => {
         prepareTextForSpeech,
         selectBestIndianFemaleVoice,
         getVoiceForLanguage,
+        getSelectedVoiceName,
+        getAvailableVoices,
+        setVoiceByName,
+        ensureMicAccess,
         setOrbState,
         updateConversationLanguage,
         updateRecognitionLanguage,
