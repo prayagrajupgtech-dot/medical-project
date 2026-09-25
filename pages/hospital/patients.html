@@ -49,7 +49,7 @@
         });
         async function loadPatients() {
             var search = document.getElementById('searchInput').value;
-            var url = '/api/hospital/patients' + (search ? '?search=' + encodeURIComponent(search) : '');
+            var url = '/hospital/patients' + (search ? '?search=' + encodeURIComponent(search) : '');
             try {
                 var patients = await api(url);
                 var container = document.getElementById('patientsList');

@@ -26,53 +26,251 @@
             <div class="sidebar-footer"><button class="btn btn-sm btn-outline btn-block" onclick="logout()">Sign Out</button></div>
         </nav>
         <main class="main-content">
-            <header class="topbar"><button class="menu-toggle" onclick="toggleSidebar()">☰</button><h1>Doctor Join Requests</h1><div class="topbar-actions"><button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button></div></header>
+            <header class="topbar"><button class="menu-toggle" onclick="toggleSidebar()">☰</button><h1>Doctor Requests</h1><div class="topbar-actions"><button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button></div></header>
             <div class="content">
                 <div class="card">
                     <div class="card-header">
-                        <h3>Pending Requests</h3>
-                        <select id="statusFilter" class="form-control" style="display:inline-block;width:auto">
-                            <option value="pending">Pending</option>
-                            <option value="approved">Approved</option>
-                            <option value="rejected">Rejected</option>
-                            <option value="">All</option>
-                        </select>
+                        <h3>Doctor Requests</h3>
+                        <button class="btn btn-sm btn-primary" onclick="openInvite()">+ Invite Doctor</button>
                     </div>
-                    <div class="card-body" id="requestsList"><p class="text-muted">Loading...</p></div>
+                    <div class="card-body">
+                        <div class="toolbar" style="margin-bottom:12px;">
+                            <select id="statusFilter" class="form-control" style="max-width:150px">
+                                <option value="pending">Pending</option>
+                                <option value="approved">Approved</option>
+                                <option value="rejected">Rejected</option>
+                                <option value="">All</option>
+                            </select>
+                            <select id="typeFilter" class="form-control" style="max-width:220px">
+                                <option value="">All Types</option>
+                                <option value="doctor_request">Doctor Requests</option>
+                                <option value="hospital_invitation">Hospital Invitations</option>
+                            </select>
+                            <button class="btn btn-sm btn-outline" onclick="loadRequests()">Refresh</button>
+                        </div>
+                        <div id="requestsList"><p class="text-muted">Loading...</p></div>
+                    </div>
                 </div>
             </div>
         </main>
     </div>
+
+    <!-- Approve with department -->
+    <div class="modal" id="approveModal" role="dialog" aria-modal="true" aria-labelledby="approveTitle">
+        <div class="modal-content" style="max-width:460px;text-align:left;">
+            <div class="modal-header">
+                <h3 id="approveTitle">Approve Request</h3>
+                <button class="btn btn-sm btn-outline" onclick="hideModal('approveModal')" aria-label="Close">×</button>
+            </div>
+            <div class="modal-body">
+                <p id="approveMessage">Approve this doctor?</p>
+                <div class="form-group">
+                    <label for="approveDepartment">Department (optional)</label>
+                    <select id="approveDepartment" class="form-control">
+                        <option value="">No department</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-actions" style="justify-content:flex-end;">
+                <button class="btn btn-secondary" onclick="hideModal('approveModal')">Cancel</button>
+                <button class="btn btn-success" id="approveBtn" onclick="confirmApprove()">Approve</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reject with reason -->
+    <div class="modal" id="rejectModal" role="dialog" aria-modal="true" aria-labelledby="rejectTitle">
+        <div class="modal-content" style="max-width:460px;text-align:left;">
+            <div class="modal-header">
+                <h3 id="rejectTitle">Reject Request</h3>
+                <button class="btn btn-sm btn-outline" onclick="hideModal('rejectModal')" aria-label="Close">×</button>
+            </div>
+            <div class="modal-body">
+                <p id="rejectMessage">Reject this request?</p>
+                <div class="form-group">
+                    <label for="rejectReason">Reason for rejection (optional)</label>
+                    <textarea id="rejectReason" rows="3" class="form-control" placeholder="Reason for rejection"></textarea>
+                </div>
+            </div>
+            <div class="modal-actions" style="justify-content:flex-end;">
+                <button class="btn btn-secondary" onclick="hideModal('rejectModal')">Cancel</button>
+                <button class="btn btn-danger" id="rejectBtn" onclick="confirmReject()">Reject</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Invite doctor -->
+    <div class="modal" id="inviteModal" role="dialog" aria-modal="true" aria-labelledby="inviteTitle">
+        <div class="modal-content" style="max-width:480px;text-align:left;">
+            <div class="modal-header">
+                <h3 id="inviteTitle">Invite Doctor</h3>
+                <button class="btn btn-sm btn-outline" onclick="hideModal('inviteModal')" aria-label="Close">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="inviteEmail">Doctor Email *</label>
+                    <input type="email" id="inviteEmail" class="form-control" placeholder="doctor@example.com">
+                </div>
+                <div class="form-group">
+                    <label for="inviteDepartment">Department (optional)</label>
+                    <select id="inviteDepartment" class="form-control">
+                        <option value="">No department</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="inviteMessage">Message (optional)</label>
+                    <textarea id="inviteMessage" rows="3" class="form-control" placeholder="Why should this doctor join us?"></textarea>
+                </div>
+            </div>
+            <div class="modal-actions" style="justify-content:flex-end;">
+                <button class="btn btn-secondary" onclick="hideModal('inviteModal')">Cancel</button>
+                <button class="btn btn-primary" id="inviteBtn" onclick="sendInvite()">Send Invitation</button>
+            </div>
+        </div>
+    </div>
+
     <script src="/js/i18n.js?v=2.2"></script>
     <script src="/js/main.js?v=2.1"></script>
     <script>
+        let pendingId = null;
+        let pendingAction = null;
+
         document.addEventListener('DOMContentLoaded', function() {
             bootPage('join-requests', ['hospital_admin']);
             loadRequests();
+            loadDepartments();
             document.getElementById('statusFilter').addEventListener('change', loadRequests);
+            document.getElementById('typeFilter').addEventListener('change', loadRequests);
         });
-        async function loadRequests() {
-            var status = document.getElementById('statusFilter').value;
+
+        async function loadDepartments() {
             try {
-                var requests = await api('/api/hospital/join-requests' + (status ? '?status=' + status : ''));
-                var container = document.getElementById('requestsList');
+                const depts = await api('/hospital/departments') || [];
+                ['approveDepartment', 'inviteDepartment'].forEach(function (id) {
+                    const sel = document.getElementById(id);
+                    if (!sel) return;
+                    while (sel.options.length > 1) sel.remove(1);
+                    depts.filter(d => d.is_active === 0 || d.is_active === false ? false : true).forEach(function (d) {
+                        const o = document.createElement('option');
+                        o.value = d.id; o.textContent = d.name;
+                        sel.appendChild(o);
+                    });
+                });
+            } catch (e) { /* departments optional */ }
+        }
+
+        function typeLabel(r) {
+            if (r.request_type === 'hospital_invitation') return '<span class="badge badge-info">Invitation</span>';
+            return '<span class="badge badge-warning">Doctor Request</span>';
+        }
+
+        async function loadRequests() {
+            const status = document.getElementById('statusFilter').value;
+            const type = document.getElementById('typeFilter').value;
+            let url = '/hospital/join-requests?';
+            if (status) url += 'status=' + encodeURIComponent(status);
+            if (type) url += (status ? '&' : '') + 'request_type=' + encodeURIComponent(type);
+            const container = document.getElementById('requestsList');
+            container.innerHTML = '<p class="text-muted">Loading...</p>';
+            try {
+                var requests = await api(url);
                 if (!requests || requests.length === 0) { container.innerHTML = '<p class="text-muted">No requests found</p>'; return; }
                 container.innerHTML = requests.map(function(r) {
                     var statusClass = r.status === 'approved' ? 'success' : (r.status === 'pending' ? 'warning' : 'danger');
                     var actions = r.status === 'pending' ?
-                        '<div class="btn-group"><button class="btn btn-sm btn-success" onclick="handleRequest(' + r.id + ',\'approve\')">Approve</button><button class="btn btn-sm btn-danger" onclick="handleRequest(' + r.id + ',\'reject\')">Reject</button></div>' :
+                        '<div class="btn-group">' +
+                        '<button class="btn btn-sm btn-success" onclick="openApprove(' + r.id + ', \'' + escapeAttr(r.full_name || 'this doctor') + '\')">Approve</button>' +
+                        '<button class="btn btn-sm btn-danger" onclick="openReject(' + r.id + ', \'' + escapeAttr(r.full_name || 'this doctor') + '\')">Reject</button>' +
+                        '</div>' :
                         '<span class="badge badge-' + statusClass + '">' + r.status + '</span>';
-                    return '<div class="card" style="margin-bottom:12px"><div class="card-body"><div style="display:flex;justify-content:space-between;align-items:start"><div><h4>' + (r.full_name||'Unknown') + '</h4><p class="text-muted">' + (r.specialty||'') + ' &middot; ' + (r.email||'') + '</p>' + (r.message ? '<p><em>"' + r.message + '"</em></p>' : '') + '<p><small>Registration: ' + (r.registration_number||'N/A') + ' &middot; Experience: ' + (r.experience_years||'N/A') + ' years</small></p></div><div>' + actions + '</div></div></div></div>';
+                    return '<div class="card" style="margin-bottom:12px"><div class="card-body">' +
+                        '<div style="display:flex;justify-content:space-between;align-items:start;gap:12px;flex-wrap:wrap">' +
+                        '<div><h4>' + escapeHtml(r.full_name || 'Unknown') + '</h4>' +
+                        '<p class="text-muted">' + escapeHtml(r.specialty || '') + ' &middot; ' + escapeHtml(r.email || '') + '</p>' +
+                        (r.message ? '<p><em>"' + escapeHtml(r.message) + '"</em></p>' : '') +
+                        '<p><small>Registration: ' + escapeHtml(r.registration_number || 'N/A') +
+                        ' &middot; Experience: ' + escapeHtml(String(r.experience_years || 'N/A')) + ' years' +
+                        (r.department_name ? ' &middot; Department: ' + escapeHtml(r.department_name) : '') + '</small></p></div>' +
+                        '<div style="text-align:right">' + typeLabel(r) + '<div style="margin-top:8px">' + actions + '</div></div>' +
+                        '</div></div></div>';
                 }).join('');
-            } catch(e) { console.error(e); }
+            } catch(e) { container.innerHTML = '<p class="text-muted">Unable to load requests. Please try again.</p>'; console.error(e); }
         }
-        async function handleRequest(id, action) {
-            if (action === 'reject' && !confirm('Are you sure you want to reject this request?')) return;
+
+        function escapeAttr(s) { return String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+        function escapeHtml(s) {
+            return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        function openApprove(id, name) {
+            pendingId = id; pendingAction = 'approve';
+            document.getElementById('approveMessage').textContent = 'Approve ' + name + ' to join this hospital?';
+            document.getElementById('approveDepartment').value = '';
+            showModal('approveModal');
+        }
+
+        function openReject(id, name) {
+            pendingId = id; pendingAction = 'reject';
+            document.getElementById('rejectMessage').textContent = 'Reject ' + name + "'s request?";
+            document.getElementById('rejectReason').value = '';
+            showModal('rejectModal');
+        }
+
+        async function confirmApprove() {
+            const btn = document.getElementById('approveBtn');
+            btn.disabled = true; btn.textContent = 'Approving...';
             try {
-                var result = await api('/api/hospital/join-requests/' + id, 'PATCH', { action: action });
-                showToast(result.message || 'Request ' + action + 'd');
+                const dept = document.getElementById('approveDepartment').value;
+                var result = await api('/hospital/join-requests/' + pendingId, 'PATCH', {
+                    action: 'approve',
+                    department_id: dept ? Number(dept) : null
+                });
+                showToast(result.message || 'Request approved');
+                hideModal('approveModal');
                 loadRequests();
-            } catch(e) { showToast('Error processing request', 'error'); }
+            } catch(e) { showToast(e.message || 'Error processing request', 'error'); }
+            finally { btn.disabled = false; btn.textContent = 'Approve'; }
+        }
+
+        async function confirmReject() {
+            const btn = document.getElementById('rejectBtn');
+            btn.disabled = true; btn.textContent = 'Rejecting...';
+            try {
+                var result = await api('/hospital/join-requests/' + pendingId, 'PATCH', {
+                    action: 'reject',
+                    rejection_reason: document.getElementById('rejectReason').value.trim()
+                });
+                showToast(result.message || 'Request rejected');
+                hideModal('rejectModal');
+                loadRequests();
+            } catch(e) { showToast(e.message || 'Error processing request', 'error'); }
+            finally { btn.disabled = false; btn.textContent = 'Reject'; }
+        }
+
+        function openInvite() {
+            document.getElementById('inviteEmail').value = '';
+            document.getElementById('inviteMessage').value = '';
+            document.getElementById('inviteDepartment').value = '';
+            showModal('inviteModal');
+        }
+
+        async function sendInvite() {
+            const email = document.getElementById('inviteEmail').value.trim();
+            if (!email) { showToast('Doctor email is required', 'error'); return; }
+            const btn = document.getElementById('inviteBtn');
+            btn.disabled = true; btn.textContent = 'Sending...';
+            try {
+                const dept = document.getElementById('inviteDepartment').value;
+                const res = await api('/hospital/invite-doctor', 'POST', {
+                    email,
+                    department_id: dept ? Number(dept) : null,
+                    message: document.getElementById('inviteMessage').value.trim()
+                });
+                showToast(res.message || 'Invitation sent');
+                hideModal('inviteModal');
+                loadRequests();
+            } catch (e) { showToast(e.message || 'Unable to send invitation', 'error'); }
+            finally { btn.disabled = false; btn.textContent = 'Send Invitation'; }
         }
     </script>
 </body>

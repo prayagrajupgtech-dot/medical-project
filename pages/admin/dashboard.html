@@ -36,6 +36,7 @@
                 <li><a href="/admin/dashboard" data-nav="dashboard" class="active" aria-current="page" data-i18n="dashboard">Dashboard</a></li>
                 <li><a href="/admin/doctors" data-nav="doctors" data-i18n="doctors">Doctors</a></li>
                 <li><a href="/admin/patients" data-nav="patients" data-i18n="patients">Patients</a></li>
+                <li><a href="/admin/hospitals" data-nav="hospitals" data-i18n="hospitals">Hospitals</a></li>
                 <li><a href="/admin/appointments" data-nav="appointments" data-i18n="appointments">Appointments</a></li>
                 <li><a href="/admin/consultations" data-nav="consultations" data-i18n="consultations">Consultations</a></li>
                 <li><a href="/admin/messages" data-nav="messages" data-i18n="messages">Messages</a></li>
@@ -182,19 +183,30 @@
                 <p data-i18n="manage_hospitals_and_staff">Manage your hospitals, doctors, and staff</p>
             </div>
 
-            <div class="admin-card mb-4">
-                <div class="toolbar">
-                    <button class="btn btn-primary" onclick="window.location.href='/admin/hospitals'"><span data-i18n="manage_hospitals">Manage Hospitals</span></button>
-                    <button class="btn btn-outline" onclick="window.location.href='/admin/doctors?status=pending'" style="margin-left:8px;"><span data-i18n="manage_join_requests">Manage Join Requests</span></button>
-                </div>
+            <div class="stats-grid" id="affiliationStats">
+                <a href="/admin/hospitals" class="stat-card stat-card-link"><div class="stat-title"><span data-i18n="total_hospitals">Total Hospitals</span></div><div class="stat-value" id="statHospitals2">-</div><span class="stat-hint" data-i18n="manage_hospitals">Manage hospitals &rarr;</span></a>
+                <a href="/admin/hospitals" class="stat-card stat-card-link"><div class="stat-title"><span data-i18n="active_hospitals">Active Hospitals</span></div><div class="stat-value" id="statActiveHospitals">-</div><span class="stat-hint" data-i18n="active">Active accounts</span></a>
+                <a href="/admin/hospitals?view=relationships" class="stat-card stat-card-link"><div class="stat-title"><span data-i18n="independent_doctors">Independent Doctors</span></div><div class="stat-value" id="statIndependentDoctors">-</div><span class="stat-hint" data-i18n="own_clinic_hint">Own clinic / no hospital &rarr;</span></a>
+                <a href="/admin/hospitals?view=relationships" class="stat-card stat-card-link"><div class="stat-title"><span data-i18n="hospital_doctors">Hospital Doctors</span></div><div class="stat-value" id="statHospitalDoctors">-</div><span class="stat-hint" data-i18n="affiliated_with_hospital_hint">Affiliated with a hospital &rarr;</span></a>
+                <a href="/admin/hospitals?view=relationships" class="stat-card stat-card-link"><div class="stat-title"><span data-i18n="pending_doctor_hospital_requests">Pending Requests</span></div><div class="stat-value" id="statPendingAffiliation">-</div><span class="stat-hint" data-i18n="awaiting_approval_hint">Awaiting hospital approval &rarr;</span></a>
+                <a href="/admin/hospitals?view=relationships" class="stat-card stat-card-link"><div class="stat-title"><span data-i18n="active_relationships">Active Relationships</span></div><div class="stat-value" id="statActiveRelationships">-</div><span class="stat-hint" data-i18n="doctor_hospital_relationships">Doctor-hospital affiliations &rarr;</span></a>
             </div>
 
             <div class="admin-card">
-                <div class="toolbar">
-                    <button class="btn btn-outline" onclick="window.location.href='/admin/staff'" style="margin-right:8px;"><span data-i18n="manage_staff">Manage Staff</span></button>
-                    <button class="btn btn-outline" onclick="window.location.href='/admin/departments'" style="margin-left:8px;"><span data-i18n="manage_departments">Manage Departments</span></button>
+                <div class="admin-card-header">
+                    <h2 data-i18n="recent_hospitals">Recent Hospitals</h2>
+                    <a href="/admin/hospitals" class="btn btn-sm btn-outline"><span data-i18n="view_all">View All</span></a>
                 </div>
+                <div class="table-container">
+                    <table class="admin-table">
+                        <thead><tr><th data-i18n="hospital_name">Hospital</th><th data-i18n="type">Type</th><th data-i18n="verification_status">Verification</th><th data-i18n="status">Status</th><th data-i18n="registered">Registered</th><th data-i18n="actions">Actions</th></tr></thead>
+                        <tbody id="recentHospitalsBody"></tbody>
+                    </table>
+                </div>
+                <div id="recentHospitalsState"></div>
             </div>
+        </div>
+    </section>
 
     <script src="/js/i18n.js?v=2.2"></script>
     <script src="/js/main.js?v=2.1"></script>
@@ -263,10 +275,25 @@
                 renderRecentAppointments(s.recent_appointments);
                 renderRecentConsultations(s.recent_consultations);
                 renderRecentReports(s.recent_reports);
+                renderAffiliationStats(s);
                 renderRecentHospitals(s.recent_hospitals);
             } catch (err) {
                 showToast(err.message, 'error');
             }
+        }
+
+        function setText(id, value) {
+            const el = document.getElementById(id);
+            if (el && value !== undefined && value !== null) el.textContent = value;
+        }
+
+        function renderAffiliationStats(s) {
+            setText('statHospitals2', s.total_hospitals);
+            setText('statActiveHospitals', s.active_hospitals);
+            setText('statIndependentDoctors', s.total_independent_doctors);
+            setText('statHospitalDoctors', s.total_hospital_doctors);
+            setText('statPendingAffiliation', s.pending_doctor_hospital_requests);
+            setText('statActiveRelationships', s.active_relationships);
         }
 
         function renderRecentDoctors(list) {
@@ -345,14 +372,15 @@
         function renderRecentHospitals(list) {
             const tbody = document.getElementById('recentHospitalsBody');
             const state = document.getElementById('recentHospitalsState');
+            if (!tbody || !state) return;
             tbody.innerHTML = ''; state.innerHTML = '';
             if (!list || !list.length) { showEmptyState(state, t('no_hospitals_registered')); return; }
             tbody.innerHTML = list.map(h => `
                 <tr>
-                    <td>${escapeHtml(h.name)}</td>
+                    <td><strong>${escapeHtml(h.name)}</strong><br><small>${escapeHtml(h.hospital_id || '')}</small></td>
                     <td>${escapeHtml(h.type || 'N/A')}</td>
                     <td>${h.verification_status === 'verified' ? '<span class="status-badge status-verified">' + t('verified') + '</span>' : '<span class="status-badge status-pending">' + t('pending') + '</span>'}</td>
-                    <td>${h.account_status || 'active'}</td>
+                    <td>${accountBadge(h.account_status)}</td>
                     <td>${formatDate(h.created_at)}</td>
                     <td><a href="/admin/hospitals" class="btn btn-sm btn-outline">${t('view')}</a></td>
                 </tr>`).join('');

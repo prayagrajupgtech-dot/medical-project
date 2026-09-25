@@ -60,7 +60,7 @@
         });
         async function loadStaff() {
             try {
-                var staff = await api('/api/hospital/staff');
+                var staff = await api('/hospital/staff');
                 var container = document.getElementById('staffList');
                 if (!staff || staff.length === 0) { container.innerHTML = '<p class="text-muted">' + t('no_staff') + '</p>'; return; }
                 container.innerHTML = '<table class="table"><thead><tr><th>' + t('name') + '</th><th>' + t('role') + '</th><th>' + t('phone') + '</th><th>' + t('email') + '</th><th>' + t('department') + '</th><th>' + t('actions') + '</th></tr></thead><tbody>' +
@@ -76,7 +76,7 @@
             var role = document.getElementById('staffRole').value.trim();
             if (!name || !role) { showToast(t('name_role_required'), 'error'); return; }
             try {
-                await api('/api/hospital/staff', 'POST', { name: name, role: role, phone: document.getElementById('staffPhone').value.trim(), email: document.getElementById('staffEmail').value.trim(), department: document.getElementById('staffDepartment').value.trim() });
+                await api('/hospital/staff', 'POST', { name: name, role: role, phone: document.getElementById('staffPhone').value.trim(), email: document.getElementById('staffEmail').value.trim(), department: document.getElementById('staffDepartment').value.trim() });
                 showToast(t('staff_added'));
                 hideAddStaff();
                 loadStaff();
@@ -84,7 +84,7 @@
         }
         async function deleteStaff(id) {
             if (!confirm(t('delete_staff_confirm'))) return;
-            try { await api('/api/hospital/staff/' + id, 'DELETE'); showToast(t('staff_deleted')); loadStaff(); } catch(e) { showToast(t('error'), 'error'); }
+            try { await api('/hospital/staff/' + id, 'DELETE'); showToast(t('staff_deleted')); loadStaff(); } catch(e) { showToast(t('error'), 'error'); }
         }
     </script>
 </body>

@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Practice / Hospital - Doctor Portal</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        .practice-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+        .affil-card{border:1px solid var(--border);border-radius:10px;padding:16px;margin-bottom:12px}
+        .affil-card.inactive{opacity:.72}
+        .affil-head{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:flex-start}
+        .kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:10px}
+        .kv div{font-size:.85rem}
+        .kv label{display:block;font-size:.7rem;text-transform:uppercase;color:var(--gray);letter-spacing:.04em}
+        .state-block{text-align:center;padding:24px 12px}
+    </style>
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="admin-header-content">
+                <div class="admin-brand">
+                    <img src="/favicon.png" alt="AI Doctor Assistant">
+                    <span>AI Doctor Assistant - Doctor Portal</span>
+                </div>
+                <div class="admin-user">
+                    <span id="userDisplay">Doctor</span>
+                    <button class="btn btn-sm btn-outline" onclick="logout()"><span data-i18n="logout">Logout</span></button>
+                    <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <nav class="admin-nav" aria-label="Main navigation">
+        <div class="container">
+            <button class="admin-nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul>
+                <li><a href="/doctor/dashboard" data-nav="dashboard" data-i18n="dashboard">Dashboard</a></li>
+                <li><a href="/doctor/patients" data-nav="patients" data-i18n="patients">Patients</a></li>
+                <li><a href="/doctor/consultations" data-nav="consultations" data-i18n="consultations">Consultations</a></li>
+                <li><a href="/doctor/appointments" data-nav="appointments" data-i18n="appointments">Appointments</a></li>
+                <li><a href="/doctor/practice" data-nav="practice" class="active" aria-current="page" data-i18n="practice_hospital">Practice / Hospital</a></li>
+                <li><a href="/doctor/messages" data-nav="messages" data-i18n="messages">Messages</a></li>
+                <li><a href="/doctor/reports" data-nav="reports" data-i18n="reports">Reports</a></li>
+                <li><a href="/doctor/profile" data-nav="profile" data-i18n="profile">Profile</a></li>
+                <li><a href="/doctor/settings" data-nav="settings" data-i18n="settings">Settings</a></li>
+                <li><a href="/doctor/ai-assistant" class="admin-nav-item" data-page="ai-assistant" data-i18n="ai_assistant">
+                    <span class="admin-nav-icon">🤖</span>
+                    <span class="admin-nav-label">AI Assistant</span>
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="admin-section">
+        <div class="container">
+            <div class="dashboard-welcome">
+                <h1 data-i18n="practice_hospital">Practice / Hospital</h1>
+                <p data-i18n="practice_hospital_desc">Your practice type, hospital affiliations and invitations</p>
+            </div>
+
+            <div class="admin-card">
+                <div class="admin-card-header">
+                    <h2 data-i18n="practice_type">Practice Type</h2>
+                    <a href="/doctor/join-hospital" class="btn btn-sm btn-primary" data-i18n="join_hospital">Join a Hospital</a>
+                </div>
+                <div class="admin-card-body" id="practiceInfo"><p class="text-muted">Loading...</p></div>
+            </div>
+
+            <div class="admin-card" style="margin-top:16px">
+                <div class="admin-card-header"><h2 data-i18n="hospital_invitations">Hospital Invitations</h2></div>
+                <div class="admin-card-body" id="invitationsList"><p class="text-muted">Loading...</p></div>
+            </div>
+
+            <div class="admin-card" style="margin-top:16px">
+                <div class="admin-card-header"><h2 data-i18n="my_affiliations">My Affiliations</h2></div>
+                <div class="admin-card-body" id="affiliationsList"><p class="text-muted">Loading...</p></div>
+            </div>
+
+            <div class="admin-card" style="margin-top:16px">
+                <div class="admin-card-header"><h2 data-i18n="join_requests">Join Requests</h2></div>
+                <div class="admin-card-body" id="requestsList"><p class="text-muted">Loading...</p></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Leave hospital confirmation -->
+    <div class="modal" id="leaveModal" role="dialog" aria-modal="true" aria-labelledby="leaveTitle">
+        <div class="modal-content" style="max-width:460px;text-align:left;">
+            <div class="modal-header">
+                <h3 id="leaveTitle">Leave Hospital</h3>
+                <button class="btn btn-sm btn-outline" onclick="hideModal('leaveModal')" aria-label="Close">×</button>
+            </div>
+            <div class="modal-body">
+                <p id="leaveMessage">Are you sure you want to leave this hospital?</p>
+                <div class="form-group">
+                    <label for="leaveReason">Reason (optional)</label>
+                    <textarea id="leaveReason" rows="3" class="form-control" placeholder="Reason for leaving..."></textarea>
+                </div>
+            </div>
+            <div class="modal-actions" style="justify-content:flex-end;">
+                <button class="btn btn-secondary" onclick="hideModal('leaveModal')">Cancel</button>
+                <button class="btn btn-danger" id="leaveBtn" onclick="confirmLeave()">Leave Hospital</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/i18n.js?v=2.2"></script>
+    <script src="/js/main.js?v=2.1"></script>
+    <script>
+        const t = function(key){ return typeof ShrijalI18n !== 'undefined' ? ShrijalI18n.t(key) : key; };
+        let pendingMembershipId = null;
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!bootPage('practice', ['doctor'])) return;
+            loadPractice();
+            loadInvitations();
+        });
+
+        function badge(status) {
+            const cls = status === 'approved' ? 'status-verified' : (status === 'pending' ? 'status-pending' : 'status-blocked');
+            return `<span class="status-badge ${cls}" style="text-transform:capitalize;">${escapeHtml(status)}</span>`;
+        }
+
+        async function loadPractice() {
+            const box = document.getElementById('practiceInfo');
+            box.innerHTML = '<div class="state-block"><span class="spinner" aria-hidden="true"></span><p>' + t('loading') + '</p></div>';
+            try {
+                const p = await api('/doctors/practice');
+                const isHospital = p.practice_type === 'hospital';
+                let html = '<div class="practice-grid">';
+                html += `<div><strong>${t('practice_type')}:</strong> ${isHospital ? '<span class="badge badge-success">Hospital</span>' : '<span class="badge badge-info">Independent Clinic</span>'}</div>`;
+                if (!isHospital) {
+                    html += `<div><strong>${t('my_clinic')}:</strong> ${escapeHtml(p.clinic_name || p.hospital || t('not_set'))}</div>`;
+                    const addr = [p.clinic_address, p.clinic_city, p.clinic_state, p.clinic_pincode].filter(Boolean).join(', ');
+                    html += `<div><strong>${t('address')}:</strong> ${escapeHtml(addr || 'N/A')}</div>`;
+                } else {
+                    const active = p.active_hospitals && p.active_hospitals[0];
+                    html += `<div><strong>${t('hospital_name')}:</strong> ${active ? escapeHtml(active.name) : escapeHtml(p.hospital || 'N/A')}</div>`;
+                    if (active) {
+                        html += `<div><strong>${t('status')}:</strong> ${badge(active.status)}</div>`;
+                        html += `<div><strong>${t('joined')}:</strong> ${active.joined_at ? formatDate(active.joined_at) : '-'}</div>`;
+                        html += `<div><strong>${t('phone')}:</strong> ${escapeHtml(active.phone || 'N/A')}</div>`;
+                    }
+                }
+                html += `<div><strong>${t('verified')}:</strong> ${p.verified ? 'Yes' : 'Pending verification'}</div>`;
+                html += `<div><strong>${t('consultation_fee')}:</strong> ${p.consultation_fee ? '&#8377;' + p.consultation_fee : 'N/A'}</div>`;
+                html += `<div><strong>${t('availability')}:</strong> ${escapeHtml(p.availability || 'N/A')}</div>`;
+                html += '</div>';
+                box.innerHTML = html;
+
+                renderAffiliations(p.memberships || []);
+                renderRequests(p.requests || []);
+            } catch (err) {
+                box.innerHTML = `<div class="state-box" role="alert"><p>${escapeHtml(err.message)}</p></div>`;
+            }
+        }
+
+        function renderAffiliations(rows) {
+            const box = document.getElementById('affiliationsList');
+            if (!rows.length) { box.innerHTML = '<p class="text-muted">' + t('no_hospital_affiliations') + '</p>'; return; }
+            box.innerHTML = rows.map(m => {
+                const inactive = !!m.ended_at;
+                const status = inactive ? 'inactive' : m.status;
+                return `<div class="affil-card ${inactive ? 'inactive' : ''}">
+                    <div class="affil-head">
+                        <div><strong>${escapeHtml(m.name)}</strong><br><small>${escapeHtml(m.hospital_code || '')} &middot; ${escapeHtml(m.city || '')}</small></div>
+                        <div>${badge(status)}</div>
+                    </div>
+                    <div class="kv">
+                        <div><label>${t('department')}</label>${escapeHtml(m.department || '-')}</div>
+                        <div><label>${t('joined')}</label>${m.joined_at ? formatDate(m.joined_at) : '-'}</div>
+                        <div><label>${t('status')}</label>${escapeHtml(m.account_status || 'active')}</div>
+                        ${inactive ? `<div><label>${t('ended')}</label>${formatDate(m.ended_at)}</div>` : ''}
+                    </div>
+                    ${!inactive && m.status === 'approved' ? `<div style="margin-top:10px"><button class="btn btn-sm btn-outline" onclick="openLeave(${m.membership_id}, '${escapeHtml(m.name)}')">${t('leave_hospital')}</button></div>` : ''}
+                </div>`;
+            }).join('');
+        }
+
+        function renderRequests(rows) {
+            const box = document.getElementById('requestsList');
+            if (!rows.length) { box.innerHTML = '<p class="text-muted">' + t('no_requests_found') + '</p>'; return; }
+            box.innerHTML = '<table class="table"><thead><tr><th>' + t('hospital_name') + '</th><th>' + t('request_type') + '</th><th>' + t('status') + '</th><th>' + t('created') + '</th></tr></thead><tbody>' +
+                rows.map(r => `<tr>
+                    <td><strong>${escapeHtml(r.hospital_name)}</strong><br><small>${escapeHtml(r.department_name || r.city || '')}</small></td>
+                    <td>${r.request_type === 'hospital_invitation' ? t('hospital_invitation') : t('doctor_request')}</td>
+                    <td>${badge(r.status)}</td>
+                    <td>${formatDate(r.created_at)}</td>
+                </tr>`).join('') + '</tbody></table>';
+        }
+
+        async function loadInvitations() {
+            const box = document.getElementById('invitationsList');
+            box.innerHTML = '<div class="state-block"><span class="spinner" aria-hidden="true"></span><p>' + t('loading') + '</p></div>';
+            try {
+                const rows = await api('/doctors/invitations');
+                const pending = (rows || []).filter(r => r.status === 'pending');
+                if (!pending.length) { box.innerHTML = '<p class="text-muted">' + t('no_invitations') + '</p>'; return; }
+                box.innerHTML = pending.map(r => `<div class="affil-card">
+                    <div class="affil-head">
+                        <div><strong>${escapeHtml(r.hospital_name)}</strong><br><small>${escapeHtml(r.hospital_code || '')} &middot; ${escapeHtml(r.city || '')} &middot; ${escapeHtml(r.department_name || t('no_department'))}</small></div>
+                        ${r.message ? `<em style="max-width:280px">"${escapeHtml(r.message)}"</em>` : ''}
+                    </div>
+                    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+                        <button class="btn btn-sm btn-success" onclick="respondInvitation(${r.id}, 'accept')">${t('accept')}</button>
+                        <button class="btn btn-sm btn-danger" onclick="respondInvitation(${r.id}, 'reject')">${t('reject')}</button>
+                    </div>
+                </div>`).join('');
+            } catch (err) {
+                box.innerHTML = `<p class="text-muted" role="alert">${escapeHtml(err.message)}</p>`;
+            }
+        }
+
+        async function respondInvitation(id, action) {
+            if (action === 'reject' && !confirm('Reject this hospital invitation?')) return;
+            if (action === 'accept' && !confirm('Accept this hospital invitation? You will become affiliated with this hospital.')) return;
+            try {
+                const res = await api('/doctors/invitations/' + id, 'POST', { action });
+                showToast(res.message || 'Done');
+                loadInvitations();
+                loadPractice();
+            } catch (err) { showToast(err.message, 'error'); }
+        }
+
+        function openLeave(id, name) {
+            pendingMembershipId = id;
+            document.getElementById('leaveMessage').textContent = 'Are you sure you want to leave ' + name + '?';
+            document.getElementById('leaveReason').value = '';
+            showModal('leaveModal');
+        }
+
+        async function confirmLeave() {
+            const btn = document.getElementById('leaveBtn');
+            btn.disabled = true; btn.textContent = 'Leaving...';
+            try {
+                const res = await api('/doctors/leave-hospital', 'POST', {
+                    membership_id: pendingMembershipId,
+                    reason: document.getElementById('leaveReason').value.trim()
+                });
+                showToast(res.message || 'You have left the hospital');
+                hideModal('leaveModal');
+                loadPractice();
+            } catch (err) { showToast(err.message, 'error'); }
+            finally { btn.disabled = false; btn.textContent = t('leave_hospital'); }
+        }
+    </script>
+</body>
+</html>

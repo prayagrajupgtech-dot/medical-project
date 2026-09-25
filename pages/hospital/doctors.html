@@ -34,9 +34,11 @@
                         <div>
                             <input type="text" id="searchInput" placeholder="Search doctors..." class="form-control" style="display:inline-block;width:auto">
                             <select id="statusFilter" class="form-control" style="display:inline-block;width:auto">
+                                <option value="active">Active</option>
                                 <option value="approved">Approved</option>
                                 <option value="pending">Pending</option>
                                 <option value="rejected">Rejected</option>
+                                <option value="inactive">Inactive</option>
                                 <option value="">All</option>
                             </select>
                         </div>
@@ -46,6 +48,28 @@
             </div>
         </main>
     </div>
+
+    <!-- End affiliation -->
+    <div class="modal" id="endModal" role="dialog" aria-modal="true" aria-labelledby="endTitle">
+        <div class="modal-content" style="max-width:460px;text-align:left;">
+            <div class="modal-header">
+                <h3 id="endTitle">Remove Doctor</h3>
+                <button class="btn btn-sm btn-outline" onclick="hideModal('endModal')" aria-label="Close">×</button>
+            </div>
+            <div class="modal-body">
+                <p id="endMessage">Are you sure you want to remove this doctor from your hospital?</p>
+                <div class="form-group">
+                    <label for="endReason">Reason (optional)</label>
+                    <textarea id="endReason" rows="3" class="form-control" placeholder="Reason for ending the affiliation"></textarea>
+                </div>
+            </div>
+            <div class="modal-actions" style="justify-content:flex-end;">
+                <button class="btn btn-secondary" onclick="hideModal('endModal')">Cancel</button>
+                <button class="btn btn-danger" id="endBtn" onclick="confirmEnd()">Remove Doctor</button>
+            </div>
+        </div>
+    </div>
+
     <script src="/js/i18n.js?v=2.2"></script>
     <script src="/js/main.js?v=2.1"></script>
     <script>
@@ -58,17 +82,52 @@
         async function loadDoctors() {
             var search = document.getElementById('searchInput').value;
             var status = document.getElementById('statusFilter').value;
-            var url = '/api/hospital/doctors?' + (status ? 'status=' + status : '') + (search ? '&search=' + encodeURIComponent(search) : '');
+            var url = '/hospital/doctors?';
+            if (status) url += 'status=' + encodeURIComponent(status) + '&';
+            else url += 'include_ended=true&';
+            if (search) url += 'search=' + encodeURIComponent(search);
             try {
                 var doctors = await api(url);
                 var container = document.getElementById('doctorsList');
                 if (!doctors || doctors.length === 0) { container.innerHTML = '<p class="text-muted">No doctors found</p>'; return; }
-                container.innerHTML = '<table class="table"><thead><tr><th>Name</th><th>Specialty</th><th>Department</th><th>Status</th><th>Registered</th></tr></thead><tbody>' +
+                container.innerHTML = '<table class="table"><thead><tr><th>Name</th><th>Specialty</th><th>Department</th><th>Status</th><th>Joined</th><th>Actions</th></tr></thead><tbody>' +
                     doctors.map(function(d) {
                         var statusClass = d.status === 'approved' ? 'success' : (d.status === 'pending' ? 'warning' : 'danger');
-                        return '<tr><td><strong>' + (d.full_name||'') + '</strong><br><small>' + (d.email||'') + '</small></td><td>' + (d.specialty||'-') + '</td><td>' + (d.department||'-') + '</td><td><span class="badge badge-' + statusClass + '">' + d.status + '</span></td><td>' + new Date(d.created_at).toLocaleDateString() + '</td></tr>';
+                        var isActive = d.ended_at == null;
+                        var statusHtml = d.ended_at
+                            ? '<span class="badge badge-secondary">Inactive</span>'
+                            : '<span class="badge badge-' + statusClass + '">' + d.status + '</span>';
+                        var joined = d.joined_at || d.created_at;
+                        var actions = isActive
+                            ? '<button class="btn btn-sm btn-danger" onclick="openEnd(' + d.id + ', ' + d.doctor_id + ')">Remove</button>'
+                            : '<span class="text-muted">Ended ' + new Date(d.ended_at).toLocaleDateString() + '</span>';
+                        return '<tr><td><strong>' + escapeHtml(d.full_name||'') + '</strong><br><small>' + escapeHtml(d.email||'') + '</small></td><td>' + escapeHtml(d.specialty||'-') + '</td><td>' + escapeHtml(d.department||'-') + '</td><td>' + statusHtml + '</td><td>' + (joined ? new Date(joined).toLocaleDateString() : '-') + '</td><td>' + actions + '</td></tr>';
                     }).join('') + '</tbody></table>';
-            } catch(e) { console.error(e); }
+            } catch(e) { console.error(e); document.getElementById('doctorsList').innerHTML = '<p class="text-muted" role="alert">Unable to load doctors. Please try again.</p>'; }
+        }
+
+        var pendingEnd = null;
+        function openEnd(membershipId, doctorId) {
+            pendingEnd = { membershipId: membershipId, doctorId: doctorId };
+            document.getElementById('endMessage').textContent = 'Are you sure you want to remove this doctor from your hospital? Their doctor account will stay active.';
+            document.getElementById('endReason').value = '';
+            showModal('endModal');
+        }
+        async function confirmEnd() {
+            var btn = document.getElementById('endBtn');
+            btn.disabled = true; btn.textContent = 'Removing...';
+            try {
+                var res = await api('/hospital/doctors/' + pendingEnd.membershipId + '/end', 'POST', {
+                    reason: document.getElementById('endReason').value.trim()
+                });
+                showToast(res.message || 'Doctor removed from hospital');
+                hideModal('endModal');
+                loadDoctors();
+            } catch (e) { showToast(e.message || 'Error removing doctor', 'error'); }
+            finally { btn.disabled = false; btn.textContent = 'Remove Doctor'; }
+        }
+        function escapeHtml(s) {
+            return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
         }
     </script>
 </body>

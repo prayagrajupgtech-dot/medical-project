@@ -295,7 +295,8 @@ document.addEventListener('DOMContentLoaded', function () {
         const requiredInputs = ['regFirstName', 'regLastName', 'regUsername', 'regEmail', 'regPhone', 'regPassword', 'regConfirm'];
         const roleSections = { doctor: doctorFields, patient: patientFields, admin: adminFields };
         const roleFieldIds = {
-            doctor: ['regSpecialty', 'regQualification', 'regRegNumber', 'regExperience', 'regHospital', 'regBio', 'regDoctorPhoto'],
+            doctor: ['regSpecialty', 'regQualification', 'regRegNumber', 'regExperience', 'regHospital', 'regBio', 'regDoctorPhoto',
+                     'regClinicName', 'regClinicAddress', 'regClinicCity', 'regClinicState', 'regClinicPincode', 'regHospitalSearch'],
             patient: ['regDob', 'regGender', 'regPatientPhoto'],
             admin: ['regAdminKey']
         };
@@ -408,6 +409,23 @@ document.addEventListener('DOMContentLoaded', function () {
                     setFieldError(spec, 'Specialty is required for doctors.');
                     valid = false;
                 }
+                // Practice path: own clinic needs a clinic name, joining a hospital
+                // needs a hospital picked from the search results.
+                const practice = get('regPracticeType') ? get('regPracticeType').value : 'independent';
+                if (practice === 'independent') {
+                    const clinicName = get('regClinicName');
+                    if (clinicName && !clinicName.value.trim()) {
+                        setFieldError(clinicName, 'Clinic name is required when registering your own clinic.');
+                        valid = false;
+                    }
+                } else {
+                    const joinId = get('regJoinHospitalId');
+                    if (joinId && !joinId.value) {
+                        const searchBox = get('regHospitalSearch');
+                        setFieldError(searchBox, 'Please search and select the hospital you want to join.');
+                        valid = false;
+                    }
+                }
             }
 
             if (valid && role === 'admin') {
@@ -452,6 +470,18 @@ document.addEventListener('DOMContentLoaded', function () {
                 data.experience_years = get('regExperience').value ? Number(get('regExperience').value) : undefined;
                 data.hospital = get('regHospital').value.trim() || undefined;
                 data.bio = get('regBio').value.trim() || undefined;
+                const practiceEl = get('regPracticeType');
+                data.practice_type = practiceEl ? practiceEl.value : 'independent';
+                if (data.practice_type === 'independent') {
+                    data.clinic_name = get('regClinicName') ? get('regClinicName').value.trim() : undefined;
+                    data.clinic_address = get('regClinicAddress') ? get('regClinicAddress').value.trim() : undefined;
+                    data.clinic_city = get('regClinicCity') ? get('regClinicCity').value.trim() : undefined;
+                    data.clinic_state = get('regClinicState') ? get('regClinicState').value.trim() : undefined;
+                    data.clinic_pincode = get('regClinicPincode') ? get('regClinicPincode').value.trim() : undefined;
+                } else {
+                    const joinEl = get('regJoinHospitalId');
+                    data.join_hospital_id = joinEl && joinEl.value ? joinEl.value : undefined;
+                }
             }
 
             if (role === 'patient') {
@@ -478,7 +508,11 @@ document.addEventListener('DOMContentLoaded', function () {
                     try {
                         await uploadRegistrationPhoto(role, result.token, photoInputId);
                     } catch (photoErr) { /* non-blocking */ }
-                    showToast('Account created successfully! Welcome!');
+                    if (role === 'doctor' && data.join_hospital_id) {
+                        showToast('Account created! Your hospital join request has been sent for approval.');
+                    } else {
+                        showToast('Account created successfully! Welcome!');
+                    }
                     setTimeout(() => redirectToDashboard(result.user.role), 500);
                 } else {
                     showFormAlert('registerAlert', friendlyAuthError(response.status, result.error), 'error');

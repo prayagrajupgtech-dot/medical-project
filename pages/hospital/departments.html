@@ -57,7 +57,7 @@
         });
         async function loadDepartments() {
             try {
-                var depts = await api('/api/hospital/departments');
+                var depts = await api('/hospital/departments');
                 var container = document.getElementById('deptList');
                 if (!depts || depts.length === 0) { container.innerHTML = '<p class="text-muted">' + t('no_departments') + '</p>'; return; }
                 container.innerHTML = '<table class="table"><thead><tr><th>' + t('name') + '</th><th>' + t('description') + '</th><th>' + t('head_doctor') + '</th><th>' + t('status') + '</th><th>' + t('actions') + '</th></tr></thead><tbody>' +
@@ -67,16 +67,16 @@
             } catch(e) { console.error(e); }
         }
         async function loadDoctorsForHead() {
-            try { allDoctors = await api('/api/hospital/doctors?status=approved'); var sel = document.getElementById('deptHead'); (allDoctors||[]).forEach(function(d) { var opt = document.createElement('option'); opt.value = d.doctor_id; opt.textContent = d.full_name; sel.appendChild(opt); }); } catch(e) {}
+            try { allDoctors = await api('/hospital/doctors?status=approved'); var sel = document.getElementById('deptHead'); (allDoctors||[]).forEach(function(d) { var opt = document.createElement('option'); opt.value = d.doctor_id; opt.textContent = d.full_name; sel.appendChild(opt); }); } catch(e) {}
         }
         function showAddDept() { document.getElementById('addDeptForm').classList.remove('hidden'); }
         function hideAddDept() { document.getElementById('addDeptForm').classList.add('hidden'); document.getElementById('deptName').value = ''; document.getElementById('deptDesc').value = ''; }
         async function saveDept() {
             var name = document.getElementById('deptName').value.trim();
             if (!name) { showToast(t('name_required'), 'error'); return; }
-            try { await api('/api/hospital/departments', 'POST', { name: name, description: document.getElementById('deptDesc').value.trim(), head_doctor_id: document.getElementById('deptHead').value || undefined }); showToast(t('department_created')); hideAddDept(); loadDepartments(); } catch(e) { showToast(t('error'), 'error'); }
+            try { await api('/hospital/departments', 'POST', { name: name, description: document.getElementById('deptDesc').value.trim(), head_doctor_id: document.getElementById('deptHead').value || undefined }); showToast(t('department_created')); hideAddDept(); loadDepartments(); } catch(e) { showToast(t('error'), 'error'); }
         }
-        async function deleteDept(id) { if (!confirm(t('delete_department_confirm'))) return; try { await api('/api/hospital/departments/' + id, 'DELETE'); showToast(t('department_deleted')); loadDepartments(); } catch(e) { showToast(t('error'), 'error'); } }
+        async function deleteDept(id) { if (!confirm(t('delete_department_confirm'))) return; try { await api('/hospital/departments/' + id, 'DELETE'); showToast(t('department_deleted')); loadDepartments(); } catch(e) { showToast(t('error'), 'error'); } }
     </script>
 </body>
 </html>

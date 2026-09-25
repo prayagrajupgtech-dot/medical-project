@@ -132,6 +132,36 @@ async function initDatabase() {
     await pool.query(schema);
     console.log('Connected to Supabase Postgres, schema ensured.');
 
+    // 1b. Forward migrations for databases created before these columns existed.
+    //     ALTER ... ADD COLUMN IF NOT EXISTS is idempotent, so this is safe every boot.
+    const migrations = [
+        `ALTER TABLE doctor_profiles ADD COLUMN IF NOT EXISTS practice_type TEXT DEFAULT 'independent'`,
+        `ALTER TABLE doctor_profiles ADD COLUMN IF NOT EXISTS clinic_name TEXT`,
+        `ALTER TABLE doctor_profiles ADD COLUMN IF NOT EXISTS clinic_address TEXT`,
+        `ALTER TABLE doctor_profiles ADD COLUMN IF NOT EXISTS clinic_city TEXT`,
+        `ALTER TABLE doctor_profiles ADD COLUMN IF NOT EXISTS clinic_state TEXT`,
+        `ALTER TABLE doctor_profiles ADD COLUMN IF NOT EXISTS clinic_pincode TEXT`,
+        `UPDATE doctor_profiles SET practice_type = 'independent' WHERE practice_type IS NULL OR practice_type = ''`,
+        `ALTER TABLE hospital_memberships ADD COLUMN IF NOT EXISTS ended_at TIMESTAMP`,
+        `ALTER TABLE hospital_memberships ADD COLUMN IF NOT EXISTS ended_by INTEGER`,
+        `ALTER TABLE hospital_memberships ADD COLUMN IF NOT EXISTS ended_reason TEXT`,
+        `ALTER TABLE hospital_join_requests ADD COLUMN IF NOT EXISTS request_type TEXT DEFAULT 'doctor_request'`,
+        `ALTER TABLE hospital_join_requests ADD COLUMN IF NOT EXISTS department_id INTEGER`,
+        `ALTER TABLE hospital_join_requests ADD COLUMN IF NOT EXISTS invited_by INTEGER`,
+        // One affiliation row per (hospital, doctor) pair — ignore duplicates created
+        // before the constraint existed rather than failing the whole migration.
+        `DELETE FROM hospital_memberships a USING hospital_memberships b
+          WHERE a.id > b.id AND a.hospital_id = b.hospital_id AND a.doctor_id = b.doctor_id`,
+        `CREATE UNIQUE INDEX IF NOT EXISTS uq_hospital_memberships_pair ON hospital_memberships(hospital_id, doctor_id)`
+    ];
+    for (const sql of migrations) {
+        try {
+            await pool.query(sql);
+        } catch (e) {
+            console.warn('Migration skipped:', e.message);
+        }
+    }
+
     // 2. Seed default admin if none exists (login: admin / admin123)
     const bcrypt = require('bcryptjs');
     const { rows } = await pool.query('SELECT id FROM users WHERE role = $1 LIMIT 1', ['admin']);

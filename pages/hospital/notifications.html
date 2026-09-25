@@ -44,7 +44,7 @@
         });
         async function loadNotifications() {
             try {
-                var notifications = await api('/api/hospital/notifications');
+                var notifications = await api('/hospital/notifications');
                 var container = document.getElementById('notificationsList');
                 if (!notifications || notifications.length === 0) { container.innerHTML = '<p class="text-muted">No notifications</p>'; return; }
                 container.innerHTML = '<table class="table"><thead><tr><th>Title</th><th>Message</th><th>Type</th><th>Date</th><th>Status</th><th>Actions</th></tr></thead><tbody>' +
@@ -57,7 +57,7 @@
             } catch(e) { console.error(e); }
         }
         async function markRead(id) {
-            try { await api('/api/hospital/notifications/' + id + '/read', 'PATCH'); loadNotifications(); } catch(e) { showToast('Error', 'error'); }
+            try { await api('/hospital/notifications/' + id + '/read', 'PATCH'); loadNotifications(); } catch(e) { showToast('Error', 'error'); }
         }
     </script>
 </body>

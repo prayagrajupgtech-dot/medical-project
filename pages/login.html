@@ -28,6 +28,11 @@
         .reg-role-option:hover{border-color:var(--primary);color:var(--primary)}
         .reg-role-option.active{border-color:var(--primary);background:rgba(37,99,235,.08);color:var(--primary)}
         .reg-role-option:focus-visible{outline:3px solid rgba(37,99,235,.35);outline-offset:2px}
+        .reg-hospital-option{display:flex;gap:10px;align-items:flex-start;padding:10px 12px;border:1px solid var(--border);border-radius:8px;margin-top:8px;cursor:pointer;font-size:.85rem}
+        .reg-hospital-option:hover{border-color:var(--primary);background:rgba(37,99,235,.04)}
+        .reg-hospital-option input{margin-top:4px}
+        .reg-hospital-option small{color:var(--gray)}
+        #regHospitalResults{max-height:230px;overflow-y:auto}
     </style>
 </head>
 <body class="auth-page">
@@ -251,7 +256,61 @@
 
                     <!-- DOCTOR-SPECIFIC FIELDS -->
                     <div class="reg-section hidden" id="doctorFields" aria-live="polite">
-                        <h3 class="reg-section-title">Professional Details</h3>
+                        <h3 class="reg-section-title">How would you like to practice?</h3>
+                        <div class="reg-role-switch" role="group" aria-label="Practice type">
+                            <button type="button" class="reg-role-option active" data-practice="independent" id="practiceClinicBtn">
+                                <span class="role-opt-icon" aria-hidden="true">🏥</span>
+                                Register My Own Clinic
+                            </button>
+                            <button type="button" class="reg-role-option" data-practice="hospital" id="practiceHospitalBtn">
+                                <span class="role-opt-icon" aria-hidden="true">🏨</span>
+                                Join an Existing Hospital
+                            </button>
+                        </div>
+                        <input type="hidden" name="practice_type" value="independent" id="regPracticeType">
+                        <small class="form-hint">You can change this later — a doctor account always stays yours.</small>
+
+                        <div id="clinicFields" style="margin-top:14px">
+                            <h3 class="reg-section-title">Clinic Details</h3>
+                            <div class="form-group">
+                                <label for="regClinicName">Clinic Name *</label>
+                                <input type="text" id="regClinicName" name="clinic_name" class="form-control" placeholder="e.g. Sharma Clinic" autocomplete="organization">
+                            </div>
+                            <div class="form-group">
+                                <label for="regClinicAddress">Clinic Address</label>
+                                <input type="text" id="regClinicAddress" name="clinic_address" class="form-control" placeholder="Street address" autocomplete="street-address">
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="regClinicCity">City</label>
+                                    <input type="text" id="regClinicCity" name="clinic_city" class="form-control" autocomplete="address-level2">
+                                </div>
+                                <div class="form-group">
+                                    <label for="regClinicState">State</label>
+                                    <input type="text" id="regClinicState" name="clinic_state" class="form-control" autocomplete="address-level1">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="regClinicPincode">Pincode</label>
+                                <input type="text" id="regClinicPincode" name="clinic_pincode" class="form-control" autocomplete="postal-code">
+                            </div>
+                        </div>
+
+                        <div id="joinHospitalFields" class="hidden" style="margin-top:14px">
+                            <h3 class="reg-section-title">Join an Existing Hospital</h3>
+                            <div class="form-group">
+                                <label for="regHospitalSearch">Search Hospital (name, city or Hospital ID)</label>
+                                <div style="display:flex;gap:8px">
+                                    <input type="text" id="regHospitalSearch" class="form-control" placeholder="e.g. Apollo, Lucknow, HOS-XXXX">
+                                    <button type="button" class="btn btn-outline" id="regHospitalSearchBtn">Search</button>
+                                </div>
+                                <small class="form-hint">Your join request will be sent to the hospital admin for approval.</small>
+                            </div>
+                            <div id="regHospitalResults"></div>
+                            <input type="hidden" id="regJoinHospitalId" name="join_hospital_id">
+                        </div>
+
+                        <h3 class="reg-section-title" style="margin-top:16px">Professional Details</h3>
                         <div class="form-row">
                             <div class="form-group">
                                 <label for="regSpecialty">Specialty *</label>
@@ -286,7 +345,7 @@
                             <div class="reg-photo-preview" id="doctorPhotoPreview"></div>
                             <small class="form-hint">JPG, PNG or WEBP. Maximum 5 MB. You can also change it later from your profile.</small>
                         </div>
-                        <small class="form-hint">Your profile stays unverified until a hospital administrator approves it. After signing in you can join a hospital from your dashboard.</small>
+                        <small class="form-hint" id="doctorVerifyHint">Your profile stays unverified until an administrator approves it. You can join a hospital any time from your dashboard.</small>
                     </div>
 
                     <!-- PATIENT-SPECIFIC FIELDS -->
@@ -347,6 +406,8 @@
                 showRoles();
             }
             wireRoleSwitch();
+            wirePracticeSwitch();
+            setPracticeType('independent');
         });
 
         function normalizeRole(role) {
@@ -411,7 +472,7 @@
             var regRole = document.getElementById('regRole');
             if (!regRole) return;
 
-            document.querySelectorAll('.reg-role-option').forEach(function (btn) {
+            document.querySelectorAll('.reg-role-option[data-role]').forEach(function (btn) {
                 btn.classList.toggle('active', btn.getAttribute('data-role') === role);
                 btn.setAttribute('aria-pressed', btn.getAttribute('data-role') === role ? 'true' : 'false');
             });
@@ -434,7 +495,7 @@
         }
 
         function wireRoleSwitch() {
-            document.querySelectorAll('.reg-role-option').forEach(function (btn) {
+            document.querySelectorAll('.reg-role-option[data-role]').forEach(function (btn) {
                 btn.addEventListener('click', function () {
                     setRegisterRole(btn.getAttribute('data-role'));
                 });
@@ -442,6 +503,71 @@
             // Reflect the current role on the "Create Account" link
             var goRegister = document.getElementById('goRegister');
             if (goRegister) goRegister.setAttribute('href', '/login?mode=register&role=' + encodeURIComponent(getLoginRole()));
+        }
+
+        // ---- Doctor practice type: own clinic vs join an existing hospital ----
+        function setPracticeType(type) {
+            var hidden = document.getElementById('regPracticeType');
+            if (!hidden) return;
+            type = (type === 'hospital') ? 'hospital' : 'independent';
+            hidden.value = type;
+            document.querySelectorAll('.reg-role-option[data-practice]').forEach(function (btn) {
+                var active = btn.getAttribute('data-practice') === type;
+                btn.classList.toggle('active', active);
+                btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+            });
+            var clinic = document.getElementById('clinicFields');
+            var join = document.getElementById('joinHospitalFields');
+            if (clinic) clinic.classList.toggle('hidden', type !== 'independent');
+            if (join) join.classList.toggle('hidden', type !== 'hospital');
+        }
+
+        function wirePracticeSwitch() {
+            document.querySelectorAll('.reg-role-option[data-practice]').forEach(function (btn) {
+                btn.addEventListener('click', function () { setPracticeType(btn.getAttribute('data-practice')); });
+            });
+            var searchBtn = document.getElementById('regHospitalSearchBtn');
+            var searchInput = document.getElementById('regHospitalSearch');
+            if (searchBtn) searchBtn.addEventListener('click', searchHospitalForRegistration);
+            if (searchInput) {
+                searchInput.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') { e.preventDefault(); searchHospitalForRegistration(); }
+                });
+            }
+        }
+
+        var regSearchTimer = null;
+        async function searchHospitalForRegistration() {
+            var input = document.getElementById('regHospitalSearch');
+            var out = document.getElementById('regHospitalResults');
+            if (!input || !out) return;
+            var q = input.value.trim();
+            if (q.length < 2) { out.innerHTML = '<p class="form-hint">Type at least 2 characters to search.</p>'; return; }
+            out.innerHTML = '<p class="form-hint">Searching...</p>';
+            try {
+                var resp = await fetch('/api/hospitals/search?q=' + encodeURIComponent(q));
+                var rows = await resp.json();
+                if (!Array.isArray(rows) || rows.length === 0) {
+                    out.innerHTML = '<p class="form-hint">No hospitals found. Try a different term.</p>';
+                    return;
+                }
+                out.innerHTML = rows.map(function (h) {
+                    var safeName = String(h.name || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+                    return '<label class="reg-hospital-option">' +
+                        '<input type="radio" name="reg_join_hospital" value="' + h.id + '" data-code="' + h.hospital_id + '">' +
+                        '<span><strong>' + safeName + '</strong><br>' +
+                        '<small>' + h.hospital_id + ' &middot; ' + (h.city || 'N/A') + ' &middot; ' + (h.doctor_count || 0) + ' doctors &middot; ' + (h.verification_status || 'pending') + '</small></span>' +
+                        '</label>';
+                }).join('');
+                out.querySelectorAll('input[type=radio]').forEach(function (radio) {
+                    radio.addEventListener('change', function () {
+                        var hiddenField = document.getElementById('regJoinHospitalId');
+                        if (hiddenField) hiddenField.value = this.value;
+                    });
+                });
+            } catch (e) {
+                out.innerHTML = '<p class="form-hint">Unable to search hospitals right now.</p>';
+            }
         }
     </script>
 </body>

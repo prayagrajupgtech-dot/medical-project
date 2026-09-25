@@ -210,6 +210,12 @@ async function initDatabase() {
                 consultation_fee REAL,
                 availability TEXT,
                 verified INTEGER DEFAULT 0,
+                practice_type TEXT DEFAULT 'independent',
+                clinic_name TEXT,
+                clinic_address TEXT,
+                clinic_city TEXT,
+                clinic_state TEXT,
+                clinic_pincode TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES users (id)
             )`);
@@ -273,10 +279,14 @@ async function initDatabase() {
                 department TEXT,
                 joined_at DATETIME,
                 approved_by INTEGER,
+                ended_at DATETIME,
+                ended_by INTEGER,
+                ended_reason TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (hospital_id) REFERENCES hospitals (id),
                 FOREIGN KEY (doctor_id) REFERENCES users (id),
-                FOREIGN KEY (approved_by) REFERENCES users (id)
+                FOREIGN KEY (approved_by) REFERENCES users (id),
+                UNIQUE(hospital_id, doctor_id)
             )`);
 
             db.run(`CREATE TABLE IF NOT EXISTS hospital_join_requests (
@@ -288,6 +298,9 @@ async function initDatabase() {
                 reviewed_by INTEGER,
                 reviewed_at DATETIME,
                 rejection_reason TEXT,
+                request_type TEXT DEFAULT 'doctor_request',
+                department_id INTEGER,
+                invited_by INTEGER,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (hospital_id) REFERENCES hospitals (id),
                 FOREIGN KEY (doctor_id) REFERENCES users (id),
@@ -513,6 +526,70 @@ async function initDatabase() {
                     addIfMissing('originalFullName', 'originalFullName TEXT');
                     addIfMissing('preferredLanguage', "preferredLanguage TEXT DEFAULT 'en'");
                     addIfMissing('preferredLocale', "preferredLocale TEXT DEFAULT 'en-IN'");
+                });
+
+                // Doctor + Hospital affiliation: practice type & own-clinic details
+                db.all("SELECT name FROM pragma_table_info('doctor_profiles')", (err, cols) => {
+                    if (err || !cols) return;
+                    const addIfMissing = (name, sql) => {
+                        if (!cols.some(c => c.name === name)) {
+                            db.run('ALTER TABLE doctor_profiles ADD COLUMN ' + sql, (e) => {
+                                if (e) console.log('doctor_profiles.' + name + ' migration skipped:', e.message);
+                            });
+                        }
+                    };
+                    addIfMissing('practice_type', "practice_type TEXT DEFAULT 'independent'");
+                    addIfMissing('clinic_name', 'clinic_name TEXT');
+                    addIfMissing('clinic_address', 'clinic_address TEXT');
+                    addIfMissing('clinic_city', 'clinic_city TEXT');
+                    addIfMissing('clinic_state', 'clinic_state TEXT');
+                    addIfMissing('clinic_pincode', 'clinic_pincode TEXT');
+                    // Safe default for pre-existing doctors: they are independent until
+                    // an approved hospital membership says otherwise (set later in this file).
+                    db.run("UPDATE doctor_profiles SET practice_type = 'independent' WHERE practice_type IS NULL OR practice_type = ''", () => {});
+                });
+
+                // Affiliation relationships: keep history (ended_at) instead of deleting rows
+                db.all("SELECT name FROM pragma_table_info('hospital_memberships')", (err, cols) => {
+                    if (err || !cols) return;
+                    const addIfMissing = (name, sql) => {
+                        if (!cols.some(c => c.name === name)) {
+                            db.run('ALTER TABLE hospital_memberships ADD COLUMN ' + sql, (e) => {
+                                if (e) console.log('hospital_memberships.' + name + ' migration skipped:', e.message);
+                            });
+                        }
+                    };
+                    addIfMissing('ended_at', 'ended_at DATETIME');
+                    addIfMissing('ended_by', 'ended_by INTEGER');
+                    addIfMissing('ended_reason', 'ended_reason TEXT');
+                    // One row per doctor/hospital pair (prevents duplicate affiliations).
+                    // Drop duplicate pairs first so the unique index can be created.
+                    db.run(
+                        `DELETE FROM hospital_memberships WHERE id NOT IN (
+                             SELECT MIN(id) FROM hospital_memberships GROUP BY hospital_id, doctor_id
+                         )`,
+                        () => {
+                            db.run(
+                                'CREATE UNIQUE INDEX IF NOT EXISTS uq_hospital_memberships_pair ON hospital_memberships(hospital_id, doctor_id)',
+                                (e) => { if (e) console.log('hospital_memberships unique index skipped:', e.message); }
+                            );
+                        }
+                    );
+                });
+
+                // Join requests + hospital invitations share one table
+                db.all("SELECT name FROM pragma_table_info('hospital_join_requests')", (err, cols) => {
+                    if (err || !cols) return;
+                    const addIfMissing = (name, sql) => {
+                        if (!cols.some(c => c.name === name)) {
+                            db.run('ALTER TABLE hospital_join_requests ADD COLUMN ' + sql, (e) => {
+                                if (e) console.log('hospital_join_requests.' + name + ' migration skipped:', e.message);
+                            });
+                        }
+                    };
+                    addIfMissing('request_type', "request_type TEXT DEFAULT 'doctor_request'");
+                    addIfMissing('department_id', 'department_id INTEGER');
+                    addIfMissing('invited_by', 'invited_by INTEGER');
                 });
 
                 // Backfill doctor_profiles rows for every doctor

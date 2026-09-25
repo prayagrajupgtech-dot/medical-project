@@ -57,7 +57,7 @@
             var newPass = document.getElementById('newPassword').value;
             if (!current || !newPass) { showToast('Both fields are required', 'error'); return; }
             try {
-                await api('/api/auth/change-password', 'POST', { current_password: current, new_password: newPass });
+                await api('/auth/change-password', 'POST', { current_password: current, new_password: newPass });
                 showToast('Password updated');
                 document.getElementById('currentPassword').value = '';
                 document.getElementById('newPassword').value = '';

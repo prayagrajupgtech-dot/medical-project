@@ -152,6 +152,14 @@ CREATE TABLE IF NOT EXISTS doctor_profiles (
     consultation_fee REAL,
     availability TEXT,
     verified INTEGER DEFAULT 0,
+    -- Practice type: 'independent' (own clinic / no hospital) or 'hospital'
+    practice_type TEXT DEFAULT 'independent',
+    -- Own-clinic details (only used when practice_type = 'independent')
+    clinic_name TEXT,
+    clinic_address TEXT,
+    clinic_city TEXT,
+    clinic_state TEXT,
+    clinic_pincode TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -208,7 +216,11 @@ CREATE TABLE IF NOT EXISTS hospital_memberships (
     department TEXT,
     joined_at TIMESTAMP,
     approved_by INTEGER REFERENCES users (id),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ended_at TIMESTAMP,
+    ended_by INTEGER REFERENCES users (id),
+    ended_reason TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(hospital_id, doctor_id)
 );
 
 CREATE TABLE IF NOT EXISTS hospital_join_requests (
@@ -220,6 +232,10 @@ CREATE TABLE IF NOT EXISTS hospital_join_requests (
     reviewed_by INTEGER REFERENCES users (id),
     reviewed_at TIMESTAMP,
     rejection_reason TEXT,
+    -- 'doctor_request' = doctor asked to join, 'hospital_invitation' = hospital invited the doctor
+    request_type TEXT DEFAULT 'doctor_request',
+    department_id INTEGER,
+    invited_by INTEGER REFERENCES users (id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

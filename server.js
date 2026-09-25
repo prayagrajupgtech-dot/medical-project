@@ -84,6 +84,7 @@ app.get('/admin/login', (req, res) => res.sendFile(path.join(__dirname, 'pages',
 app.get('/admin/dashboard', protectPage(['admin']), (req, res) => res.sendFile(path.join(__dirname, 'pages', 'admin', 'dashboard.html')));
 app.get('/admin/doctors', protectPage(['admin']), (req, res) => res.sendFile(path.join(__dirname, 'pages', 'admin', 'doctors.html')));
 app.get('/admin/patients', protectPage(['admin']), (req, res) => res.sendFile(path.join(__dirname, 'pages', 'admin', 'patients.html')));
+app.get('/admin/hospitals', protectPage(['admin']), (req, res) => res.sendFile(path.join(__dirname, 'pages', 'admin', 'hospitals.html')));
 // Legacy /admin/patients/:id links (old doctor portal): redirect doctors to their own portal, admins to the patients page
 app.get('/admin/patients/:id', protectPage(['doctor', 'admin']), (req, res) => {
     if (req.user.role === 'doctor') return res.redirect('/doctor/patients/' + req.params.id);
@@ -140,6 +141,7 @@ app.get('/hospital/login', (req, res) => res.sendFile(path.join(__dirname, 'page
 
 // Doctor join hospital page
 app.get('/doctor/join-hospital', protectPage(['doctor']), (req, res) => res.sendFile(path.join(__dirname, 'pages', 'doctor', 'join-hospital.html')));
+app.get('/doctor/practice', protectPage(['doctor']), (req, res) => res.sendFile(path.join(__dirname, 'pages', 'doctor', 'practice.html')));
 
 // File upload storage
 const storage = multer.diskStorage({
@@ -342,7 +344,10 @@ async function registerUserHandler(req, res) {
     const {
         username, email, password, role = 'patient', full_name, phone, specialty,
         date_of_birth, gender, address, emergency_contact,
-        qualification, registration_number, experience_years, hospital, bio, languages, consultation_fee, availability
+        qualification, registration_number, experience_years, hospital, bio, languages, consultation_fee, availability,
+        // Doctor + Hospital affiliation (optional)
+        practice_type, clinic_name, clinic_address, clinic_city, clinic_state, clinic_pincode,
+        join_hospital_id, join_message, join_department_id
     } = req.body;
 
     if (!username || !email || !password || !full_name) {
@@ -423,10 +428,19 @@ async function registerUserHandler(req, res) {
                         function() { finishRegistration(); }
                     );
                 } else if (normalizedRole === 'doctor') {
+                    // Practice type: doctor can register an own clinic or join an existing
+                    // hospital. Joining never auto-creates a membership — the hospital must
+                    // approve first. So a NEW doctor is always stored as 'independent';
+                    // refreshDoctorPracticeType() flips it to 'hospital' only once an
+                    // active membership actually exists.
+                    const requestedPractice = (practice_type === 'hospital' || practice_type === 'independent')
+                        ? practice_type
+                        : 'independent';
+                    const normalizedPractice = 'independent';
                     const dpInsert = () => {
                         db.run(
-                            `INSERT INTO doctor_profiles (user_id, qualification, registration_number, experience_years, hospital, bio, languages, consultation_fee, availability, verified)
-                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`,
+                            `INSERT INTO doctor_profiles (user_id, qualification, registration_number, experience_years, hospital, bio, languages, consultation_fee, availability, verified, practice_type, clinic_name, clinic_address, clinic_city, clinic_state, clinic_pincode)
+                             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, ?)`,
                             [
                                 userId,
                                 qualification || null,
@@ -436,9 +450,29 @@ async function registerUserHandler(req, res) {
                                 bio || null,
                                 languages || null,
                                 consultation_fee ? Number(consultation_fee) : null,
-                                availability || null
+                                availability || null,
+                                normalizedPractice,
+                                requestedPractice === 'independent' ? (clinic_name || null) : null,
+                                requestedPractice === 'independent' ? (clinic_address || null) : null,
+                                requestedPractice === 'independent' ? (clinic_city || null) : null,
+                                requestedPractice === 'independent' ? (clinic_state || null) : null,
+                                requestedPractice === 'independent' ? (clinic_pincode || null) : null
                             ],
-                            function() { finishRegistration(); }
+                            function() {
+                                finishRegistration();
+                                // Optional: create the join request after the doctor
+                                // account exists (never auto-approves).
+                                if (requestedPractice === 'hospital' && join_hospital_id) {
+                                    createDoctorJoinRequest({
+                                        hospitalId: join_hospital_id,
+                                        doctorId: userId,
+                                        doctorName: full_name,
+                                        message: join_message || null,
+                                        departmentId: join_department_id || null,
+                                        requestType: 'doctor_request'
+                                    });
+                                }
+                            }
                         );
                     };
                     // Keep existing behaviour: doctors also get a patients row
@@ -2542,6 +2576,42 @@ app.get('/api/doctors/me/reports', authenticateToken, requireRole('doctor'), (re
 // Admin: platform statistics (admin only)
 // ========== ADMIN APIS (admin role only; role verified from DB by authenticateToken) ==========
 
+// Hospital + affiliation statistics, computed from real rows (parallel, no nesting)
+function fetchHospitalStats(cb) {
+    const out = {
+        total_hospitals: 0, verified_hospitals: 0, pending_hospitals: 0,
+        active_hospitals: 0, blocked_hospitals: 0, deactivated_hospitals: 0,
+        total_independent_doctors: 0, total_hospital_doctors: 0,
+        pending_doctor_hospital_requests: 0, active_relationships: 0,
+        recent_hospitals: []
+    };
+    const counts = [
+        ['total_hospitals', 'SELECT COUNT(*) as count FROM hospitals'],
+        ['verified_hospitals', "SELECT COUNT(*) as count FROM hospitals WHERE verification_status = 'verified'"],
+        ['pending_hospitals', "SELECT COUNT(*) as count FROM hospitals WHERE verification_status = 'pending'"],
+        ['active_hospitals', "SELECT COUNT(*) as count FROM hospitals WHERE account_status = 'active'"],
+        ['blocked_hospitals', "SELECT COUNT(*) as count FROM hospitals WHERE account_status = 'blocked'"],
+        ['deactivated_hospitals', "SELECT COUNT(*) as count FROM hospitals WHERE account_status = 'deactivated'"],
+        ['total_independent_doctors', "SELECT COUNT(*) as count FROM doctor_profiles WHERE practice_type = 'independent'"],
+        ['total_hospital_doctors', "SELECT COUNT(DISTINCT doctor_id) as count FROM hospital_memberships WHERE status = 'approved' AND ended_at IS NULL"],
+        ['pending_doctor_hospital_requests', "SELECT COUNT(*) as count FROM hospital_join_requests WHERE status = 'pending'"],
+        ['active_relationships', "SELECT COUNT(*) as count FROM hospital_memberships WHERE status = 'approved' AND ended_at IS NULL"]
+    ];
+    let pending = counts.length;
+    counts.forEach(([key, sql]) => {
+        db.get(sql, [], (err, row) => {
+            if (!err && row) out[key] = row.count;
+            if (--pending === 0) {
+                db.all('SELECT id, hospital_id, name, type, city, state, verification_status, account_status, created_at FROM hospitals ORDER BY created_at DESC LIMIT 5', [],
+                    (err2, recent) => {
+                        out.recent_hospitals = recent || [];
+                        cb(out);
+                    });
+            }
+        });
+    });
+}
+
 // Dashboard statistics (all values computed from the database)
 app.get('/api/admin/dashboard/stats', authenticateToken, requireRole('admin'), (req, res) => {
     const today = new Date().toISOString().split('T')[0];
@@ -2549,6 +2619,11 @@ app.get('/api/admin/dashboard/stats', authenticateToken, requireRole('admin'), (
     const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
 
     const q = (sql, params, cb) => db.get(sql, params, (err, row) => cb(err ? 0 : (row ? row.count : 0)));
+
+    // Merges hospital + doctor-hospital statistics into the dashboard payload
+    const respond = (payload) => fetchHospitalStats((hospitalStats) => {
+        res.json(Object.assign({}, hospitalStats, payload));
+    });
 
     q("SELECT COUNT(*) as count FROM users WHERE role = 'doctor'", [], (totalDoctors) => {
         q("SELECT COUNT(*) as count FROM users WHERE role = 'doctor' AND accountStatus = 'active'", [], (activeDoctors) => {
@@ -2594,7 +2669,7 @@ app.get('/api/admin/dashboard/stats', authenticateToken, requireRole('admin'), (
                                                                                         FROM reports r JOIN patients p ON r.patient_id = p.id JOIN users pu ON p.user_id = pu.id
                                                                                         ORDER BY r.created_at DESC LIMIT 5`,
                                                                                     [], (e5, recentReports) => {
-res.json({
+respond({
                         total_doctors: totalDoctors, active_doctors: activeDoctors, blocked_doctors: blockedDoctors,
                         deactivated_doctors: deactivatedDoctors, deleted_doctors: deletedDoctors,
                         total_patients: totalPatients, active_patients: activePatients, blocked_patients: blockedPatients,
@@ -3823,7 +3898,7 @@ function getUserHospitalId(userId, cb) {
     db.get('SELECT hospital_id FROM hospital_admins WHERE user_id = ?', [userId], (err, ha) => {
         if (err) return cb(err, null);
         if (ha) return cb(null, ha.hospital_id);
-        db.get('SELECT hospital_id FROM hospital_memberships WHERE doctor_id = ? AND status = ?', [userId, 'approved'], (err2, hm) => {
+        db.get('SELECT hospital_id FROM hospital_memberships WHERE doctor_id = ? AND status = ? AND ended_at IS NULL', [userId, 'approved'], (err2, hm) => {
             if (err2) return cb(err2, null);
             cb(null, hm ? hm.hospital_id : null);
         });
@@ -3835,6 +3910,59 @@ function createNotification(userId, title, message, type, link) {
     db.run(
         'INSERT INTO notifications (user_id, title, message, type, link) VALUES (?, ?, ?, ?, ?)',
         [userId, title, message, type || 'info', link || null]
+    );
+}
+
+// Helper: doctor -> hospital join request (used by registration and the doctor portal).
+// Never auto-approves: the hospital admin has to review the request.
+// Returns nothing; callers rely on the request row + notifications being created.
+function createDoctorJoinRequest({ hospitalId, doctorId, doctorName, message, departmentId, requestType }) {
+    db.get(
+        "SELECT id, name FROM hospitals WHERE (hospital_id = ? OR id = ?) AND account_status = 'active'",
+        [hospitalId, hospitalId],
+        (err, hospital) => {
+            if (err || !hospital) return;
+
+            db.get(
+                "SELECT id, ended_at FROM hospital_memberships WHERE hospital_id = ? AND doctor_id = ?",
+                [hospital.id, doctorId],
+                (err2, membership) => {
+                    if (err2) return;
+                    // Active affiliation already exists -> nothing to request
+                    if (membership && !membership.ended_at) return;
+
+                    db.get(
+                        "SELECT id FROM hospital_join_requests WHERE hospital_id = ? AND doctor_id = ? AND status = 'pending'",
+                        [hospital.id, doctorId],
+                        (err3, pending) => {
+                            if (err3 || pending) return;
+
+                            db.run(
+                                'INSERT INTO hospital_join_requests (hospital_id, doctor_id, message, request_type, department_id) VALUES (?, ?, ?, ?, ?)',
+                                [hospital.id, doctorId, message || null, requestType || 'doctor_request', departmentId || null],
+                                function(err4) {
+                                    if (err4) return;
+                                    db.all('SELECT user_id FROM hospital_admins WHERE hospital_id = ?', [hospital.id], (err5, admins) => {
+                                        if (admins) {
+                                            admins.forEach(admin => {
+                                                createNotification(
+                                                    admin.user_id,
+                                                    'New Doctor Join Request',
+                                                    `Dr. ${doctorName || doctorId} has requested to join ${hospital.name}.`,
+                                                    'info',
+                                                    '/hospital/join-requests'
+                                                );
+                                            });
+                                        }
+                                    });
+                                    logAction(doctorId, 'CREATE', 'hospital_join_requests', this.lastID, { hospital_id: hospital.id, request_type: requestType || 'doctor_request' });
+                                }
+                            );
+                        }
+                    );
+                }
+            );
+        }
     );
 }
 
@@ -4017,7 +4145,7 @@ app.get('/api/hospitals/search', (req, res) => {
 
     db.all(
         `SELECT h.id, h.hospital_id, h.name, h.type, h.city, h.state, h.verification_status,
-                (SELECT COUNT(*) FROM hospital_memberships hm WHERE hm.hospital_id = h.id AND hm.status = 'approved') as doctor_count,
+                (SELECT COUNT(*) FROM hospital_memberships hm WHERE hm.hospital_id = h.id AND hm.status = 'approved' AND hm.ended_at IS NULL) as doctor_count,
                 (SELECT COUNT(*) FROM departments d WHERE d.hospital_id = h.id) as department_count
          FROM hospitals h ${where} ORDER BY h.name LIMIT 50`,
         params,
@@ -4033,7 +4161,7 @@ app.get('/api/hospitals/:hospitalId', (req, res) => {
     db.get(
         `SELECT h.id, h.hospital_id, h.name, h.type, h.license_number, h.address, h.city, h.state, h.pincode,
                 h.phone, h.email, h.logo, h.verification_status, h.created_at,
-                (SELECT COUNT(*) FROM hospital_memberships hm WHERE hm.hospital_id = h.id AND hm.status = 'approved') as doctor_count
+                (SELECT COUNT(*) FROM hospital_memberships hm WHERE hm.hospital_id = h.id AND hm.status = 'approved' AND hm.ended_at IS NULL) as doctor_count
          FROM hospitals h WHERE h.hospital_id = ? OR h.id = ?`,
         [req.params.hospitalId, req.params.hospitalId],
         (err, hospital) => {
@@ -4073,13 +4201,21 @@ app.put('/api/hospital/my-hospital', authenticateToken, requireHospitalAdmin, (r
 
 // ========== HOSPITAL ADMIN: GET DOCTORS ==========
 app.get('/api/hospital/doctors', authenticateToken, requireHospitalAdmin, (req, res) => {
-    const { status, search } = req.query;
+    const { status, search, include_ended } = req.query;
     let where = 'WHERE hm.hospital_id = ?';
     const params = [req.hospitalId];
 
     if (status && ['pending', 'approved', 'rejected', 'suspended'].includes(status)) {
         where += ' AND hm.status = ?';
         params.push(status);
+        // An ended affiliation is no longer an active 'approved' one
+        if (status === 'approved') where += ' AND hm.ended_at IS NULL';
+    } else if (status === 'inactive') {
+        where += ' AND hm.ended_at IS NOT NULL';
+    } else if (status === 'active') {
+        where += " AND hm.status = 'approved' AND hm.ended_at IS NULL";
+    } else if (include_ended !== 'true') {
+        where += ' AND hm.ended_at IS NULL';
     }
     if (search) {
         where += ' AND (u.full_name LIKE ? OR u.email LIKE ? OR u.specialty LIKE ?)';
@@ -4093,7 +4229,7 @@ app.get('/api/hospital/doctors', authenticateToken, requireHospitalAdmin, (req, 
          JOIN users u ON hm.doctor_id = u.id
          LEFT JOIN doctor_profiles dp ON dp.user_id = u.id
          ${where}
-         ORDER BY u.full_name`,
+         ORDER BY hm.ended_at IS NOT NULL, u.full_name`,
         params,
         (err, doctors) => {
             if (err) return res.status(500).json({ error: 'Server error' });
@@ -4102,9 +4238,9 @@ app.get('/api/hospital/doctors', authenticateToken, requireHospitalAdmin, (req, 
     );
 });
 
-// ========== HOSPITAL ADMIN: GET JOIN REQUESTS ==========
+// ========== HOSPITAL ADMIN: GET JOIN REQUESTS (incl. hospital invitations) ==========
 app.get('/api/hospital/join-requests', authenticateToken, requireHospitalAdmin, (req, res) => {
-    const { status } = req.query;
+    const { status, request_type } = req.query;
     let where = 'WHERE hjr.hospital_id = ?';
     const params = [req.hospitalId];
 
@@ -4114,13 +4250,19 @@ app.get('/api/hospital/join-requests', authenticateToken, requireHospitalAdmin, 
     } else {
         where += " AND hjr.status = 'pending'";
     }
+    if (request_type && ['doctor_request', 'hospital_invitation'].includes(request_type)) {
+        where += ' AND hjr.request_type = ?';
+        params.push(request_type);
+    }
 
     db.all(
         `SELECT hjr.*, u.full_name, u.email, u.phone, u.specialty, u.photo,
-                dp.qualification, dp.registration_number, dp.experience_years
+                dp.qualification, dp.registration_number, dp.experience_years,
+                d.name AS department_name
          FROM hospital_join_requests hjr
          JOIN users u ON hjr.doctor_id = u.id
          LEFT JOIN doctor_profiles dp ON dp.user_id = u.id
+         LEFT JOIN departments d ON hjr.department_id = d.id
          ${where}
          ORDER BY hjr.created_at DESC`,
         params,
@@ -4134,7 +4276,7 @@ app.get('/api/hospital/join-requests', authenticateToken, requireHospitalAdmin, 
 // ========== HOSPITAL ADMIN: APPROVE/REJECT JOIN REQUEST ==========
 app.patch('/api/hospital/join-requests/:id', authenticateToken, requireHospitalAdmin, (req, res) => {
     const requestId = req.params.id;
-    const { action, rejection_reason, department } = req.body;
+    const { action, rejection_reason, department, department_id } = req.body;
 
     if (!action || !['approve', 'reject'].includes(action)) {
         return res.status(400).json({ error: 'Action must be approve or reject' });
@@ -4146,46 +4288,87 @@ app.patch('/api/hospital/join-requests/:id', authenticateToken, requireHospitalA
         if (request.status !== 'pending') return res.status(400).json({ error: 'Request already processed' });
 
         const newStatus = action === 'approve' ? 'approved' : 'rejected';
+        const assignedDepartment = department_id || department || null;
 
-        db.run(
-            'UPDATE hospital_join_requests SET status = ?, reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP, rejection_reason = ? WHERE id = ?',
-            [newStatus, req.user.id, rejection_reason || null, requestId],
-            function(err2) {
-                if (err2) return res.status(500).json({ error: 'Server error' });
+        // Resolve the department first so a bad id fails fast with a clear message
+        const proceed = (dept) => {
+            db.run(
+                'UPDATE hospital_join_requests SET status = ?, reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP, rejection_reason = ? WHERE id = ?',
+                [newStatus, req.user.id, rejection_reason || null, requestId],
+                function(err2) {
+                    if (err2) return res.status(500).json({ error: 'Server error' });
 
-                if (action === 'approve') {
-                    // Create or update membership
+                    logAction(req.user.id, action === 'approve' ? 'APPROVE_DOCTOR' : 'REJECT_DOCTOR', 'hospital_join_requests', requestId, { doctor_id: request.doctor_id }, req.ip);
+
+                    if (action === 'reject') {
+                        db.get('SELECT name FROM hospitals WHERE id = ?', [req.hospitalId], (err3, hosp) => {
+                            const hospName = hosp ? hosp.name : 'the hospital';
+                            createNotification(request.doctor_id, 'Join Request Rejected',
+                                `Your request to join ${hospName} was rejected. ${rejection_reason || ''}`, 'error', '/doctor/practice');
+                            if (request.invited_by) {
+                                createNotification(request.invited_by, 'Invitation Rejected',
+                                    `A doctor rejected your invitation to ${hospName}. ${rejection_reason || ''}`, 'info', '/hospital/join-requests');
+                            }
+                        });
+                        return res.json({ message: `Join request ${newStatus} successfully` });
+                    }
+
+                    // Approve -> create or reactivate the membership (unique per pair)
                     db.run(
                         `INSERT INTO hospital_memberships (hospital_id, doctor_id, status, department, approved_by, joined_at)
                          VALUES (?, ?, 'approved', ?, ?, CURRENT_TIMESTAMP)
-                         ON CONFLICT(hospital_id, doctor_id) DO UPDATE SET status = 'approved', department = ?, approved_by = ?`,
-                        [req.hospitalId, request.doctor_id, department || null, req.user.id, department || null, req.user.id],
-                        function() {
-                            // Update doctor's profile hospital field
+                         ON CONFLICT(hospital_id, doctor_id) DO UPDATE SET
+                            status = 'approved',
+                            department = COALESCE(excluded.department, hospital_memberships.department),
+                            approved_by = excluded.approved_by,
+                            joined_at = COALESCE(hospital_memberships.joined_at, CURRENT_TIMESTAMP),
+                            ended_at = NULL,
+                            ended_by = NULL,
+                            ended_reason = NULL`,
+                        [req.hospitalId, request.doctor_id, dept, req.user.id],
+                        function(errUpd) {
+                            if (errUpd) {
+                                console.error('[approve] membership upsert failed:', errUpd.message);
+                                return res.status(500).json({ error: 'Failed to create hospital membership' });
+                            }
+
+                            // Affiliation is now active -> practice type becomes 'hospital'
+                            db.run(
+                                `UPDATE doctor_profiles SET practice_type = 'hospital',
+                                    hospital = COALESCE((SELECT name FROM hospitals WHERE id = ?), hospital)
+                                 WHERE user_id = ?`,
+                                [req.hospitalId, request.doctor_id]
+                            );
+
                             db.get('SELECT name FROM hospitals WHERE id = ?', [req.hospitalId], (err3, hosp) => {
-                                if (hosp) {
-                                    db.run(
-                                        `INSERT INTO doctor_profiles (user_id, hospital) VALUES (?, ?)
-                                         ON CONFLICT(user_id) DO UPDATE SET hospital = ?`,
-                                        [request.doctor_id, hosp.name, hosp.name]
-                                    );
+                                if (err3 || !hosp) return;
+                                const requestType = request.request_type === 'hospital_invitation' ? 'invitation' : 'request';
+                                createNotification(request.doctor_id,
+                                    requestType === 'invitation' ? 'Invitation Accepted' : 'Join Request Approved',
+                                    `Your affiliation with ${hosp.name} is now active.`,
+                                    'success', '/doctor/practice');
+                                if (request.invited_by) {
+                                    createNotification(request.invited_by, 'Invitation Accepted',
+                                        `Dr. accepted your invitation to join ${hosp.name}.`,
+                                        'success', '/hospital/doctors');
                                 }
                             });
-                            // Notify doctor
-                            createNotification(request.doctor_id, 'Join Request Approved',
-                                `Your request to join the hospital has been approved!`, 'success', '/doctor/dashboard');
+                            res.json({ message: `Join request ${newStatus} successfully` });
                         }
                     );
-                } else {
-                    // Notify doctor of rejection
-                    createNotification(request.doctor_id, 'Join Request Rejected',
-                        `Your request to join the hospital was rejected. ${rejection_reason || ''}`, 'error', '/doctor/dashboard');
                 }
+            );
+        };
 
-                logAction(req.user.id, action === 'approve' ? 'APPROVE_DOCTOR' : 'REJECT_DOCTOR', 'hospital_join_requests', requestId, { doctor_id: request.doctor_id }, req.ip);
-                res.json({ message: `Join request ${newStatus} successfully` });
-            }
-        );
+        if (assignedDepartment) {
+            db.get('SELECT id FROM departments WHERE id = ? AND hospital_id = ?', [assignedDepartment, req.hospitalId], (errD, dept) => {
+                if (errD) return res.status(500).json({ error: 'Server error' });
+                if (!dept) return res.status(400).json({ error: 'Department does not belong to your hospital' });
+                proceed(dept.name);
+            });
+        } else {
+            proceed(null);
+        }
     });
 });
 
@@ -4280,7 +4463,7 @@ app.delete('/api/hospital/staff/:id', authenticateToken, requireHospitalAdmin, (
 app.get('/api/hospital/dashboard/stats', authenticateToken, requireHospitalAdmin, (req, res) => {
     const q = (sql, params, cb) => db.get(sql, params, (err, row) => cb(err ? 0 : (row ? (row.count || row['COUNT(*)'] || 0) : 0)));
 
-    q('SELECT COUNT(*) FROM hospital_memberships WHERE hospital_id = ? AND status = ?', [req.hospitalId, 'approved'], (totalDoctors) => {
+    q('SELECT COUNT(*) FROM hospital_memberships WHERE hospital_id = ? AND status = ? AND ended_at IS NULL', [req.hospitalId, 'approved'], (totalDoctors) => {
         q('SELECT COUNT(*) FROM hospital_join_requests WHERE hospital_id = ? AND status = ?', [req.hospitalId, 'pending'], (pendingRequests) => {
             q('SELECT COUNT(*) FROM departments WHERE hospital_id = ?', [req.hospitalId], (totalDepartments) => {
                 q('SELECT COUNT(*) FROM staff WHERE hospital_id = ?', [req.hospitalId], (totalStaff) => {
@@ -4295,9 +4478,9 @@ app.get('/api/hospital/dashboard/stats', authenticateToken, requireHospitalAdmin
                         [req.hospitalId],
                         (err, patRow) => {
                             const totalPatients = patRow ? patRow.count : 0;
-                            q('SELECT COUNT(*) FROM consultations WHERE doctor_id IN (SELECT doctor_id FROM hospital_memberships WHERE hospital_id = ? AND status = ?)',
+                            q('SELECT COUNT(*) FROM consultations WHERE doctor_id IN (SELECT doctor_id FROM hospital_memberships WHERE hospital_id = ? AND status = ? AND ended_at IS NULL)',
                                 [req.hospitalId, 'approved'], (totalAppointments) => {
-                                q('SELECT COUNT(*) FROM consultations WHERE doctor_id IN (SELECT doctor_id FROM hospital_memberships WHERE hospital_id = ? AND status = ?) AND status = ?',
+                                q('SELECT COUNT(*) FROM consultations WHERE doctor_id IN (SELECT doctor_id FROM hospital_memberships WHERE hospital_id = ? AND status = ? AND ended_at IS NULL) AND status = ?',
                                     [req.hospitalId, 'approved', 'completed'], (completedAppointments) => {
                                     res.json({
                                         total_doctors: totalDoctors,
@@ -4365,75 +4548,21 @@ app.patch('/api/hospital/notifications/:id/read', authenticateToken, requireHosp
 
 // ========== ADMIN: HOSPITAL STATS ==========
 app.get('/api/admin/hospital-stats', authenticateToken, requireRole('admin'), (req, res) => {
-    const today = new Date();
-    const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-    const thisYearStart = new Date(today.getFullYear(), 0, 1);
-    
-    db.all(
-        'SELECT COUNT(*) AS total FROM hospitals',
-        (err, row) => {
-            if (err) return res.status(500).json({ error: 'Server error' });
-            const totalHospitals = row[0].total;
-            
-            db.all(
-                'SELECT COUNT(*) AS verified FROM hospitals WHERE verification_status = ?',
-                ['verified'],
-                (err2, row2) => {
-                    if (err2) return res.status(500).json({ error: 'Server error' });
-                    
-                    db.all(
-                        'SELECT COUNT(*) AS pending FROM hospitals WHERE verification_status = ?',
-                        ['pending'],
-                        (err3, row3) => {
-                            if (err3) return res.status(500).json({ error: 'Server error' });
-                            
-                            db.all(
-                                'SELECT COUNT(*) AS total_users FROM users WHERE role = ?',
-                                ['hospital_admin'],
-                                (err4, row4) => {
-                                    if (err4) return res.status(500).json({ error: 'Server error' });
-                                    
-                                    db.all(
-                                        'SELECT COUNT(*) AS total_doctors FROM users WHERE role = ?',
-                                        ['doctor'],
-                                        (err5, row5) => {
-                                            if (err5) return res.status(500).json({ error: 'Server error' });
-                                            
-                                            db.all(
-                                                `SELECT COUNT(*) AS total_appointments FROM appointments WHERE date >= ?`,
-                                                [thisMonthStart.toISOString().split('T')[0]],
-                                                (err6, row6) => {
-                                                    if (err6) return res.status(500).json({ error: 'Server error' });
-                                                    
-                                                    db.all(
-                                                        `SELECT COUNT(*) AS completed_consultations FROM consultations WHERE status = 'completed'`,
-                                                        (err7, row7) => {
-                                                            if (err7) return res.status(500).json({ error: 'Server error' });
-                                                            
-                                                            res.json({
-                                                                total_hospitals: totalHospitals,
-                                                                verified_hospitals: row2[0].verified,
-                                                                pending_hospitals: row3[0].pending,
-                                                                total_hospital_admins: row4[0].total_users,
-                                                                total_doctors: row5[0].total_doctors,
-                                                                total_appointments_this_month: row6[0].total_appointments,
-                                                                completed_consultations: row7[0].completed_consultations,
-                                                                recent_hospitals: []
-                                                            });
-                                                        }
-                                                    );
-                                                }
-                                            );
-                                        }
-                                    );
-                                }
-                            );
-                        }
-                    );
-                }
-            );
-        }
-    );
+    const thisMonthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+
+    fetchHospitalStats((hospitalStats) => {
+        db.get('SELECT COUNT(*) AS total FROM appointments WHERE date >= ?', [thisMonthStart], (err, appts) => {
+            db.get("SELECT COUNT(*) AS completed FROM consultations WHERE status = 'completed'", [], (err2, cons) => {
+                db.get("SELECT COUNT(*) AS total FROM users WHERE role = 'hospital_admin'", [], (err3, admins) => {
+                    res.json(Object.assign({}, hospitalStats, {
+                        total_hospital_admins: admins ? admins.total : 0,
+                        total_appointments_this_month: appts ? appts.total : 0,
+                        completed_consultations: cons ? cons.completed : 0
+                    }));
+                });
+            });
+        });
+    });
 });
 
 // ========== DOCTOR: JOIN HOSPITAL ==========
@@ -4485,11 +4614,12 @@ app.post('/api/doctors/join-hospital', authenticateToken, requireRole('doctor'),
 // ========== DOCTOR: GET MY HOSPITAL MEMBERSHIPS ==========
 app.get('/api/doctors/my-hospitals', authenticateToken, requireRole('doctor'), (req, res) => {
     db.all(
-        `SELECT hm.*, h.name as hospital_name, h.hospital_id as hospital_code, h.verification_status, h.city, h.state
+        `SELECT hm.*, h.name as hospital_name, h.hospital_id as hospital_code, h.verification_status, h.city, h.state,
+                CASE WHEN hm.ended_at IS NOT NULL THEN 'inactive' ELSE hm.status END AS affiliation_status
          FROM hospital_memberships hm
          JOIN hospitals h ON hm.hospital_id = h.id
          WHERE hm.doctor_id = ?
-         ORDER BY hm.created_at DESC`,
+         ORDER BY hm.ended_at IS NOT NULL, hm.created_at DESC`,
         [req.user.id],
         (err, memberships) => {
             if (err) return res.status(500).json({ error: 'Server error' });
@@ -4526,12 +4656,549 @@ app.get('/api/hospitals/:hospitalId/doctors', (req, res) => {
              FROM hospital_memberships hm
              JOIN users u ON hm.doctor_id = u.id
              LEFT JOIN doctor_profiles dp ON dp.user_id = u.id
-             WHERE hm.hospital_id = ? AND hm.status = 'approved'
+             WHERE hm.hospital_id = ? AND hm.status = 'approved' AND hm.ended_at IS NULL
              ORDER BY u.full_name`,
             [hospital.id],
             (err2, doctors) => {
                 if (err2) return res.status(500).json({ error: 'Server error' });
                 res.json(doctors || []);
+            }
+        );
+    });
+});
+
+// ========== DOCTOR: PRACTICE / HOSPITAL AFFILIATION ==========
+// Returns the doctor's practice type, own-clinic details, active affiliations,
+// pending requests and hospital invitations — all from real DB rows.
+app.get('/api/doctors/practice', authenticateToken, requireRole('doctor'), (req, res) => {
+    db.get(
+        `SELECT practice_type, clinic_name, clinic_address, clinic_city, clinic_state, clinic_pincode,
+                hospital, verified, consultation_fee, availability
+         FROM doctor_profiles WHERE user_id = ?`,
+        [req.user.id],
+        (err, profile) => {
+            if (err) return res.status(500).json({ error: 'Server error' });
+
+            db.all(
+                `SELECT hm.id AS membership_id, hm.status, hm.department, hm.joined_at, hm.created_at,
+                        hm.ended_at, hm.ended_reason,
+                        h.id AS hospital_id, h.hospital_id AS hospital_code, h.name, h.address, h.city,
+                        h.state, h.pincode, h.phone, h.email, h.verification_status, h.account_status
+                 FROM hospital_memberships hm
+                 JOIN hospitals h ON hm.hospital_id = h.id
+                 WHERE hm.doctor_id = ?
+                 ORDER BY hm.ended_at IS NOT NULL, hm.joined_at DESC`,
+                [req.user.id],
+                (err2, memberships) => {
+                    if (err2) return res.status(500).json({ error: 'Server error' });
+
+                    db.all(
+                        `SELECT hjr.id, hjr.status, hjr.message, hjr.request_type, hjr.rejection_reason,
+                                hjr.created_at, hjr.reviewed_at,
+                                h.name AS hospital_name, h.hospital_id AS hospital_code, h.city,
+                                d.name AS department_name
+                         FROM hospital_join_requests hjr
+                         JOIN hospitals h ON hjr.hospital_id = h.id
+                         LEFT JOIN departments d ON hjr.department_id = d.id
+                         WHERE hjr.doctor_id = ?
+                         ORDER BY hjr.created_at DESC`,
+                        [req.user.id],
+                        (err3, requests) => {
+                            if (err3) return res.status(500).json({ error: 'Server error' });
+
+                            const active = (memberships || []).filter(m => m.status === 'approved' && !m.ended_at);
+                            res.json({
+                                practice_type: profile && profile.practice_type ? profile.practice_type : 'independent',
+                                clinic_name: profile ? profile.clinic_name : null,
+                                clinic_address: profile ? profile.clinic_address : null,
+                                clinic_city: profile ? profile.clinic_city : null,
+                                clinic_state: profile ? profile.clinic_state : null,
+                                clinic_pincode: profile ? profile.clinic_pincode : null,
+                                hospital: profile ? profile.hospital : null,
+                                verified: profile ? !!profile.verified : false,
+                                consultation_fee: profile ? profile.consultation_fee : null,
+                                availability: profile ? profile.availability : null,
+                                active_hospitals: active,
+                                memberships: memberships || [],
+                                requests: requests || [],
+                                // A pending invitation counts as "hospital" intent, an approved
+                                // membership as an active affiliation.
+                                has_active_affiliation: active.length > 0
+                            });
+                        }
+                    );
+                }
+            );
+        }
+    );
+});
+
+// ========== DOCTOR: LEAVE HOSPITAL (relationship -> inactive, history kept) ==========
+app.post('/api/doctors/leave-hospital', authenticateToken, requireRole('doctor'), (req, res) => {
+    const { membership_id, hospital_id, reason } = req.body;
+    if (!membership_id && !hospital_id) {
+        return res.status(400).json({ error: 'membership_id or hospital_id is required' });
+    }
+
+    const where = membership_id ? 'hm.id = ?' : 'hm.hospital_id = ?';
+    const value = membership_id || hospital_id;
+
+    db.get(
+        `SELECT hm.id, hm.hospital_id, hm.ended_at, h.name
+         FROM hospital_memberships hm JOIN hospitals h ON hm.hospital_id = h.id
+         WHERE ${where} AND hm.doctor_id = ?`,
+        [value, req.user.id],
+        (err, membership) => {
+            if (err) return res.status(500).json({ error: 'Server error' });
+            if (!membership) return res.status(404).json({ error: 'Hospital membership not found' });
+            if (membership.ended_at) return res.status(400).json({ error: 'You have already left this hospital' });
+
+            db.run(
+                'UPDATE hospital_memberships SET ended_at = CURRENT_TIMESTAMP, ended_by = ?, ended_reason = ? WHERE id = ?',
+                [req.user.id, reason || 'Left by doctor', membership.id],
+                function(err2) {
+                    if (err2) return res.status(500).json({ error: 'Server error' });
+
+                    refreshDoctorPracticeType(req.user.id);
+
+                    db.all('SELECT user_id FROM hospital_admins WHERE hospital_id = ?', [membership.hospital_id], (err3, admins) => {
+                        if (admins) {
+                            admins.forEach(a => createNotification(
+                                a.user_id, 'Doctor Left Hospital',
+                                `Dr. ${req.user.username || req.user.id} has left ${membership.name}.`,
+                                'warning', '/hospital/doctors'
+                            ));
+                        }
+                    });
+                    logAction(req.user.id, 'LEAVE_HOSPITAL', 'hospital_memberships', membership.id, { hospital_id: membership.hospital_id }, req.ip);
+                    res.json({ message: `You have left ${membership.name}` });
+                }
+            );
+        }
+    );
+});
+
+// Recompute practice_type after membership changes so the value can never
+// contradict the actual relationship rows.
+function refreshDoctorPracticeType(doctorId) {
+    db.get(
+        `SELECT COUNT(*) AS active_count FROM hospital_memberships
+         WHERE doctor_id = ? AND status = 'approved' AND ended_at IS NULL`,
+        [doctorId],
+        (err, row) => {
+            if (err || !row) return;
+            db.run(
+                'UPDATE doctor_profiles SET practice_type = ? WHERE user_id = ?',
+                [row.active_count > 0 ? 'hospital' : 'independent', doctorId]
+            );
+        }
+    );
+}
+
+// ========== DOCTOR: HOSPITAL INVITATIONS ==========
+app.get('/api/doctors/invitations', authenticateToken, requireRole('doctor'), (req, res) => {
+    db.all(
+        `SELECT hjr.id, hjr.status, hjr.message, hjr.rejection_reason, hjr.created_at, hjr.reviewed_at,
+                h.name AS hospital_name, h.hospital_id AS hospital_code, h.city, h.state,
+                d.name AS department_name
+         FROM hospital_join_requests hjr
+         JOIN hospitals h ON hjr.hospital_id = h.id
+         LEFT JOIN departments d ON hjr.department_id = d.id
+         WHERE hjr.doctor_id = ? AND hjr.request_type = 'hospital_invitation'
+         ORDER BY hjr.created_at DESC`,
+        [req.user.id],
+        (err, rows) => {
+            if (err) return res.status(500).json({ error: 'Server error' });
+            res.json(rows || []);
+        }
+    );
+});
+
+// ========== DOCTOR: ACCEPT / REJECT A HOSPITAL INVITATION ==========
+app.post('/api/doctors/invitations/:id', authenticateToken, requireRole('doctor'), (req, res) => {
+    const { action, reason } = req.body;
+    if (!action || !['accept', 'reject'].includes(action)) {
+        return res.status(400).json({ error: 'Action must be accept or reject' });
+    }
+
+    db.get(
+        'SELECT * FROM hospital_join_requests WHERE id = ? AND doctor_id = ?',
+        [req.params.id, req.user.id],
+        (err, invitation) => {
+            if (err) return res.status(500).json({ error: 'Server error' });
+            if (!invitation) return res.status(404).json({ error: 'Invitation not found' });
+            if (invitation.request_type !== 'hospital_invitation') {
+                return res.status(400).json({ error: 'This is not a hospital invitation' });
+            }
+            if (invitation.status !== 'pending') return res.status(400).json({ error: 'Invitation already processed' });
+
+            if (action === 'reject') {
+                db.run(
+                    `UPDATE hospital_join_requests SET status = 'rejected', reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP, rejection_reason = ?
+                     WHERE id = ?`,
+                    [req.user.id, reason || 'Rejected by doctor', req.params.id],
+                    function(err2) {
+                        if (err2) return res.status(500).json({ error: 'Server error' });
+                        notifyInvitationParties(invitation, req.user, 'rejected');
+                        logAction(req.user.id, 'REJECT_INVITATION', 'hospital_join_requests', req.params.id, { hospital_id: invitation.hospital_id }, req.ip);
+                        res.json({ message: 'Invitation rejected' });
+                    }
+                );
+                return;
+            }
+
+            // Accept -> active affiliation
+            db.get('SELECT name FROM hospitals WHERE id = ? AND account_status = ?', [invitation.hospital_id, 'active'], (errH, hospital) => {
+                if (errH) return res.status(500).json({ error: 'Server error' });
+                if (!hospital) return res.status(404).json({ error: 'Hospital is not active' });
+
+                const joinWithDept = (deptName) => {
+                db.run(
+                    `INSERT INTO hospital_memberships (hospital_id, doctor_id, status, department, approved_by, joined_at)
+                     VALUES (?, ?, 'approved', ?, ?, CURRENT_TIMESTAMP)
+                     ON CONFLICT(hospital_id, doctor_id) DO UPDATE SET
+                        status = 'approved',
+                        department = COALESCE(excluded.department, hospital_memberships.department),
+                        approved_by = excluded.approved_by,
+                        joined_at = COALESCE(hospital_memberships.joined_at, CURRENT_TIMESTAMP),
+                        ended_at = NULL, ended_by = NULL, ended_reason = NULL`,
+                    [invitation.hospital_id, req.user.id, deptName, invitation.invited_by || req.user.id],
+                    function(err2) {
+                        if (err2) return res.status(500).json({ error: 'Failed to create hospital membership' });
+
+                        db.run(
+                            `UPDATE hospital_join_requests SET status = 'approved', reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP WHERE id = ?`,
+                            [req.user.id, req.params.id]
+                        );
+                        db.run(
+                            `UPDATE doctor_profiles SET practice_type = 'hospital', hospital = COALESCE(?, hospital) WHERE user_id = ?`,
+                            [hospital.name, req.user.id]
+                        );
+                        notifyInvitationParties(invitation, req.user, 'accepted', hospital.name);
+                        logAction(req.user.id, 'ACCEPT_INVITATION', 'hospital_join_requests', req.params.id, { hospital_id: invitation.hospital_id }, req.ip);
+                        res.json({ message: `You are now affiliated with ${hospital.name}` });
+                    }
+                );
+                };
+
+                if (invitation.department_id) {
+                    db.get('SELECT name FROM departments WHERE id = ? AND hospital_id = ?', [invitation.department_id, invitation.hospital_id], (errD, dept) => {
+                        joinWithDept(errD || !dept ? null : dept.name);
+                    });
+                } else {
+                    joinWithDept(null);
+                }
+            });
+        }
+    );
+});
+
+function notifyInvitationParties(invitation, doctor, outcome, hospitalName) {
+    const titles = { accepted: 'Invitation Accepted', rejected: 'Invitation Rejected' };
+    const link = outcome === 'accepted' ? '/doctor/practice' : '/doctor/join-hospital';
+    db.get('SELECT name FROM hospitals WHERE id = ?', [invitation.hospital_id], (err, hospital) => {
+        const name = hospitalName || (hospital ? hospital.name : 'the hospital');
+        createNotification(invitation.doctor_id, titles[outcome],
+            outcome === 'accepted'
+                ? `Your affiliation with ${name} is now active.`
+                : `You rejected the invitation from ${name}.`,
+            outcome === 'accepted' ? 'success' : 'info', link);
+        if (invitation.invited_by) {
+            createNotification(invitation.invited_by, titles[outcome],
+                `Dr. ${doctor.username || doctor.id} ${outcome} your invitation to ${name}.`,
+                outcome === 'accepted' ? 'success' : 'warning', '/hospital/join-requests');
+        }
+    });
+}
+
+// ========== HOSPITAL: INVITE A DOCTOR ==========
+app.post('/api/hospital/invite-doctor', authenticateToken, requireHospitalAdmin, (req, res) => {
+    const { email, department_id, message } = req.body;
+    if (!email) return res.status(400).json({ error: 'Doctor email is required' });
+
+    db.get("SELECT id, full_name, username, email, accountStatus FROM users WHERE lower(email) = lower(?) AND role = 'doctor'", [String(email).trim()], (err, doctor) => {
+        if (err) return res.status(500).json({ error: 'Server error' });
+        if (!doctor) return res.status(404).json({ error: 'No doctor account found with that email' });
+        if (doctor.accountStatus && doctor.accountStatus !== 'active') {
+            return res.status(400).json({ error: 'That doctor account is not active' });
+        }
+
+        // Department must belong to THIS hospital (never another hospital's)
+        const finish = (deptId) => {
+            db.get(
+                "SELECT id FROM hospital_memberships WHERE hospital_id = ? AND doctor_id = ? AND ended_at IS NULL",
+                [req.hospitalId, doctor.id],
+                (err2, member) => {
+                    if (err2) return res.status(500).json({ error: 'Server error' });
+                    if (member) return res.status(409).json({ error: 'That doctor is already part of this hospital' });
+
+                    db.get(
+                        "SELECT id FROM hospital_join_requests WHERE hospital_id = ? AND doctor_id = ? AND status = 'pending'",
+                        [req.hospitalId, doctor.id],
+                        (err3, pending) => {
+                            if (err3) return res.status(500).json({ error: 'Server error' });
+                            if (pending) return res.status(409).json({ error: 'A request or invitation is already pending for that doctor' });
+
+                            db.run(
+                                'INSERT INTO hospital_join_requests (hospital_id, doctor_id, message, request_type, department_id, invited_by) VALUES (?, ?, ?, ?, ?, ?)',
+                                [req.hospitalId, doctor.id, message || null, 'hospital_invitation', deptId || null, req.user.id],
+                                function(err4) {
+                                    if (err4) return res.status(500).json({ error: 'Server error' });
+                                    db.get('SELECT name FROM hospitals WHERE id = ?', [req.hospitalId], (err5, hosp) => {
+                                        const hospName = hosp ? hosp.name : 'our hospital';
+                                        createNotification(doctor.id, 'Hospital Invitation',
+                                            `${hospName} invited you to join their medical team.${message ? ' Message: ' + message : ''}`,
+                                            'info', '/doctor/practice');
+                                    });
+                                    logAction(req.user.id, 'INVITE_DOCTOR', 'hospital_join_requests', this.lastID,
+                                        { doctor_id: doctor.id, hospital_id: req.hospitalId }, req.ip);
+                                    res.status(201).json({ message: 'Invitation sent to ' + doctor.email });
+                                }
+                            );
+                        }
+                    );
+                }
+            );
+        };
+
+        if (department_id) {
+            db.get('SELECT id FROM departments WHERE id = ? AND hospital_id = ?', [department_id, req.hospitalId], (errD, dept) => {
+                if (errD) return res.status(500).json({ error: 'Server error' });
+                if (!dept) return res.status(400).json({ error: 'Department does not belong to your hospital' });
+                finish(dept.id);
+            });
+        } else {
+            finish(null);
+        }
+    });
+});
+
+// ========== HOSPITAL: END A DOCTOR AFFILIATION (keeps the doctor account) ==========
+app.post('/api/hospital/doctors/:membershipId/end', authenticateToken, requireHospitalAdmin, (req, res) => {
+    const { reason } = req.body;
+    db.get(
+        'SELECT id, doctor_id, ended_at FROM hospital_memberships WHERE id = ? AND hospital_id = ?',
+        [req.params.membershipId, req.hospitalId],
+        (err, membership) => {
+            if (err) return res.status(500).json({ error: 'Server error' });
+            if (!membership) return res.status(404).json({ error: 'Doctor not found in your hospital' });
+            if (membership.ended_at) return res.status(400).json({ error: 'Affiliation already ended' });
+
+            db.run(
+                'UPDATE hospital_memberships SET ended_at = CURRENT_TIMESTAMP, ended_by = ?, ended_reason = ? WHERE id = ?',
+                [req.user.id, reason || 'Ended by hospital', membership.id],
+                function(err2) {
+                    if (err2) return res.status(500).json({ error: 'Server error' });
+                    refreshDoctorPracticeType(membership.doctor_id);
+                    createNotification(membership.doctor_id, 'Hospital Affiliation Ended',
+                        `Your affiliation with this hospital has ended.${reason ? ' Reason: ' + reason : ''}`,
+                        'warning', '/doctor/practice');
+                    logAction(req.user.id, 'END_AFFILIATION', 'hospital_memberships', membership.id,
+                        { doctor_id: membership.doctor_id }, req.ip);
+                    res.json({ message: 'Doctor affiliation ended. The doctor account remains active.' });
+                }
+            );
+        }
+    );
+});
+
+// ========== ADMIN: LIST HOSPITALS (real DB rows, server-side search/filter/pagination) ==========
+app.get('/api/admin/hospitals', authenticateToken, requireRole('admin'), (req, res) => {
+    const { q, status, verification_status, city, state, type, page = 1, limit = 20 } = req.query;
+    const allowedStatus = ['active', 'blocked', 'deactivated'];
+    const allowedVerification = ['pending', 'verified', 'rejected', 'suspended'];
+
+    let where = 'WHERE 1=1';
+    const params = [];
+
+    if (q) {
+        where += ' AND (h.name LIKE ? OR h.hospital_id LIKE ? OR h.email LIKE ? OR h.phone LIKE ? OR h.city LIKE ? OR h.license_number LIKE ?)';
+        const like = `%${q}%`;
+        params.push(like, like, like, like, like, like);
+    }
+    if (status && allowedStatus.includes(status)) { where += ' AND h.account_status = ?'; params.push(status); }
+    if (verification_status && allowedVerification.includes(verification_status)) { where += ' AND h.verification_status = ?'; params.push(verification_status); }
+    if (city) { where += ' AND h.city LIKE ?'; params.push(`%${city}%`); }
+    if (state) { where += ' AND h.state LIKE ?'; params.push(`%${state}%`); }
+    if (type) { where += ' AND h.type = ?'; params.push(type); }
+
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(limit, 10) || 20));
+    const offset = (pageNum - 1) * limitNum;
+
+    db.get(`SELECT COUNT(*) AS total FROM hospitals h ${where}`, params, (err, countRow) => {
+        if (err) return res.status(500).json({ error: 'Unable to load hospitals' });
+        const total = countRow ? countRow.total : 0;
+
+        db.all(
+            `SELECT h.*,
+                    (SELECT COUNT(*) FROM hospital_memberships hm WHERE hm.hospital_id = h.id AND hm.status = 'approved' AND hm.ended_at IS NULL) AS doctor_count,
+                    (SELECT COUNT(*) FROM hospital_join_requests hjr WHERE hjr.hospital_id = h.id AND hjr.status = 'pending') AS pending_requests,
+                    (SELECT COUNT(*) FROM hospital_admins ha WHERE ha.hospital_id = h.id) AS admin_count
+             FROM hospitals h ${where}
+             ORDER BY h.created_at DESC
+             LIMIT ? OFFSET ?`,
+            params.concat([limitNum, offset]),
+            (err2, rows) => {
+                if (err2) return res.status(500).json({ error: 'Unable to load hospitals' });
+                res.json({
+                    hospitals: rows || [],
+                    total,
+                    page: pageNum,
+                    limit: limitNum,
+                    total_pages: Math.max(1, Math.ceil(total / limitNum))
+                });
+            }
+        );
+    });
+});
+
+// ========== ADMIN: HOSPITAL DETAIL ==========
+app.get('/api/admin/hospitals/:id', authenticateToken, requireRole('admin'), (req, res) => {
+    const id = req.params.id;
+    db.get(
+        `SELECT h.*,
+                (SELECT COUNT(*) FROM hospital_memberships hm WHERE hm.hospital_id = h.id AND hm.status = 'approved' AND hm.ended_at IS NULL) AS doctor_count,
+                (SELECT COUNT(*) FROM hospital_memberships hm WHERE hm.hospital_id = h.id) AS membership_count,
+                (SELECT COUNT(*) FROM departments d WHERE d.hospital_id = h.id) AS department_count,
+                (SELECT COUNT(*) FROM staff s WHERE s.hospital_id = h.id) AS staff_count
+         FROM hospitals h WHERE h.id = ? OR h.hospital_id = ?`,
+        [id, id],
+        (err, hospital) => {
+            if (err) return res.status(500).json({ error: 'Unable to load hospital' });
+            if (!hospital) return res.status(404).json({ error: 'Hospital not found' });
+
+            db.all(
+                `SELECT hm.id AS membership_id, hm.status, hm.department, hm.joined_at, hm.ended_at,
+                        u.id AS doctor_id, u.full_name, u.email, u.phone, u.specialty, u.photo, u.accountStatus,
+                        dp.qualification, dp.registration_number, dp.experience_years, dp.verified
+                 FROM hospital_memberships hm
+                 JOIN users u ON hm.doctor_id = u.id
+                 LEFT JOIN doctor_profiles dp ON dp.user_id = u.id
+                 WHERE hm.hospital_id = ?
+                 ORDER BY hm.ended_at IS NOT NULL, u.full_name`,
+                [hospital.id],
+                (err2, doctors) => {
+                    if (err2) return res.status(500).json({ error: 'Unable to load hospital' });
+
+                    db.all(
+                        `SELECT ha.id, u.username, u.full_name, u.email, u.phone, ha.is_owner FROM hospital_admins ha
+                         JOIN users u ON ha.user_id = u.id WHERE ha.hospital_id = ?`,
+                        [hospital.id],
+                        (err3, admins) => {
+                            if (err3) return res.status(500).json({ error: 'Unable to load hospital' });
+                            res.json({ hospital, doctors: doctors || [], admins: admins || [] });
+                        }
+                    );
+                }
+            );
+        }
+    );
+});
+
+// ========== ADMIN: UPDATE HOSPITAL STATUS / PROFILE ==========
+app.patch('/api/admin/hospitals/:id', authenticateToken, requireRole('admin'), (req, res) => {
+    const allowedVerification = ['pending', 'verified', 'rejected', 'suspended'];
+    const allowedStatus = ['active', 'blocked', 'deactivated'];
+    const { verification_status, account_status, name, type, city, state, address, license_number, phone, email, pincode } = req.body;
+
+    const clean = {};
+    if (verification_status !== undefined) {
+        if (!allowedVerification.includes(verification_status)) return res.status(400).json({ error: 'Invalid verification status' });
+        clean.verification_status = verification_status;
+    }
+    if (account_status !== undefined) {
+        if (!allowedStatus.includes(account_status)) return res.status(400).json({ error: 'Invalid account status' });
+        clean.account_status = account_status;
+    }
+    ['name', 'type', 'city', 'state', 'address', 'license_number', 'phone', 'email', 'pincode'].forEach(k => {
+        if (req.body[k] !== undefined) clean[k] = req.body[k];
+    });
+    if (Object.keys(clean).length === 0) return res.status(400).json({ error: 'No fields to update' });
+
+    db.get('SELECT id FROM hospitals WHERE id = ? OR hospital_id = ?', [req.params.id, req.params.id], (err, hospital) => {
+        if (err) return res.status(500).json({ error: 'Server error' });
+        if (!hospital) return res.status(404).json({ error: 'Hospital not found' });
+
+        const setSql = Object.keys(clean).map(k => `${k} = ?`).join(', ');
+        db.run(`UPDATE hospitals SET ${setSql} WHERE id = ?`, Object.values(clean).concat([hospital.id]), function(err2) {
+            if (err2) return res.status(500).json({ error: 'Unable to update hospital' });
+
+            // Blocked / deactivated hospitals lose doctor affiliation search visibility
+            if (clean.account_status && clean.account_status !== 'active') {
+                db.all('SELECT user_id FROM hospital_admins WHERE hospital_id = ?', [hospital.id], (err3, admins) => {
+                    if (!admins) return;
+                    admins.forEach(a => createNotification(a.user_id, 'Hospital Status Changed',
+                        `Your hospital account status is now "${clean.account_status}".`,
+                        'warning', '/hospital/dashboard'));
+                });
+            }
+            logAction(req.user.id, 'UPDATE_HOSPITAL', 'hospitals', hospital.id, clean, req.ip);
+            res.json({ message: 'Hospital updated successfully' });
+        });
+    });
+});
+
+// ========== ADMIN: DOCTOR-HOSPITAL RELATIONSHIPS & REQUESTS ==========
+app.get('/api/admin/doctor-hospital-relationships', authenticateToken, requireRole('admin'), (req, res) => {
+    const { view = 'requests', status, q, page = 1, limit = 50 } = req.query;
+    const pageNum = Math.max(1, parseInt(page, 10) || 1);
+    const limitNum = Math.min(200, Math.max(1, parseInt(limit, 10) || 50));
+    const offset = (pageNum - 1) * limitNum;
+
+    if (view === 'memberships') {
+        let where = 'WHERE 1=1';
+        const params = [];
+        if (status === 'active') where += " AND hm.status = 'approved' AND hm.ended_at IS NULL";
+        else if (status === 'inactive') where += ' AND hm.ended_at IS NOT NULL';
+        else if (['pending', 'approved', 'rejected', 'suspended'].includes(status)) { where += ' AND hm.status = ?'; params.push(status); }
+        if (q) { where += ' AND (u.full_name LIKE ? OR h.name LIKE ?)'; params.push(`%${q}%`, `%${q}%`); }
+
+        db.get(`SELECT COUNT(*) AS total FROM hospital_memberships hm JOIN users u ON hm.doctor_id = u.id JOIN hospitals h ON hm.hospital_id = h.id ${where}`, params, (err, c) => {
+            if (err) return res.status(500).json({ error: 'Unable to load relationships' });
+            db.all(
+                `SELECT hm.id, hm.status, hm.department, hm.joined_at, hm.ended_at, hm.ended_reason, hm.created_at,
+                        h.name AS hospital_name, h.hospital_id AS hospital_code,
+                        u.id AS doctor_id, u.full_name AS doctor_name, u.email AS doctor_email, u.specialty
+                 FROM hospital_memberships hm
+                 JOIN users u ON hm.doctor_id = u.id
+                 JOIN hospitals h ON hm.hospital_id = h.id
+                 ${where}
+                 ORDER BY hm.created_at DESC LIMIT ? OFFSET ?`,
+                params.concat([limitNum, offset]),
+                (err2, rows) => {
+                    if (err2) return res.status(500).json({ error: 'Unable to load relationships' });
+                    res.json({ rows: rows || [], total: c ? c.total : 0, page: pageNum, total_pages: Math.max(1, Math.ceil((c ? c.total : 0) / limitNum)) });
+                }
+            );
+        });
+        return;
+    }
+
+    // view === 'requests' (join requests + hospital invitations)
+    let where = 'WHERE 1=1';
+    const params = [];
+    if (status && ['pending', 'approved', 'rejected'].includes(status)) { where += ' AND hjr.status = ?'; params.push(status); }
+    if (q) { where += ' AND (u.full_name LIKE ? OR h.name LIKE ?)'; params.push(`%${q}%`, `%${q}%`); }
+
+    db.get(`SELECT COUNT(*) AS total FROM hospital_join_requests hjr JOIN users u ON hjr.doctor_id = u.id JOIN hospitals h ON hjr.hospital_id = h.id ${where}`, params, (err, c) => {
+        if (err) return res.status(500).json({ error: 'Unable to load requests' });
+        db.all(
+            `SELECT hjr.id, hjr.status, hjr.message, hjr.request_type, hjr.rejection_reason,
+                    hjr.created_at, hjr.reviewed_at,
+                    h.name AS hospital_name, h.hospital_id AS hospital_code,
+                    u.id AS doctor_id, u.full_name AS doctor_name, u.email AS doctor_email, u.specialty,
+                    d.name AS department_name
+             FROM hospital_join_requests hjr
+             JOIN users u ON hjr.doctor_id = u.id
+             JOIN hospitals h ON hjr.hospital_id = h.id
+             LEFT JOIN departments d ON hjr.department_id = d.id
+             ${where}
+             ORDER BY hjr.created_at DESC LIMIT ? OFFSET ?`,
+            params.concat([limitNum, offset]),
+            (err2, rows) => {
+                if (err2) return res.status(500).json({ error: 'Unable to load requests' });
+                res.json({ rows: rows || [], total: c ? c.total : 0, page: pageNum, total_pages: Math.max(1, Math.ceil((c ? c.total : 0) / limitNum)) });
             }
         );
     });

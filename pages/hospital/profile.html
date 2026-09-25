@@ -63,7 +63,7 @@
         });
         async function loadProfile() {
             try {
-                currentProfile = await api('/api/hospital/my-hospital');
+                currentProfile = await api('/hospital/my-hospital');
                 var container = document.getElementById('profileInfo');
                 if (!currentProfile) { container.innerHTML = '<p class="text-muted">No profile data</p>'; return; }
                 container.innerHTML = '<table class="table"><tbody>' +
@@ -102,7 +102,7 @@
             var name = document.getElementById('profileName').value.trim();
             if (!name) { showToast('Name is required', 'error'); return; }
             try {
-                await api('/api/hospital/my-hospital', 'PUT', {
+                await api('/hospital/my-hospital', 'PUT', {
                     name: name,
                     type: document.getElementById('profileType').value.trim(),
                     license_number: document.getElementById('profileLicense').value.trim(),

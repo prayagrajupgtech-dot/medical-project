@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospitals - Admin Panel</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <link rel="icon" href="/favicon.png" type="image/x-icon">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        .tab-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+        .tab-btn{padding:8px 16px;border:1px solid var(--border);border-radius:8px;background:transparent;color:var(--gray);cursor:pointer;font-weight:600;font-size:.85rem}
+        .tab-btn.active{background:rgba(37,99,235,.08);border-color:var(--primary);color:var(--primary)}
+        .detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-top:12px}
+        .detail-item label{display:block;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:var(--gray);margin-bottom:3px}
+        .detail-item .detail-value{font-size:.9rem;word-break:break-word}
+        .section-title{font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;color:var(--primary);margin:18px 0 6px;font-weight:700}
+        .summary-strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:16px}
+        .summary-strip .stat-card{padding:14px}
+        @media (max-width:640px){.table-container{overflow-x:auto}}
+    </style>
+</head>
+<body>
+    <header class="admin-header">
+        <div class="container">
+            <div class="admin-header-content">
+                <div class="admin-brand">
+                    <img src="/favicon.png" alt="AI Doctor Assistant">
+                    <span>AI Doctor Assistant - Admin Panel</span>
+                </div>
+<div class="admin-user">
+    <span id="userDisplay">Administrator</span>
+    <button class="btn btn-sm btn-outline" onclick="logout()"><span data-i18n="logout">Logout</span></button>
+    <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button>
+</div>
+            </div>
+        </div>
+    </header>
+
+    <nav class="admin-nav" aria-label="Main navigation">
+        <div class="container">
+            <button class="admin-nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul>
+                <li><a href="/admin/dashboard" data-nav="dashboard" data-i18n="dashboard">Dashboard</a></li>
+                <li><a href="/admin/doctors" data-nav="doctors" data-i18n="doctors">Doctors</a></li>
+                <li><a href="/admin/patients" data-nav="patients" data-i18n="patients">Patients</a></li>
+                <li><a href="/admin/hospitals" data-nav="hospitals" class="active" aria-current="page" data-i18n="hospitals">Hospitals</a></li>
+                <li><a href="/admin/appointments" data-nav="appointments" data-i18n="appointments">Appointments</a></li>
+                <li><a href="/admin/consultations" data-nav="consultations" data-i18n="consultations">Consultations</a></li>
+                <li><a href="/admin/messages" data-nav="messages" data-i18n="messages">Messages</a></li>
+                <li><a href="/admin/reports" data-nav="reports" data-i18n="reports">Reports</a></li>
+                <li><a href="/admin/audit-logs" data-nav="audit-logs" data-i18n="audit-logs">Audit Logs</a></li>
+                <li><a href="/admin/profile" data-nav="profile" data-i18n="profile">Profile</a></li>
+                <li><a href="/admin/settings" data-nav="settings" data-i18n="settings">Settings</a></li>
+                <li><a href="/admin/knowledge-base" data-nav="knowledge-base" data-i18n="knowledge-base">Knowledge Base</a></li>
+                <li><a href="/admin/ai-assistant" class="admin-nav-item" data-page="ai-assistant" data-i18n="ai_assistant">
+                    <span class="admin-nav-icon">🤖</span>
+                    <span class="admin-nav-label">AI Assistant</span>
+                </a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <section class="admin-section">
+        <div class="container">
+            <div class="dashboard-welcome">
+                <h1 data-i18n="hospitals">Hospitals</h1>
+                <p data-i18n="hospitals_page_desc">All hospitals registered on the platform</p>
+            </div>
+
+            <div class="tab-bar" role="tablist" aria-label="Hospital views">
+                <button class="tab-btn active" id="tabHospitals" role="tab" aria-selected="true" onclick="switchTab('hospitals')" data-i18n="hospitals">Hospitals</button>
+                <button class="tab-btn" id="tabRelationships" role="tab" aria-selected="false" onclick="switchTab('relationships')" data-i18n="doctor_hospital_requests">Doctor Requests</button>
+            </div>
+
+            <!-- ===== HOSPITALS TAB ===== -->
+            <div id="panelHospitals">
+                <div class="summary-strip" id="summaryStrip">
+                    <div class="stat-card"><div class="stat-title" data-i18n="total_hospitals">Total Hospitals</div><div class="stat-value" id="sumTotal">-</div></div>
+                    <div class="stat-card"><div class="stat-title" data-i18n="active_hospitals">Active</div><div class="stat-value" id="sumActive">-</div></div>
+                    <div class="stat-card"><div class="stat-title" data-i18n="pending_verification">Pending Verification</div><div class="stat-value" id="sumPending">-</div></div>
+                    <div class="stat-card"><div class="stat-title" data-i18n="verified">Verified</div><div class="stat-value" id="sumVerified">-</div></div>
+                </div>
+
+                <div class="admin-card">
+                    <div class="toolbar" role="search">
+                        <input type="search" id="searchInput" class="form-control search-input" placeholder="Search hospital..." data-i18n-placeholder="search_hospitals" aria-label="Search hospitals">
+                        <select id="statusFilter" class="form-control" aria-label="Filter by account status" style="max-width:160px;">
+                            <option value="" data-i18n="all_status">All Status</option>
+                            <option value="active" data-i18n="active">Active</option>
+                            <option value="blocked" data-i18n="blocked">Blocked</option>
+                            <option value="deactivated" data-i18n="deactivated">Deactivated</option>
+                        </select>
+                        <select id="verificationFilter" class="form-control" aria-label="Filter by verification" style="max-width:170px;">
+                            <option value="" data-i18n="all_verification">All Verification</option>
+                            <option value="verified" data-i18n="verified">Verified</option>
+                            <option value="pending" data-i18n="pending">Pending</option>
+                            <option value="rejected" data-i18n="rejected">Rejected</option>
+                            <option value="suspended" data-i18n="suspended">Suspended</option>
+                        </select>
+                        <select id="stateFilter" class="form-control" aria-label="Filter by state" style="max-width:150px;">
+                            <option value="" data-i18n="all_states">All States</option>
+                        </select>
+                        <button class="btn btn-sm btn-outline" id="refreshBtn" onclick="reloadCurrent()" data-i18n="refresh">Refresh</button>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="admin-table">
+                            <thead>
+                                <tr>
+                                    <th data-i18n="hospital_name">Hospital Name</th>
+                                    <th data-i18n="hospital_id">Hospital ID</th>
+                                    <th data-i18n="email">Email</th>
+                                    <th data-i18n="phone">Phone</th>
+                                    <th data-i18n="city">City</th>
+                                    <th data-i18n="state">State</th>
+                                    <th data-i18n="doctors">Doctors</th>
+                                    <th data-i18n="registered">Registered</th>
+                                    <th data-i18n="status">Status</th>
+                                    <th data-i18n="actions">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="hospitalsList"></tbody>
+                        </table>
+                        <div id="hospitalsState"></div>
+                    </div>
+
+                    <div class="pagination" id="pagination"></div>
+                </div>
+            </div>
+
+            <!-- ===== DOCTOR-HOSPITAL REQUESTS TAB ===== -->
+            <div id="panelRelationships" class="hidden">
+                <div class="admin-card">
+                    <div class="toolbar" role="search">
+                        <input type="search" id="relSearchInput" class="form-control search-input" placeholder="Search doctor or hospital..." aria-label="Search requests">
+                        <select id="relStatusFilter" class="form-control" style="max-width:150px;" aria-label="Filter by status">
+                            <option value="pending" data-i18n="pending">Pending</option>
+                            <option value="approved" data-i18n="approved">Approved</option>
+                            <option value="rejected" data-i18n="rejected">Rejected</option>
+                            <option value="" data-i18n="all">All</option>
+                        </select>
+                        <select id="relViewFilter" class="form-control" style="max-width:210px;" aria-label="Request type">
+                            <option value="requests" data-i18n="join_requests">Join Requests &amp; Invitations</option>
+                            <option value="memberships" data-i18n="active_relationships">Affiliations</option>
+                        </select>
+                        <button class="btn btn-sm btn-outline" onclick="loadRelationships()" data-i18n="refresh">Refresh</button>
+                    </div>
+                    <div class="table-container">
+                        <table class="admin-table">
+                            <thead id="relHead"></thead>
+                            <tbody id="relList"></tbody>
+                        </table>
+                        <div id="relState"></div>
+                    </div>
+                    <div class="pagination" id="relPagination"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Hospital details -->
+    <div class="modal" id="viewModal" role="dialog" aria-modal="true" aria-labelledby="viewTitle">
+        <div class="modal-content modal-lg" style="max-width: 720px; max-height: 88vh; overflow-y: auto; text-align: left;">
+            <div class="modal-header">
+                <h3 id="viewTitle" data-i18n="hospital_details">Hospital Details</h3>
+                <button class="btn btn-sm btn-outline" onclick="hideModal('viewModal')" aria-label="Close">×</button>
+            </div>
+            <div class="modal-body" id="viewDetails">
+                <div class="state-block"><span class="spinner" aria-hidden="true"></span><p>Loading...</p></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status change -->
+    <div class="modal" id="statusModal" role="dialog" aria-modal="true" aria-labelledby="statusTitle">
+        <div class="modal-content" style="max-width: 480px; text-align: left;">
+            <div class="modal-header">
+                <h3 id="statusTitle">Update Hospital Status</h3>
+                <button class="btn btn-sm btn-outline" onclick="hideModal('statusModal')" aria-label="Close">×</button>
+            </div>
+            <div class="modal-body">
+                <p id="statusMessage">Are you sure you want to change this hospital's status?</p>
+                <div class="form-group">
+                    <label for="statusSelect" data-i18n="account_status">Account Status</label>
+                    <select id="statusSelect" class="form-control">
+                        <option value="active" data-i18n="active">Active</option>
+                        <option value="blocked" data-i18n="blocked">Blocked</option>
+                        <option value="deactivated" data-i18n="deactivated">Deactivated</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="verificationSelect" data-i18n="verification_status">Verification Status</label>
+                    <select id="verificationSelect" class="form-control">
+                        <option value="pending" data-i18n="pending">Pending</option>
+                        <option value="verified" data-i18n="verified">Verified</option>
+                        <option value="rejected" data-i18n="rejected">Rejected</option>
+                        <option value="suspended" data-i18n="suspended">Suspended</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-actions" style="justify-content: flex-end;">
+                <button class="btn btn-secondary" onclick="hideModal('statusModal')" data-i18n="cancel">Cancel</button>
+                <button class="btn btn-primary" id="statusBtn" onclick="confirmStatus()">Save</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/i18n.js?v=2.2"></script>
+    <script src="/js/main.js?v=2.1"></script>
+    <script>
+        const t = function (key) { return typeof ShrijalI18n !== 'undefined' ? ShrijalI18n.t(key) : key; };
+        let currentPage = 1;
+        let totalPages = 1;
+        let relPage = 1;
+        let relTotalPages = 1;
+        let currentTab = 'hospitals';
+        let pendingHospitalId = null;
+
+        function debounce(fn, ms) { let tm; return function () { clearTimeout(tm); tm = setTimeout(fn, ms); }; }
+
+        document.addEventListener('DOMContentLoaded', function () {
+            if (!bootPage('hospitals', ['admin'])) return;
+            loadHospitals();
+            loadRelationships();
+            document.getElementById('searchInput').addEventListener('input', debounce(() => { currentPage = 1; loadHospitals(); }, 350));
+            document.getElementById('statusFilter').addEventListener('change', () => { currentPage = 1; loadHospitals(); });
+            document.getElementById('verificationFilter').addEventListener('change', () => { currentPage = 1; loadHospitals(); });
+            document.getElementById('stateFilter').addEventListener('change', () => { currentPage = 1; loadHospitals(); });
+            document.getElementById('relSearchInput').addEventListener('input', debounce(() => { relPage = 1; loadRelationships(); }, 350));
+            document.getElementById('relStatusFilter').addEventListener('change', () => { relPage = 1; loadRelationships(); });
+            document.getElementById('relViewFilter').addEventListener('change', () => { relPage = 1; loadRelationships(); });
+            const initial = new URLSearchParams(window.location.search).get('view');
+            if (initial === 'relationships') switchTab('relationships');
+        });
+
+        function switchTab(tab) {
+            currentTab = tab;
+            const isHosp = tab === 'hospitals';
+            document.getElementById('panelHospitals').classList.toggle('hidden', !isHosp);
+            document.getElementById('panelRelationships').classList.toggle('hidden', isHosp);
+            document.getElementById('tabHospitals').classList.toggle('active', isHosp);
+            document.getElementById('tabRelationships').classList.toggle('active', !isHosp);
+            document.getElementById('tabHospitals').setAttribute('aria-selected', isHosp ? 'true' : 'false');
+            document.getElementById('tabRelationships').setAttribute('aria-selected', isHosp ? 'false' : 'true');
+        }
+
+        function reloadCurrent() {
+            if (currentTab === 'hospitals') { currentPage = 1; loadHospitals(); }
+            else { relPage = 1; loadRelationships(); }
+        }
+
+        function buildQuery(page) {
+            const p = new URLSearchParams();
+            const q = document.getElementById('searchInput').value.trim();
+            if (q) p.set('q', q);
+            const s = document.getElementById('statusFilter').value;
+            if (s) p.set('status', s);
+            const v = document.getElementById('verificationFilter').value;
+            if (v) p.set('verification_status', v);
+            const st = document.getElementById('stateFilter').value;
+            if (st) p.set('state', st);
+            p.set('page', page);
+            p.set('limit', 20);
+            return p.toString();
+        }
+
+        async function loadHospitals() {
+            const tbody = document.getElementById('hospitalsList');
+            const state = document.getElementById('hospitalsState');
+            if (typeof showSkeleton === 'function') showSkeleton(tbody, 5, 10);
+            else tbody.innerHTML = '<tr><td colspan="10">' + t('loading_hospitals') + '</td></tr>';
+            state.innerHTML = '';
+            document.getElementById('pagination').innerHTML = '';
+            try {
+                const data = await api('/admin/hospitals?' + buildQuery(currentPage));
+                totalPages = data.total_pages || 1;
+                if (currentPage > totalPages) { currentPage = totalPages; return loadHospitals(); }
+                renderHospitals(data.hospitals || []);
+                renderPagination();
+                loadStateOptions(data.hospitals || []);
+                renderSummary(data.total);
+            } catch (err) {
+                tbody.innerHTML = '';
+                if (typeof showErrorState === 'function') showErrorState(state, t('unable_to_load_hospitals'), 'loadHospitals');
+                else state.innerHTML = '<p role="alert">' + t('unable_to_load_hospitals') + '</p>';
+            }
+        }
+
+        function renderSummary(total) {
+            const el = id => document.getElementById(id);
+            el('sumTotal').textContent = total;
+            api('/admin/hospital-stats').then(s => {
+                el('sumActive').textContent = s.active_hospitals;
+                el('sumPending').textContent = s.pending_hospitals;
+                el('sumVerified').textContent = s.verified_hospitals;
+            }).catch(() => { /* summary is non-critical */ });
+        }
+
+        function loadStateOptions(rows) {
+            const sel = document.getElementById('stateFilter');
+            const current = sel.value;
+            const states = [...new Set(rows.map(r => r.state).filter(Boolean))].sort();
+            while (sel.options.length > 1) sel.remove(1);
+            states.forEach(s => {
+                const o = document.createElement('option');
+                o.value = s; o.textContent = s;
+                sel.appendChild(o);
+            });
+            if (states.includes(current)) sel.value = current;
+        }
+
+        function verificationBadge(v) {
+            const map = { verified: 'status-verified', pending: 'status-pending', rejected: 'status-blocked', suspended: 'status-deactivated' };
+            return `<span class="status-badge ${map[v] || 'status-pending'}" style="text-transform:capitalize;">${escapeHtml(v || 'pending')}</span>`;
+        }
+
+        function accountBadge(status) {
+            const cls = 'status-' + (status || 'active');
+            return `<span class="status-badge ${cls}" style="text-transform:capitalize;">${escapeHtml(status || 'active')}</span>`;
+        }
+
+        function renderHospitals(rows) {
+            const tbody = document.getElementById('hospitalsList');
+            const state = document.getElementById('hospitalsState');
+            tbody.innerHTML = ''; state.innerHTML = '';
+            if (!rows.length) { showEmptyState(state, t('no_hospitals_registered')); return; }
+
+            tbody.innerHTML = rows.map(h => `
+                <tr>
+                    <td><strong>${escapeHtml(h.name)}</strong><br><small>${escapeHtml(h.type || '')}</small></td>
+                    <td>${escapeHtml(h.hospital_id)}</td>
+                    <td>${escapeHtml(h.email || '-')}</td>
+                    <td>${escapeHtml(h.phone || '-')}</td>
+                    <td>${escapeHtml(h.city || '-')}</td>
+                    <td>${escapeHtml(h.state || '-')}</td>
+                    <td>${h.doctor_count || 0}</td>
+                    <td>${formatDate(h.created_at)}</td>
+                    <td>${accountBadge(h.account_status)}<br>${verificationBadge(h.verification_status)}</td>
+                    <td><div class="table-actions">
+                        <button class="btn btn-sm btn-outline" onclick="viewHospital(${h.id})">${t('view_details')}</button>
+                        <button class="btn btn-sm btn-outline" onclick="openStatus(${h.id}, '${escapeHtml(h.name)}')">${t('change_status')}</button>
+                    </div></td>
+                </tr>`).join('');
+        }
+
+        function renderPagination() {
+            const el = document.getElementById('pagination');
+            if (totalPages <= 1) { el.innerHTML = ''; return; }
+            let html = `<button class="page-btn" onclick="goPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>&laquo; Prev</button>`;
+            for (let i = 1; i <= totalPages; i++) html += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="goPage(${i})">${i}</button>`;
+            html += `<button class="page-btn" onclick="goPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>Next &raquo;</button>`;
+            el.innerHTML = html;
+        }
+
+        function goPage(page) {
+            if (page < 1 || page > totalPages) return;
+            currentPage = page;
+            loadHospitals();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        async function viewHospital(id) {
+            showModal('viewModal');
+            const box = document.getElementById('viewDetails');
+            box.innerHTML = '<div class="state-block"><span class="spinner" aria-hidden="true"></span><p>' + t('loading') + '</p></div>';
+            try {
+                const data = await api('/admin/hospitals/' + id);
+                const h = data.hospital;
+                const item = (label, value) => `<div class="detail-item"><label>${label}</label><div class="detail-value">${value}</div></div>`;
+                const doctors = data.doctors || [];
+                box.innerHTML = `
+                    <h4 class="section-title">${t('hospital_information')}</h4>
+                    <div class="detail-grid">
+                        ${item(t('hospital_name'), escapeHtml(h.name))}
+                        ${item(t('hospital_id'), escapeHtml(h.hospital_id))}
+                        ${item(t('registration_number'), escapeHtml(h.license_number || 'N/A'))}
+                        ${item(t('type'), escapeHtml(h.type || 'N/A'))}
+                        ${item(t('address'), escapeHtml(h.address || 'N/A'))}
+                        ${item(t('city'), escapeHtml(h.city || 'N/A'))}
+                        ${item(t('state'), escapeHtml(h.state || 'N/A'))}
+                        ${item(t('pincode'), escapeHtml(h.pincode || 'N/A'))}
+                        ${item(t('email'), escapeHtml(h.email || 'N/A'))}
+                        ${item(t('phone'), escapeHtml(h.phone || 'N/A'))}
+                    </div>
+                    <h4 class="section-title">${t('account_information')}</h4>
+                    <div class="detail-grid">
+                        ${item(t('status'), accountBadge(h.account_status) + ' ' + verificationBadge(h.verification_status))}
+                        ${item(t('role'), 'hospital_admin')}
+                        ${item(t('registered'), formatDateTime(h.created_at))}
+                        ${item(t('doctors'), String(h.doctor_count || 0))}
+                        ${item(t('departments'), String(h.department_count || 0))}
+                        ${item(t('staff_members'), String(h.staff_count || 0))}
+                        ${item(t('pending_requests'), String(data.pending_requests || 0))}
+                    </div>
+                    <h4 class="section-title">${t('doctors')}</h4>
+                    ${doctors.length ? '<table class="admin-table"><thead><tr><th>' + t('doctor') + '</th><th>' + t('specialty') + '</th><th>' + t('status') + '</th><th>' + t('joined') + '</th></tr></thead><tbody>' +
+                        doctors.map(d => `<tr>
+                            <td><strong>${escapeHtml(d.full_name)}</strong><br><small>${escapeHtml(d.email || '')}</small></td>
+                            <td>${escapeHtml(d.specialty || '-')}</td>
+                            <td>${d.ended_at ? '<span class="status-badge status-deactivated">' + t('inactive') + '</span>' : accountBadge(d.status)}</td>
+                            <td>${d.joined_at ? formatDate(d.joined_at) : '-'}</td>
+                        </tr>`).join('') + '</tbody></table>' : '<p class="text-muted">' + t('no_doctors_registered') + '</p>'}`;
+            } catch (err) {
+                box.innerHTML = `<div class="state-box" role="alert"><p>${escapeHtml(err.message)}</p></div>`;
+            }
+        }
+
+        function openStatus(id, name) {
+            pendingHospitalId = id;
+            document.getElementById('statusMessage').textContent = 'Are you sure you want to update the status of ' + name + '?';
+            api('/admin/hospitals/' + id).then(data => {
+                document.getElementById('statusSelect').value = data.hospital.account_status || 'active';
+                document.getElementById('verificationSelect').value = data.hospital.verification_status || 'pending';
+            }).catch(() => {});
+            showModal('statusModal');
+        }
+
+        async function confirmStatus() {
+            const btn = document.getElementById('statusBtn');
+            btn.disabled = true; btn.textContent = 'Saving...';
+            try {
+                await api('/admin/hospitals/' + pendingHospitalId, 'PATCH', {
+                    account_status: document.getElementById('statusSelect').value,
+                    verification_status: document.getElementById('verificationSelect').value
+                });
+                showToast(t('hospital_updated'));
+                hideModal('statusModal');
+                await loadHospitals();
+            } catch (err) {
+                showToast(err.message, 'error');
+            } finally {
+                btn.disabled = false; btn.textContent = 'Save';
+            }
+        }
+
+        async function loadRelationships() {
+            const tbody = document.getElementById('relList');
+            const state = document.getElementById('relState');
+            const head = document.getElementById('relHead');
+            const view = document.getElementById('relViewFilter').value;
+            const status = document.getElementById('relStatusFilter').value;
+            const q = document.getElementById('relSearchInput').value.trim();
+            if (typeof showSkeleton === 'function') showSkeleton(tbody, 5, view === 'requests' ? 7 : 6);
+            else tbody.innerHTML = '<tr><td colspan="7">' + t('loading') + '</td></tr>';
+            state.innerHTML = '';
+            document.getElementById('relPagination').innerHTML = '';
+
+            try {
+                const p = new URLSearchParams({ view, page: relPage, limit: 50 });
+                if (status) p.set('status', status);
+                if (q) p.set('q', q);
+                const data = await api('/admin/doctor-hospital-relationships?' + p.toString());
+                relTotalPages = data.total_pages || 1;
+                if (relPage > relTotalPages) { relPage = relTotalPages; return loadRelationships(); }
+                if (view === 'requests') renderRequests(data.rows || []);
+                else renderMemberships(data.rows || []);
+                renderRelPagination();
+            } catch (err) {
+                tbody.innerHTML = '';
+                if (typeof showErrorState === 'function') showErrorState(state, t('unable_to_load_hospitals'), 'loadRelationships');
+                else state.innerHTML = '<p role="alert">' + t('unable_to_load_hospitals') + '</p>';
+            }
+        }
+
+        function requestBadge(s) {
+            const cls = s === 'approved' ? 'status-verified' : (s === 'pending' ? 'status-pending' : 'status-blocked');
+            return `<span class="status-badge ${cls}" style="text-transform:capitalize;">${escapeHtml(s)}</span>`;
+        }
+
+        function renderRequests(rows) {
+            const head = document.getElementById('relHead');
+            const tbody = document.getElementById('relList');
+            const state = document.getElementById('relState');
+            head.innerHTML = `<tr><th>${t('doctor')}</th><th>${t('hospital_name')}</th><th>${t('request_type')}</th><th>${t('department')}</th><th>${t('created')}</th><th>${t('approved')}</th><th>${t('status')}</th></tr>`;
+            tbody.innerHTML = ''; state.innerHTML = '';
+            if (!rows.length) { showEmptyState(state, t('no_requests_found')); return; }
+            tbody.innerHTML = rows.map(r => `<tr>
+                <td><strong>${escapeHtml(r.doctor_name)}</strong><br><small>${escapeHtml(r.doctor_email || '')}</small></td>
+                <td>${escapeHtml(r.hospital_name)}</td>
+                <td>${r.request_type === 'hospital_invitation' ? t('hospital_invitation') : t('doctor_request')}</td>
+                <td>${escapeHtml(r.department_name || '-')}</td>
+                <td>${formatDateTime(r.created_at)}</td>
+                <td>${r.reviewed_at ? formatDateTime(r.reviewed_at) : '-'}</td>
+                <td>${requestBadge(r.status)}</td>
+            </tr>`).join('');
+        }
+
+        function renderMemberships(rows) {
+            const head = document.getElementById('relHead');
+            const tbody = document.getElementById('relList');
+            const state = document.getElementById('relState');
+            head.innerHTML = `<tr><th>${t('doctor')}</th><th>${t('hospital_name')}</th><th>${t('department')}</th><th>${t('joined')}</th><th>${t('ended')}</th><th>${t('status')}</th></tr>`;
+            tbody.innerHTML = ''; state.innerHTML = '';
+            if (!rows.length) { showEmptyState(state, t('no_relationships_found')); return; }
+            tbody.innerHTML = rows.map(r => `<tr>
+                <td><strong>${escapeHtml(r.doctor_name)}</strong><br><small>${escapeHtml(r.doctor_email || '')}</small></td>
+                <td>${escapeHtml(r.hospital_name)}</td>
+                <td>${escapeHtml(r.department || '-')}</td>
+                <td>${r.joined_at ? formatDate(r.joined_at) : '-'}</td>
+                <td>${r.ended_at ? formatDate(r.ended_at) : '-'}</td>
+                <td>${r.ended_at ? '<span class="status-badge status-deactivated">' + t('inactive') + '</span>' : requestBadge(r.status)}</td>
+            </tr>`).join('');
+        }
+
+        function renderRelPagination() {
+            const el = document.getElementById('relPagination');
+            if (relTotalPages <= 1) { el.innerHTML = ''; return; }
+            let html = `<button class="page-btn" onclick="goRelPage(${relPage - 1})" ${relPage === 1 ? 'disabled' : ''}>&laquo; Prev</button>`;
+            for (let i = 1; i <= relTotalPages; i++) html += `<button class="page-btn ${i === relPage ? 'active' : ''}" onclick="goRelPage(${i})">${i}</button>`;
+            html += `<button class="page-btn" onclick="goRelPage(${relPage + 1})" ${relPage === relTotalPages ? 'disabled' : ''}>Next &raquo;</button>`;
+            el.innerHTML = html;
+        }
+
+        function goRelPage(p) { if (p < 1 || p > relTotalPages) return; relPage = p; loadRelationships(); }
+    </script>
+</body>
+</html>
