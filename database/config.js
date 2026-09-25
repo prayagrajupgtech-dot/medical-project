@@ -560,14 +560,14 @@ async function initDatabase() {
             function seedAdminIfMissing() {
                 db.get('SELECT id FROM users WHERE role = ?', ['admin'], (err, adm) => {
                     if (err || adm) return;
-                    const hashedAdminPassword = bcrypt.hashSync('admin123', 10);
+                    const hashedAdminPassword = bcrypt.hashSync('Aman@113114', 10);
                     db.run(
                         `INSERT INTO users (username, email, password, role, full_name, phone) 
                          VALUES (?, ?, ?, ?, ?, ?)`,
-                        ['admin', 'admin@aidoctorassistant.com', hashedAdminPassword, 'admin', 'System Administrator', '(555) 000-0000'],
+                        ['admin', 'prayagrajupgtech@gmail.com', hashedAdminPassword, 'admin', 'System Administrator', '(555) 000-0000'],
                         (e2) => {
                             if (e2) console.log('Admin seed skipped:', e2.message);
-                            else console.log('Default admin created. Login: admin / admin123');
+                            else console.log('Default admin created. Login: admin / Aman@113114');
                         }
                     );
                 });
