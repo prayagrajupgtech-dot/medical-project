@@ -159,7 +159,7 @@
                     <a href="/forgot-password">Forgot Password?</a>
                 </div>
 
-                <div class="auth-switch">
+                <div class="auth-switch" id="loginAuthSwitch">
                     <p>Don't have an account? <a href="/login?mode=register" id="goRegister" onclick="showRegister(getLoginRole()); return false;">Create Account</a></p>
                 </div>
 
@@ -385,6 +385,9 @@
             var title = document.getElementById('loginTitle');
             var roleLabels = { patient: 'Patient', doctor: 'Doctor', admin: 'Admin' };
             title.textContent = (roleLabels[role] || 'Patient') + ' Sign In';
+            // Admin accounts are provisioned by the system — no self-registration
+            var authSwitch = document.getElementById('loginAuthSwitch');
+            if (authSwitch) authSwitch.classList.toggle('hidden', role === 'admin');
             // Keep "Create Account" pointed at the matching registration form
             var goRegister = document.getElementById('goRegister');
             if (goRegister) goRegister.setAttribute('href', '/login?mode=register&role=' + encodeURIComponent(role));
