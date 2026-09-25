@@ -591,7 +591,9 @@ async function initDatabase() {
                     CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(user_id, is_read);
                 `);
 
-                // Seed default doctor if not exists
+                // Default demo doctor seed is DISABLED (demo doctor/patient data was wiped by owner).
+                // To re-enable, set SEED_DEFAULT_DOCTOR=true in .env
+                if (process.env.SEED_DEFAULT_DOCTOR === 'true') {
                 db.get('SELECT id FROM users WHERE username = ?', ['drjohnson'], (err, row) => {
                     if (!row) {
                         // Create default doctor with hashed password
@@ -620,6 +622,9 @@ async function initDatabase() {
                         finishSeed();
                     }
                 });
+                } else {
+                    finishSeed();
+                }
             }
 
             function finishSeed() {
