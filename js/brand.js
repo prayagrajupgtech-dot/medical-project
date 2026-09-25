@@ -16,12 +16,15 @@
         if (el) el.innerHTML = brandLogoMarkup();
     }
 
-    // Password visibility toggles for every .password-field on the page
+    // Password visibility toggles for every .password-field on the page.
+    // Safe to call repeatedly — each button is bound only once.
     function bindPasswordToggles() {
         document.querySelectorAll('.password-field').forEach(function (field) {
             const input = field.querySelector('input[type="password"]');
             const btn = field.querySelector('.password-toggle');
             if (!input || !btn) return;
+            if (btn.getAttribute('data-pw-bound') === '1') return;
+            btn.setAttribute('data-pw-bound', '1');
             btn.setAttribute('aria-label', 'Show password');
             btn.addEventListener('click', function () {
                 const show = input.type === 'password';
@@ -32,6 +35,16 @@
             });
         });
     }
+
+    // Self-healing: bind as soon as this file loads (it is included at the end
+    // of <body>, so the fields already exist) and once more after DOMContentLoaded.
+    // This keeps the eye button working even if a page never calls it explicitly.
+    try {
+        bindPasswordToggles();
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', bindPasswordToggles);
+        }
+    } catch (e) { /* never block the rest of the page */ }
 
     // Password strength scoring: 0-4 based on length, upper, lower, digit
     function passwordScore(pw) {
