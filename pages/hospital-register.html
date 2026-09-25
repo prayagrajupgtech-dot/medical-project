@@ -167,6 +167,7 @@
     </div>
 
     <script src="/js/brand.js"></script>
+    <script src="/js/app.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             var form = document.getElementById('hospitalRegisterForm');
@@ -235,27 +236,33 @@
                     confirm_password: confirmInput.value
                 };
 
+                var res, result;
                 try {
-                    var res = await fetch('/api/hospitals/register', {
+                    res = await fetch('/api/hospitals/register', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify(data)
                     });
-                    var result = await res.json();
-                    if (res.ok && result.token) {
+                    result = await res.json();
+                } catch(err) {
+                    // Only a network failure or a non-JSON response lands here
+                    if (alertEl) { alertEl.textContent = 'Connection error. Please try again.'; alertEl.hidden = false; alertEl.className = 'form-alert form-alert-error'; }
+                    setBusy(submitBtn, false, 'Registering...', 'Register Hospital');
+                    return;
+                }
+
+                if (res.ok && result.token) {
+                    try {
                         localStorage.setItem('token', result.token);
                         localStorage.setItem('user', JSON.stringify(result.user));
                         if (result.hospital) localStorage.setItem('hospital', JSON.stringify(result.hospital));
-                        showToast('Hospital registered successfully!');
-                        setTimeout(function() { window.location.replace('/hospital/dashboard'); }, 500);
-                    } else {
-                        if (alertEl) { alertEl.textContent = result.error || 'Registration failed'; alertEl.hidden = false; alertEl.className = 'form-alert form-alert-error'; }
-                    }
-                } catch(err) {
-                    if (alertEl) { alertEl.textContent = 'Connection error. Please try again.'; alertEl.hidden = false; alertEl.className = 'form-alert form-alert-error'; }
-                } finally {
-                    setBusy(submitBtn, false, 'Registering...', 'Register Hospital');
+                    } catch (storageErr) { /* private mode / storage full — still logged in via cookie */ }
+                    if (typeof showToast === 'function') showToast('Hospital registered successfully!');
+                    setTimeout(function() { window.location.replace('/hospital/dashboard'); }, 500);
+                } else {
+                    if (alertEl) { alertEl.textContent = result.error || 'Registration failed'; alertEl.hidden = false; alertEl.className = 'form-alert form-alert-error'; }
                 }
+                setBusy(submitBtn, false, 'Registering...', 'Register Hospital');
             });
         });
     </script>
