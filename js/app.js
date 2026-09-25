@@ -185,7 +185,9 @@ async function uploadRegistrationPhoto(role, token, inputId) {
     const input = document.getElementById(inputId);
     if (!input || !input.files || !input.files[0]) return;
     const file = input.files[0];
-    const endpoint = '/api/' + role + (role === 'admin' ? '/profile/photo' : '/me/photo');
+    // Server routes are pluralised: /api/doctors/me/photo, /api/patients/me/photo
+    const base = role === 'admin' ? 'admin' : (role === 'doctor' ? 'doctors' : 'patients');
+    const endpoint = '/api/' + base + (role === 'admin' ? '/profile/photo' : '/me/photo');
     const formData = new FormData();
     formData.append('photo', file);
     const res = await fetch(endpoint, {

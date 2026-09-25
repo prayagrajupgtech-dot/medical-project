@@ -19,6 +19,15 @@
         .back-to-roles{display:inline-flex;align-items:center;gap:6px;margin-bottom:16px;color:var(--primary);font-size:.9rem;cursor:pointer;font-weight:500}
         .back-to-roles:hover{text-decoration:underline}
         .auth-card-header .auth-subtitle{color:var(--gray);font-size:.9rem}
+
+        /* Register role switch (Patient / Doctor) */
+        .reg-role-label{display:block;font-size:.85rem;font-weight:600;color:var(--dark);margin-bottom:8px}
+        .reg-role-switch{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+        .reg-role-option{display:flex;flex-direction:column;align-items:center;gap:4px;padding:12px 8px;border:2px solid var(--border);border-radius:10px;background:transparent;color:var(--gray);font-size:.85rem;font-weight:600;cursor:pointer;transition:all .2s ease}
+        .reg-role-option .role-opt-icon{font-size:22px;line-height:1}
+        .reg-role-option:hover{border-color:var(--primary);color:var(--primary)}
+        .reg-role-option.active{border-color:var(--primary);background:rgba(37,99,235,.08);color:var(--primary)}
+        .reg-role-option:focus-visible{outline:3px solid rgba(37,99,235,.35);outline-offset:2px}
     </style>
 </head>
 <body class="auth-page">
@@ -88,6 +97,7 @@
                         <p>Access your doctor dashboard</p>
                         <div class="role-btns">
                             <button class="btn btn-primary btn-sm" onclick="showLogin('doctor')">Doctor Login</button>
+                            <button class="btn btn-outline btn-sm" onclick="showRegister('doctor')">Doctor Register</button>
                             <a href="/doctor/join-hospital" class="btn btn-outline btn-sm">Join Hospital</a>
                         </div>
                     </div>
@@ -150,7 +160,7 @@
                 </div>
 
                 <div class="auth-switch">
-                    <p>Don't have an account? <a href="/login?mode=register" id="goRegister">Create Account</a></p>
+                    <p>Don't have an account? <a href="/login?mode=register" id="goRegister" onclick="showRegister(getLoginRole()); return false;">Create Account</a></p>
                 </div>
 
                 <div class="auth-footnote">AI Doctor Assistant &middot; Digital Healthcare Assistance Platform</div>
@@ -162,11 +172,24 @@
                 <div class="auth-card-header">
                     <img src="/images/brand-logo.svg" alt="AI Doctor Assistant logo" class="brand-logo" width="64" height="64">
                     <h2 id="registerTitle">Create Patient Account</h2>
-                    <p class="auth-subtitle">Join our medical practice platform</p>
+                    <p class="auth-subtitle" id="registerSubtitle">Join our medical practice platform</p>
                 </div>
 
                 <form id="registerForm" novalidate autocomplete="on">
-                    <input type="hidden" name="role" value="patient" id="regRole">
+                    <div class="form-group">
+                        <span class="reg-role-label" id="regRoleLabel">I am creating a</span>
+                        <div class="reg-role-switch" role="group" aria-labelledby="regRoleLabel">
+                            <button type="button" class="reg-role-option active" data-role="patient" id="regRolePatient">
+                                <span class="role-opt-icon" aria-hidden="true">🧑‍🦰</span>
+                                Patient Account
+                            </button>
+                            <button type="button" class="reg-role-option" data-role="doctor" id="regRoleDoctor">
+                                <span class="role-opt-icon" aria-hidden="true">👨‍⚕️</span>
+                                Doctor Account
+                            </button>
+                        </div>
+                        <input type="hidden" name="role" value="patient" id="regRole">
+                    </div>
 
                     <div class="form-row">
                         <div class="form-group">
@@ -226,6 +249,46 @@
                         <input type="tel" id="regPhone" name="phone" class="form-control" autocomplete="tel" required>
                     </div>
 
+                    <!-- DOCTOR-SPECIFIC FIELDS -->
+                    <div class="reg-section hidden" id="doctorFields" aria-live="polite">
+                        <h3 class="reg-section-title">Professional Details</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="regSpecialty">Specialty *</label>
+                                <input type="text" id="regSpecialty" name="specialty" class="form-control" placeholder="e.g. Cardiology" autocomplete="off">
+                            </div>
+                            <div class="form-group">
+                                <label for="regQualification">Qualification</label>
+                                <input type="text" id="regQualification" name="qualification" class="form-control" placeholder="e.g. MBBS, MD" autocomplete="off">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="regRegNumber">Medical Registration No.</label>
+                                <input type="text" id="regRegNumber" name="registration_number" class="form-control" placeholder="e.g. MCI-12345" autocomplete="off">
+                            </div>
+                            <div class="form-group">
+                                <label for="regExperience">Experience (years)</label>
+                                <input type="number" id="regExperience" name="experience_years" class="form-control" min="0" max="60" inputmode="numeric">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="regHospital">Hospital / Clinic</label>
+                            <input type="text" id="regHospital" name="hospital" class="form-control" autocomplete="organization">
+                        </div>
+                        <div class="form-group">
+                            <label for="regBio">Short Bio</label>
+                            <textarea id="regBio" name="bio" class="form-control" rows="3" placeholder="A brief introduction shown on your profile"></textarea>
+                        </div>
+                        <div class="form-group">
+                            <label for="regDoctorPhoto">Profile Photo</label>
+                            <input type="file" id="regDoctorPhoto" class="form-control" accept="image/jpeg,image/png,image/webp">
+                            <div class="reg-photo-preview" id="doctorPhotoPreview"></div>
+                            <small class="form-hint">JPG, PNG or WEBP. Maximum 5 MB. You can also change it later from your profile.</small>
+                        </div>
+                        <small class="form-hint">Your profile stays unverified until a hospital administrator approves it. After signing in you can join a hospital from your dashboard.</small>
+                    </div>
+
                     <!-- PATIENT-SPECIFIC FIELDS -->
                     <div class="reg-section" id="patientFields" aria-live="polite">
                         <h3 class="reg-section-title">Optional Information</h3>
@@ -258,7 +321,7 @@
                 </form>
 
                 <div class="auth-switch">
-                    <p>Already have an account? <a href="/login" id="goLogin">Sign In</a></p>
+                    <p>Already have an account? <a href="/login" id="goLogin" onclick="showLogin(getRegisterRole()); return false;">Sign In</a></p>
                 </div>
 
                 <div class="auth-footnote">AI Doctor Assistant &middot; Digital Healthcare Assistance Platform</div>
@@ -271,6 +334,7 @@
     <script src="/js/app.js"></script>
     <script>
         // Show register mode via /login?mode=register, /login?register=true, #register, or /register
+        // Optional role: /login?mode=register&role=doctor (defaults to patient)
         window.addEventListener('DOMContentLoaded', function () {
             var url = new URLSearchParams(window.location.search);
             var isRegister = url.get('mode') === 'register' ||
@@ -278,11 +342,33 @@
                 window.location.hash === '#register' ||
                 window.location.pathname === '/register';
             if (isRegister) {
-                showRegister();
+                showRegister(normalizeRegisterRole(url.get('role')));
             } else {
                 showRoles();
             }
+            wireRoleSwitch();
         });
+
+        function normalizeRole(role) {
+            role = (role || '').toLowerCase();
+            return (role === 'doctor' || role === 'admin') ? role : 'patient';
+        }
+
+        // Registration only supports patient and doctor account types
+        function normalizeRegisterRole(role) {
+            role = (role || '').toLowerCase();
+            return role === 'doctor' ? 'doctor' : 'patient';
+        }
+
+        function getLoginRole() {
+            var el = document.getElementById('loginRole');
+            return normalizeRole(el ? el.value : 'patient');
+        }
+
+        function getRegisterRole() {
+            var el = document.getElementById('regRole');
+            return normalizeRegisterRole(el ? el.value : 'patient');
+        }
 
         function showRoles() {
             document.getElementById('roleCard').classList.remove('hidden');
@@ -291,7 +377,7 @@
         }
 
         function showLogin(role) {
-            role = role || 'patient';
+            role = normalizeRole(role);
             document.getElementById('loginRole').value = role;
             document.getElementById('roleCard').classList.add('hidden');
             document.getElementById('loginCard').classList.remove('hidden');
@@ -299,16 +385,60 @@
             var title = document.getElementById('loginTitle');
             var roleLabels = { patient: 'Patient', doctor: 'Doctor', admin: 'Admin' };
             title.textContent = (roleLabels[role] || 'Patient') + ' Sign In';
+            // Keep "Create Account" pointed at the matching registration form
+            var goRegister = document.getElementById('goRegister');
+            if (goRegister) goRegister.setAttribute('href', '/login?mode=register&role=' + encodeURIComponent(role));
             var first = document.getElementById('loginUsername');
             if (first) setTimeout(function() { first.focus(); }, 50);
         }
 
-        function showRegister() {
+        function showRegister(role) {
+            role = normalizeRegisterRole(role);
             document.getElementById('roleCard').classList.add('hidden');
             document.getElementById('loginCard').classList.add('hidden');
             document.getElementById('registerCard').classList.remove('hidden');
+            setRegisterRole(role);
             var first = document.getElementById('regFirstName');
             if (first) setTimeout(function() { first.focus(); }, 50);
+        }
+
+        // Apply the selected account type (patient / doctor) to the register form
+        function setRegisterRole(role) {
+            role = normalizeRegisterRole(role);
+            var regRole = document.getElementById('regRole');
+            if (!regRole) return;
+
+            document.querySelectorAll('.reg-role-option').forEach(function (btn) {
+                btn.classList.toggle('active', btn.getAttribute('data-role') === role);
+                btn.setAttribute('aria-pressed', btn.getAttribute('data-role') === role ? 'true' : 'false');
+            });
+
+            var titles = { patient: 'Create Patient Account', doctor: 'Create Doctor Account' };
+            var subtitles = {
+                patient: 'Join our medical practice platform',
+                doctor: 'Create your professional doctor profile'
+            };
+            var title = document.getElementById('registerTitle');
+            var subtitle = document.getElementById('registerSubtitle');
+            if (title) title.textContent = titles[role];
+            if (subtitle) subtitle.textContent = subtitles[role];
+
+            if (regRole.value !== role) {
+                regRole.value = role;
+                // Let the shared form logic show/hide the role-specific fields
+                regRole.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        }
+
+        function wireRoleSwitch() {
+            document.querySelectorAll('.reg-role-option').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    setRegisterRole(btn.getAttribute('data-role'));
+                });
+            });
+            // Reflect the current role on the "Create Account" link
+            var goRegister = document.getElementById('goRegister');
+            if (goRegister) goRegister.setAttribute('href', '/login?mode=register&role=' + encodeURIComponent(getLoginRole()));
         }
     </script>
 </body>
