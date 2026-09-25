@@ -4363,6 +4363,79 @@ app.patch('/api/hospital/notifications/:id/read', authenticateToken, requireHosp
     );
 });
 
+// ========== ADMIN: HOSPITAL STATS ==========
+app.get('/api/admin/hospital-stats', authenticateToken, requireRole('admin'), (req, res) => {
+    const today = new Date();
+    const thisMonthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    const thisYearStart = new Date(today.getFullYear(), 0, 1);
+    
+    db.all(
+        'SELECT COUNT(*) AS total FROM hospitals',
+        (err, row) => {
+            if (err) return res.status(500).json({ error: 'Server error' });
+            const totalHospitals = row[0].total;
+            
+            db.all(
+                'SELECT COUNT(*) AS verified FROM hospitals WHERE verification_status = ?',
+                ['verified'],
+                (err2, row2) => {
+                    if (err2) return res.status(500).json({ error: 'Server error' });
+                    
+                    db.all(
+                        'SELECT COUNT(*) AS pending FROM hospitals WHERE verification_status = ?',
+                        ['pending'],
+                        (err3, row3) => {
+                            if (err3) return res.status(500).json({ error: 'Server error' });
+                            
+                            db.all(
+                                'SELECT COUNT(*) AS total_users FROM users WHERE role = ?',
+                                ['hospital_admin'],
+                                (err4, row4) => {
+                                    if (err4) return res.status(500).json({ error: 'Server error' });
+                                    
+                                    db.all(
+                                        'SELECT COUNT(*) AS total_doctors FROM users WHERE role = ?',
+                                        ['doctor'],
+                                        (err5, row5) => {
+                                            if (err5) return res.status(500).json({ error: 'Server error' });
+                                            
+                                            db.all(
+                                                `SELECT COUNT(*) AS total_appointments FROM appointments WHERE date >= ?`,
+                                                [thisMonthStart.toISOString().split('T')[0]],
+                                                (err6, row6) => {
+                                                    if (err6) return res.status(500).json({ error: 'Server error' });
+                                                    
+                                                    db.all(
+                                                        `SELECT COUNT(*) AS completed_consultations FROM consultations WHERE status = 'completed'`,
+                                                        (err7, row7) => {
+                                                            if (err7) return res.status(500).json({ error: 'Server error' });
+                                                            
+                                                            res.json({
+                                                                total_hospitals: totalHospitals,
+                                                                verified_hospitals: row2[0].verified,
+                                                                pending_hospitals: row3[0].pending,
+                                                                total_hospital_admins: row4[0].total_users,
+                                                                total_doctors: row5[0].total_doctors,
+                                                                total_appointments_this_month: row6[0].total_appointments,
+                                                                completed_consultations: row7[0].completed_consultations,
+                                                                recent_hospitals: []
+                                                            });
+                                                        }
+                                                    );
+                                                }
+                                            );
+                                        }
+                                    );
+                                }
+                            );
+                        }
+                    );
+                }
+            );
+        }
+    );
+});
+
 // ========== DOCTOR: JOIN HOSPITAL ==========
 app.post('/api/doctors/join-hospital', authenticateToken, requireRole('doctor'), (req, res) => {
     const { hospital_id, message } = req.body;

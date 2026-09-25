@@ -90,8 +90,9 @@
                 <a href="/admin/patients?status=blocked" class="stat-card stat-card-link"><div class="stat-title"><span data-i18n="blocked_patients">Blocked Patients</span></div><div class="stat-value" id="statBlockedPatients">-</div><span class="stat-hint" data-i18n="view_blocked_hint">View blocked &rarr;</span></a>
                 <a href="/admin/patients?status=deactivated" class="stat-card stat-card-link"><div class="stat-title"><span data-i18n="deactivated_patients">Deactivated Patients</span></div><div class="stat-value" id="statDeactivatedPatients">-</div><span class="stat-hint" data-i18n="view_deactivated_hint">View deactivated &rarr;</span></a>
                 <a href="/admin/patients?status=deleted" class="stat-card stat-card-link"><div class="stat-title"><span data-i18n="deleted_patients">Deleted Patients</span></div><div class="stat-value" id="statDeletedPatients">-</div><span class="stat-hint" data-i18n="view_deleted_hint">View deleted &rarr;</span></a>
-                <div class="stat-card"><div class="stat-title"><span data-i18n="total_admins">Total Admins</span></div><div class="stat-value" id="statTotalAdmins">-</div><span class="stat-hint" data-i18n="administrators">Administrators</span></div>
+                <div class="stat-card"><div class="stat-title"><span data-i18n="total_admins">Total Admins</span></div><div class="stat-value" id="statTotalAdmins">-</div><span class="stat-hint" data-i18n="administrators">Administrators</div></div>
                 <div class="stat-card"><div class="stat-title"><span data-i18n="total_users">Total Users</span></div><div class="stat-value" id="statTotalUsers">-</div><span class="stat-hint" data-i18n="all_registered_accounts">All registered accounts</span></div>
+                <div class="stat-card"><div class="stat-title"><span data-i18n="total_hospitals">Total Hospitals</span></div><div class="stat-value" id="statTotalHospitals">-</div><span class="stat-hint" data-i18n="hospitals_managed">Hospitals managed</span></div>
                 <a href="/admin/appointments" class="stat-card stat-card-link"><div class="stat-title"><span data-i18n="total_appointments">Total Appointments</span></div><div class="stat-value" id="statTotalAppointments">-</div><span class="stat-hint" data-i18n="all_appointments_hint">All appointments &rarr;</span></a>
                 <a href="/admin/appointments?filter=pending" class="stat-card stat-card-link"><div class="stat-title"><span data-i18n="pending_appointments">Pending Appointments</span></div><div class="stat-value" id="statPendingAppointments">-</div><span class="stat-hint" data-i18n="awaiting_confirmation">Awaiting confirmation &rarr;</span></a>
                 <a href="/admin/consultations?status=completed" class="stat-card stat-card-link"><div class="stat-title"><span data-i18n="completed_consultations">Completed Consultations</span></div><div class="stat-value" id="statCompletedConsultations">-</div><span class="stat-hint" data-i18n="successfully_completed">Successfully completed &rarr;</span></a>
@@ -174,6 +175,27 @@
         </div>
     </section>
 
+    <section class="admin-section" id="hospitalSection">
+        <div class="container">
+            <div class="dashboard-welcome">
+                <h1 data-i18n="admin_hospital_management">Hospital Management</h1>
+                <p data-i18n="manage_hospitals_and_staff">Manage your hospitals, doctors, and staff</p>
+            </div>
+
+            <div class="admin-card mb-4">
+                <div class="toolbar">
+                    <button class="btn btn-primary" onclick="window.location.href='/admin/hospitals'"><span data-i18n="manage_hospitals">Manage Hospitals</span></button>
+                    <button class="btn btn-outline" onclick="window.location.href='/admin/doctors?status=pending'" style="margin-left:8px;"><span data-i18n="manage_join_requests">Manage Join Requests</span></button>
+                </div>
+            </div>
+
+            <div class="admin-card">
+                <div class="toolbar">
+                    <button class="btn btn-outline" onclick="window.location.href='/admin/staff'" style="margin-right:8px;"><span data-i18n="manage_staff">Manage Staff</span></button>
+                    <button class="btn btn-outline" onclick="window.location.href='/admin/departments'" style="margin-left:8px;"><span data-i18n="manage_departments">Manage Departments</span></button>
+                </div>
+            </div>
+
     <script src="/js/i18n.js?v=2.2"></script>
     <script src="/js/main.js?v=2.1"></script>
     <script>
@@ -232,6 +254,7 @@
                 document.getElementById('statPendingAppointments').textContent = s.pending_appointments;
                 document.getElementById('statCompletedConsultations').textContent = s.completed_consultations;
                 document.getElementById('statTotalReports').textContent = s.total_reports;
+                if (s.total_hospitals !== undefined) document.getElementById('statTotalHospitals').textContent = s.total_hospitals;
                 document.getElementById('statReportsToday').textContent = s.reports_today;
                 document.getElementById('statReportsWeek').textContent = s.reports_week;
                 document.getElementById('statReportsMonth').textContent = s.reports_month;
@@ -240,6 +263,7 @@
                 renderRecentAppointments(s.recent_appointments);
                 renderRecentConsultations(s.recent_consultations);
                 renderRecentReports(s.recent_reports);
+                renderRecentHospitals(s.recent_hospitals);
             } catch (err) {
                 showToast(err.message, 'error');
             }
@@ -315,6 +339,22 @@
                     <td>${escapeHtml(r.file_name || 'N/A')}</td>
                     <td>${escapeHtml(r.report_type || 'General')}</td>
                     <td>${formatDateTime(r.created_at)}</td>
+                </tr>`).join('');
+        }
+
+        function renderRecentHospitals(list) {
+            const tbody = document.getElementById('recentHospitalsBody');
+            const state = document.getElementById('recentHospitalsState');
+            tbody.innerHTML = ''; state.innerHTML = '';
+            if (!list || !list.length) { showEmptyState(state, t('no_hospitals_registered')); return; }
+            tbody.innerHTML = list.map(h => `
+                <tr>
+                    <td>${escapeHtml(h.name)}</td>
+                    <td>${escapeHtml(h.type || 'N/A')}</td>
+                    <td>${h.verification_status === 'verified' ? '<span class="status-badge status-verified">' + t('verified') + '</span>' : '<span class="status-badge status-pending">' + t('pending') + '</span>'}</td>
+                    <td>${h.account_status || 'active'}</td>
+                    <td>${formatDate(h.created_at)}</td>
+                    <td><a href="/admin/hospitals" class="btn btn-sm btn-outline">${t('view')}</a></td>
                 </tr>`).join('');
         }
 
