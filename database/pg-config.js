@@ -148,6 +148,11 @@ async function initDatabase() {
         `ALTER TABLE hospital_join_requests ADD COLUMN IF NOT EXISTS request_type TEXT DEFAULT 'doctor_request'`,
         `ALTER TABLE hospital_join_requests ADD COLUMN IF NOT EXISTS department_id INTEGER`,
         `ALTER TABLE hospital_join_requests ADD COLUMN IF NOT EXISTS invited_by INTEGER`,
+        // Appointment -> hospital relationship (NULL = independent clinic doctor).
+        // Added later, so existing rows stay NULL and keep working.
+        `ALTER TABLE consultations ADD COLUMN IF NOT EXISTS hospital_id INTEGER`,
+        `CREATE INDEX IF NOT EXISTS idx_consultations_hospital ON consultations(hospital_id)`,
+        `CREATE INDEX IF NOT EXISTS idx_consultations_doctor_date ON consultations(doctor_id, date)`,
         // One affiliation row per (hospital, doctor) pair — ignore duplicates created
         // before the constraint existed rather than failing the whole migration.
         `DELETE FROM hospital_memberships a USING hospital_memberships b

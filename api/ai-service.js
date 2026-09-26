@@ -1550,6 +1550,160 @@ function getResponseLanguageSuffix(detectedLang) {
     return LANG_RESPONSE_SUFFIX[detectedLang] || LANG_RESPONSE_SUFFIX['en'];
 }
 
+// ── Hospital / doctor / booking directory (real database rows only) ────────
+// chat() is given context.appointmentDirectory built from the same tables the
+// booking flow reads. This turns it into an answer; it returns null when the
+// message is not about hospitals, doctors or appointments.
+// Nothing here is ever invented: if a table is empty we say so.
+function answerFromAppointmentDirectory(message, dir) {
+    if (!dir || !Array.isArray(dir.hospitals)) return null;
+
+    const lower = String(message || '').toLowerCase();
+    const hospitals = dir.hospitals || [];
+    const affiliated = dir.affiliated || [];
+    const independent = dir.independent || [];
+    const byId = {};
+    hospitals.forEach(h => { byId[h.id] = h; });
+
+    const feeText = v => (v === undefined || v === null || v === '') ? null : '₹' + v;
+
+    // ---- 1. A hospital was named ------------------------------------------------
+    let namedHospital = null;
+    for (const h of hospitals) {
+        const full = String(h.name || '').trim();
+        if (!full) continue;
+        if (lower.includes(full.toLowerCase())) { namedHospital = h; break; }
+        const bare = full.toLowerCase().replace(/\b(hospital|hospitals|centre|center|clinic|polyclinic)\b/g, '').trim();
+        if (bare.length >= 4 && lower.includes(bare)) { namedHospital = h; break; }
+    }
+
+    if (namedHospital) {
+        const docs = affiliated.filter(a => Number(a.hospital_pk) === Number(namedHospital.id));
+        let out = '**' + namedHospital.name + '**\n';
+        const place = [namedHospital.city, namedHospital.state].filter(Boolean).join(', ');
+        if (place) out += place + '\n';
+        if (namedHospital.address) out += namedHospital.address + '\n';
+        if (namedHospital.phone) out += 'Phone: ' + namedHospital.phone + '\n';
+        out += (namedHospital.doctor_count || docs.length) + ' doctor(s) currently affiliated\n';
+
+        if (!docs.length) {
+            out += '\nNo active doctors are currently listed at this hospital.';
+        } else {
+            out += '\n**Available doctors at this hospital:**\n';
+            docs.slice(0, 15).forEach(d => {
+                const bits = [];
+                if (d.specialty) bits.push(d.specialty);
+                if (d.department && d.department !== d.specialty) bits.push(d.department);
+                const f = feeText(d.consultation_fee);
+                if (f) bits.push(f);
+                out += '- ' + d.full_name + (bits.length ? ' — ' + bits.join(' · ') : '') + '\n';
+            });
+            if (docs.length > 15) out += '- …and ' + (docs.length - 15) + ' more\n';
+        }
+        out += '\nSelect this hospital in Book Appointment → step 2 to see its live available dates and times.';
+        return out;
+    }
+
+    // ---- 2. A doctor was named --------------------------------------------------
+    const allDoctors = affiliated.map(d => ({ d: d, kind: 'hospital' }))
+        .concat(independent.map(d => ({ d: d, kind: 'independent' })));
+
+    let bestDoctor = null;
+    let bestScore = 0;
+    allDoctors.forEach(entry => {
+        const tokens = String(entry.d.full_name || '')
+            .toLowerCase()
+            .split(/\s+/)
+            .filter(p => p.length >= 4 && p !== 'doctor');
+        if (!tokens.length) return;
+        let score = 0;
+        tokens.forEach(p => { if (lower.includes(p)) score += 1; });
+        if (score > bestScore) { bestScore = score; bestDoctor = entry; }
+    });
+
+    if (bestDoctor) {
+        const d = bestDoctor.d;
+        let out = '**' + d.full_name + '**\n';
+        const bits = [];
+        if (d.specialty) bits.push(d.specialty);
+        if (d.qualification) bits.push(d.qualification);
+        if (bits.length) out += bits.join(' · ') + '\n';
+        const f = feeText(d.consultation_fee);
+        if (f) out += 'Consultation fee: ' + f + '\n';
+
+        if (bestDoctor.kind === 'independent') {
+            out += 'Practice: independent clinic' +
+                (d.clinic_name ? ' (' + d.clinic_name + ')' : '') +
+                (d.clinic_city ? ', ' + d.clinic_city : '') + '\n';
+            out += '\nBookable as an independent clinic doctor — no hospital selection needed.';
+        } else {
+            const hosp = byId[d.hospital_pk];
+            out += 'Hospital: ' + (hosp ? (hosp.name + (hosp.city ? ', ' + hosp.city : '')) : '—') + '\n';
+            if (d.department) out += 'Department: ' + d.department + '\n';
+            out += '\nSelect ' + (hosp ? hosp.name : 'this hospital') + ' first, then this doctor.';
+        }
+        out += '\n\nI can only show live slots inside Book Appointment — I can\'t guess appointment times.';
+        return out;
+    }
+
+    // ---- 3. A specialty was requested ------------------------------------------
+    const specialties = [];
+    affiliated.concat(independent).forEach(d => {
+        const s = String(d.specialty || '').trim();
+        if (s && specialties.indexOf(s) === -1) specialties.push(s);
+    });
+    const wanted = specialties.find(s => lower.includes(s.toLowerCase()));
+
+    if (wanted) {
+        const norm = wanted.toLowerCase();
+        const hos = affiliated.filter(d => String(d.specialty || '').toLowerCase() === norm);
+        const ind = independent.filter(d => String(d.specialty || '').toLowerCase() === norm);
+        if (!hos.length && !ind.length) {
+            return 'No active ' + wanted + ' doctors are currently registered.';
+        }
+        let out = '**' + wanted + ' doctors:**\n';
+        hos.slice(0, 15).forEach(d => {
+            const hosp = byId[d.hospital_pk];
+            const f = feeText(d.consultation_fee);
+            out += '- ' + d.full_name + ' — ' + (hosp ? hosp.name + (hosp.city ? ', ' + hosp.city : '') : 'Hospital') +
+                (f ? ' (' + f + ')' : '') + '\n';
+        });
+        ind.slice(0, 10).forEach(d => {
+            const f = feeText(d.consultation_fee);
+            out += '- ' + d.full_name + ' — independent clinic' +
+                (d.clinic_city ? ', ' + d.clinic_city : '') + (f ? ' (' + f + ')' : '') + '\n';
+        });
+        out += '\nChoose the hospital (or an independent doctor) in Book Appointment to see available times.';
+        return out;
+    }
+
+    // ---- 4. General: list what actually exists ---------------------------------
+    if (!hospitals.length && !independent.length) {
+        return 'No hospitals or doctors are currently registered in the system, so there is nothing to book.';
+    }
+
+    let out = hospitals.length
+        ? '**Registered hospitals (' + hospitals.length + '):**\n'
+        : 'No hospitals are currently registered.\n';
+    hospitals.slice(0, 12).forEach((h, i) => {
+        const place = [h.city, h.state].filter(Boolean).join(', ');
+        out += (i + 1) + '. ' + h.name + (place ? ' — ' + place : '') +
+            ' — ' + (h.doctor_count || 0) + ' doctor(s)\n';
+    });
+    if (hospitals.length > 12) out += '…and ' + (hospitals.length - 12) + ' more\n';
+
+    if (independent.length) {
+        out += '\n**Independent clinic doctors (' + independent.length + '):**\n';
+        independent.slice(0, 8).forEach(d => {
+            out += '- ' + d.full_name + (d.specialty ? ' — ' + d.specialty : '') +
+                (d.clinic_city ? ' (' + d.clinic_city + ')' : '') + '\n';
+        });
+    }
+
+    out += '\nOpen Book Appointment to search hospitals by name, city, state or registration number.';
+    return out;
+}
+
 async function chat(message, context = {}) {
     if (!message || typeof message !== 'string') {
         return {
@@ -1844,6 +1998,59 @@ async function chat(message, context = {}) {
                 detectedLanguage: detectedLang,
                 reportUsed: true
             };
+        }
+    }
+
+    // ── Hospital / doctor / booking questions → live directory only ───────────
+    // Runs BEFORE the knowledge-base RAG so a booking question can never be
+    // answered with generic text. Never invents a hospital, doctor or time
+    // slot: everything comes from context.appointmentDirectory (real rows
+    // from the same tables the booking flow uses).
+    if (context && context.appointmentDirectory) {
+        const dirData = context.appointmentDirectory;
+        const strongWords = [
+            'hospital', 'appointment', 'appointments', 'book', 'booking', 'slot', 'slots',
+            'clinic', 'opd', 'अस्पताल', 'अपॉइंटमेंट', 'बुक', 'स्लॉट'
+        ];
+        // A vague word ("available", "time") only triggers when the message
+        // also names a hospital, a doctor or a specialty that really exists —
+        // that keeps ordinary health questions out of the booking flow.
+        const stopWords = [
+            'city', 'care', 'general', 'medical', 'hospital', 'hospitals', 'centre',
+            'center', 'clinic', 'polyclinic', 'public', 'private', 'government',
+            'national', 'memorial', 'institute', 'foundation', 'trust', 'nursing',
+            'multispeciality', 'multispecialty', 'superspeciality', 'doctor', 'doctors'
+        ];
+        const hasHospitalName = (dirData.hospitals || []).some(h => {
+            const n = String(h.name || '').trim();
+            if (!n) return false;
+            if (lowerMessage.includes(n.toLowerCase())) return true;
+            // "City Care Hospital" should also match "city care"
+            const bare = n.toLowerCase().replace(/\b(hospital|hospitals|centre|center|clinic)\b/g, ' ').replace(/\s+/g, ' ').trim();
+            return bare.length >= 6 && lowerMessage.includes(bare);
+        });
+        const hasSpecialty = (dirData.affiliated || []).concat(dirData.independent || [])
+            .some(d => {
+                const s = String(d.specialty || '').trim();
+                return s.length >= 4 && lowerMessage.includes(s.toLowerCase());
+            });
+        const hasDoctorName = (dirData.affiliated || []).concat(dirData.independent || [])
+            .some(d => String(d.full_name || '').toLowerCase().split(/\s+/)
+                .some(p => p.length >= 4 && stopWords.indexOf(p) === -1 && lowerMessage.includes(p)));
+
+        let dirTrigger = strongWords.some(w => lowerMessage.includes(w)) ||
+            hasHospitalName || hasSpecialty || hasDoctorName;
+
+        if (dirTrigger) {
+            const dirAnswer = answerFromAppointmentDirectory(lowerMessage, dirData);
+            if (dirAnswer) {
+                return {
+                    response: langPrefix + dirAnswer + langSuffix,
+                    type: 'directory',
+                    sources: [],
+                    detectedLanguage: detectedLang
+                };
+            }
         }
     }
 

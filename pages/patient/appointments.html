@@ -7,6 +7,57 @@
     <link rel="stylesheet" href="/css/style.css">
     <link rel="icon" href="/favicon.png" type="image/x-icon">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        /* ---- Hospital-first booking wizard (scoped, no global changes) ---- */
+        .bk-steps { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
+        .bk-step { display: flex; align-items: center; gap: 7px; font-size: 13px; color: var(--text-muted, #6b7280); padding: 5px 10px; border-radius: 999px; background: var(--bg-alt, #f3f4f6); white-space: nowrap; }
+        .bk-step .bk-dot { width: 20px; height: 20px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; background: #d1d5db; color: #fff; flex: 0 0 auto; }
+        .bk-step.is-active { background: #e8f0fe; color: #1d4ed8; font-weight: 600; }
+        .bk-step.is-active .bk-dot { background: #1d4ed8; }
+        .bk-step.is-done { background: #e7f6ec; color: #15803d; }
+        .bk-step.is-done .bk-dot { background: #16a34a; }
+        .bk-arrow { color: #cbd5e1; font-size: 13px; flex: 0 0 auto; }
+        .bk-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+        .bk-card { border: 1px solid var(--border, #e5e7eb); border-radius: 12px; padding: 14px; background: var(--bg, #fff); display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+        .bk-card.is-picked { border-color: #1d4ed8; box-shadow: 0 0 0 2px rgba(29, 78, 216, .18); }
+        .bk-card h4 { margin: 0; font-size: 15px; word-break: break-word; }
+        .bk-meta { font-size: 12.5px; color: var(--text-muted, #6b7280); line-height: 1.5; word-break: break-word; }
+        .bk-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+        .bk-chip { font-size: 12px; padding: 4px 10px; border-radius: 999px; border: 1px solid var(--border, #e5e7eb); background: transparent; cursor: pointer; color: inherit; }
+        .bk-chip.is-active { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
+        .bk-dates { display: flex; gap: 8px; flex-wrap: wrap; }
+        .bk-date { min-width: 64px; padding: 8px 6px; border-radius: 10px; border: 1px solid var(--border, #e5e7eb); background: transparent; cursor: pointer; text-align: center; color: inherit; }
+        .bk-date strong { display: block; font-size: 14px; }
+        .bk-date span { font-size: 11px; opacity: .75; }
+        .bk-date.is-active { background: #1d4ed8; border-color: #1d4ed8; color: #fff; }
+        .bk-slots { display: grid; grid-template-columns: repeat(auto-fill, minmax(86px, 1fr)); gap: 8px; }
+        .bk-slot { padding: 8px 4px; border-radius: 8px; border: 1px solid var(--border, #e5e7eb); background: transparent; cursor: pointer; font-size: 13px; color: inherit; }
+        .bk-slot.is-active { background: #16a34a; border-color: #16a34a; color: #fff; }
+        .bk-state { text-align: center; padding: 26px 12px; color: var(--text-muted, #6b7280); font-size: 14px; }
+        .bk-state .bk-retry { margin-top: 12px; display: inline-block; }
+        .bk-hero { display: flex; gap: 14px; align-items: flex-start; border: 1px solid var(--border, #e5e7eb); border-radius: 12px; padding: 14px; margin-bottom: 14px; flex-wrap: wrap; }
+        .bk-hero img, .bk-hero .bk-logo { width: 56px; height: 56px; border-radius: 12px; object-fit: cover; background: #eef2ff; display: flex; align-items: center; justify-content: center; font-weight: 700; color: #1d4ed8; flex: 0 0 auto; }
+        .bk-summary { border: 1px solid var(--border, #e5e7eb); border-radius: 12px; padding: 6px 14px; }
+        .bk-summary-row { display: flex; justify-content: space-between; gap: 14px; padding: 10px 0; border-bottom: 1px solid var(--border, #e5e7eb); font-size: 14px; }
+        .bk-summary-row:last-child { border-bottom: 0; }
+        .bk-summary-row span:first-child { color: var(--text-muted, #6b7280); flex: 0 0 auto; }
+        .bk-summary-row span:last-child { text-align: right; font-weight: 600; word-break: break-word; }
+        .bk-title { font-size: 15px; font-weight: 700; margin: 16px 0 8px; }
+        .bk-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-bottom: 14px; }
+        .bk-mode { text-align: left; border: 1px solid var(--border, #e5e7eb); border-radius: 12px; padding: 14px; background: transparent; cursor: pointer; color: inherit; }
+        .bk-mode.is-active { border-color: #1d4ed8; background: #eef4ff; }
+        .bk-mode strong { display: block; font-size: 14.5px; margin-bottom: 4px; }
+        .bk-mode span { font-size: 12.5px; color: var(--text-muted, #6b7280); }
+        .bk-search { margin-bottom: 12px; }
+        .bk-toolbar { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 12px; }
+        .bk-docline { display: flex; gap: 12px; align-items: center; min-width: 0; }
+        .bk-fee { font-weight: 700; color: #15803d; white-space: nowrap; }
+        @media (max-width: 640px) {
+            .bk-step { font-size: 12px; padding: 4px 8px; }
+            .bk-arrow { display: none; }
+            .modal-content.bk-wide { max-width: 100% !important; }
+        }
+    </style>
 </head>
 <body>
     <header class="admin-header">
@@ -56,7 +107,7 @@
                         <h1><span data-i18n="my_appointments">My Appointments</span></h1>
                         <p data-i18n="own_appointments_only">Only your own appointments are shown here</p>
                     </div>
-                    <button class="btn btn-primary" onclick="showBookModal()"><span data-i18n="book_appointment">+ Book Appointment</span></button>
+                    <button class="btn btn-primary" onclick="openBooking()"><span data-i18n="book_appointment">+ Book Appointment</span></button>
                 </div>
             </div>
 
@@ -76,6 +127,7 @@
                         <thead>
                             <tr>
                                 <th><span data-i18n="doctor">Doctor</span></th>
+                                <th><span data-i18n="hospital">Hospital</span></th>
                                 <th><span data-i18n="specialty">Specialty</span></th>
                                 <th><span data-i18n="date">Date</span></th>
                                 <th><span data-i18n="time">Time</span></th>
@@ -92,36 +144,31 @@
         </div>
     </section>
 
-    <!-- Book Appointment Modal -->
+    <!-- Booking Wizard: Hospital -> Doctor -> Date & Time -> Confirm -->
     <div class="modal" id="bookModal" role="dialog" aria-modal="true" aria-labelledby="bookTitle">
-        <div class="modal-content" style="max-width: 520px; text-align: left;">
+        <div class="modal-content bk-wide" style="max-width: 760px; text-align: left;">
             <div class="modal-header">
-                <h3 id="bookTitle"><span data-i18n="book_appointment">Book Appointment</span></h3>
-                <button class="btn btn-sm btn-outline" onclick="hideModal('bookModal')" aria-label="Close">×</button>
+                <h3 id="bookTitle"><span data-i18n="book_appointment">Book an Appointment</span></h3>
+                <button class="btn btn-sm btn-outline" onclick="closeBooking()" aria-label="Close">×</button>
             </div>
             <div class="modal-body">
-                <div class="form-group">
-                    <label for="bookDoctor"><span data-i18n="doctor">Doctor</span></label>
-                    <select id="bookDoctor" class="form-control" aria-label="Doctor"></select>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="bookDate"><span data-i18n="date">Date</span></label>
-                        <input type="date" id="bookDate" class="form-control" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="bookTime"><span data-i18n="time">Time</span></label>
-                        <input type="time" id="bookTime" class="form-control">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="bookReason"><span data-i18n="description">Reason</span></label>
-                    <textarea id="bookReason" rows="3" class="form-control" placeholder="Reason for appointment"></textarea>
-                </div>
+                <div class="bk-steps" id="bkSteps" aria-label="Booking steps"></div>
+                <div id="bkPanel"></div>
             </div>
+            <div class="modal-actions" id="bkActions"></div>
+        </div>
+    </div>
+
+    <!-- Appointment details / doctor profile (read-only) -->
+    <div class="modal" id="detailsModal" role="dialog" aria-modal="true" aria-labelledby="detailsTitle">
+        <div class="modal-content" style="max-width: 540px; text-align: left;">
+            <div class="modal-header">
+                <h3 id="detailsTitle">Details</h3>
+                <button class="btn btn-sm btn-outline" onclick="hideModal('detailsModal')" aria-label="Close">×</button>
+            </div>
+            <div class="modal-body" id="detailsBody"></div>
             <div class="modal-actions" style="justify-content: flex-end;">
-                <button class="btn btn-secondary" onclick="hideModal('bookModal')"><span data-i18n="cancel">Cancel</span></button>
-                <button class="btn btn-primary" id="bookBtn" onclick="bookAppointment()"><span data-i18n="book_appointment">Request Appointment</span></button>
+                <button class="btn btn-secondary" onclick="hideModal('detailsModal')"><span data-i18n="close">Close</span></button>
             </div>
         </div>
     </div>
@@ -158,12 +205,15 @@
         let rescheduleId = null;
         let pollTimer = null;
 
+        function t(key) {
+            return (typeof ShrijalI18n !== 'undefined') ? ShrijalI18n.t(key) : key;
+        }
+
         document.addEventListener('DOMContentLoaded', function () {
             if (!bootPage('appointments', ['patient'])) return;
 
-            showSkeleton(document.getElementById('appointmentsList'), 4, 7);
+            showSkeleton(document.getElementById('appointmentsList'), 4, 8);
             loadAppointments();
-            loadDoctors();
 
             const urlParams = new URLSearchParams(window.location.search);
             const filter = urlParams.get('filter');
@@ -171,14 +221,10 @@
                 const tab = document.querySelector('.filter-tab[data-status="' + filter + '"]');
                 if (tab) setFilter(tab);
             }
-            const book = urlParams.get('book');
-            if (book) {
-                loadDoctors().then(() => {
-                    const preferred = localStorage.getItem('pat_preferred_doctor_id');
-                    const sel = document.getElementById('bookDoctor');
-                    if (preferred && sel) sel.value = preferred;
-                    showBookModal();
-                });
+            if (urlParams.get('book')) {
+                const raw = urlParams.get('book');
+                if (/^\d+$/.test(raw) && raw !== '1') openBookingForDoctor(Number(raw));
+                else openBooking();
             }
 
             startPolling();
@@ -209,12 +255,11 @@
 
         function setFilter(btn) {
             currentFilter = btn.getAttribute('data-status');
-            document.querySelectorAll('.filter-tab').forEach(t => t.classList.toggle('active', t === btn));
+            document.querySelectorAll('.filter-tab').forEach(x => x.classList.toggle('active', x === btn));
             renderList();
         }
 
         function renderList() {
-            const t = function(key) { return typeof ShrijalI18n !== 'undefined' ? ShrijalI18n.t(key) : key; };
             const tbody = document.getElementById('appointmentsList');
             const state = document.getElementById('appointmentsState');
             tbody.innerHTML = '';
@@ -229,12 +274,13 @@
             }
 
             if (!list.length) {
-                showEmptyState(state, currentFilter ? t('no_appointments_found') : t('no_appointments_found'));
+                showEmptyState(state, t('no_appointments_found'));
                 return;
             }
 
             tbody.innerHTML = list.map(a => {
                 const open = ['pending', 'seen', 'accepted'].includes(a.status);
+                const hospitalName = a.hospital_name || '—';
                 return `
                 <tr>
                     <td>
@@ -243,7 +289,8 @@
                             <strong>${escapeHtml(a.doctor_name || t('doctor'))}</strong>
                         </div>
                     </td>
-                    <td>${escapeHtml(a.doctor.specialty || 'N/A')}</td>
+                    <td>${escapeHtml(hospitalName)}</td>
+                    <td>${escapeHtml((a.doctor && a.doctor.specialty) || a.specialty || 'N/A')}</td>
                     <td>${formatDate(a.date)}</td>
                     <td>${escapeHtml(a.appointment_time || 'N/A')}</td>
                     <td>${escapeHtml(a.reason || 'N/A')}</td>
@@ -265,36 +312,22 @@
         async function viewAppointment(id) {
             try {
                 const a = await api('/appointments/' + id);
-                showModal('bookModal');
-                document.getElementById('bookTitle').textContent = 'Appointment Details';
-                const doctorSel = document.getElementById('bookDoctor');
-                doctorSel.innerHTML = `<option value="${a.doctor_id}">${escapeHtml(a.doctor_name)}</option>`;
-                document.getElementById('bookDate').value = (a.date || '').slice(0, 10);
-                document.getElementById('bookTime').value = a.appointment_time || '';
-                document.getElementById('bookReason').value = a.reason || '';
-                document.getElementById('bookReason').disabled = true;
-                document.getElementById('bookDate').disabled = true;
-                document.getElementById('bookTime').disabled = true;
-                document.getElementById('bookDoctor').disabled = true;
-                document.getElementById('bookBtn').style.display = 'none';
-                const closeBtn = document.createElement('button');
-                closeBtn.className = 'btn btn-secondary';
-                closeBtn.textContent = 'Close';
-                closeBtn.onclick = function () {
-                    hideModal('bookModal');
-                    document.getElementById('bookReason').disabled = false;
-                    document.getElementById('bookDate').disabled = false;
-                    document.getElementById('bookTime').disabled = false;
-                    document.getElementById('bookDoctor').disabled = false;
-                    document.getElementById('bookBtn').style.display = '';
-                    document.getElementById('bookTitle').textContent = 'Book Appointment';
-                    document.getElementById('bookReason').value = '';
-                    closeBtn.remove();
-                };
-                document.querySelector('#bookModal .modal-actions').appendChild(closeBtn);
-                if (a.rejection_reason) {
-                    showToast('Rejected: ' + a.rejection_reason, 'error', 6000);
-                }
+                document.getElementById('detailsTitle').textContent = 'Appointment Details';
+                const rows = [
+                    [t('doctor'), a.doctor_name],
+                    [t('hospital'), a.hospital_name || '—'],
+                    [t('specialty'), (a.doctor && a.doctor.specialty) || a.specialty || '—'],
+                    [t('date'), formatDate(a.date)],
+                    [t('time'), a.appointment_time || '—'],
+                    [t('status'), a.status],
+                    [t('reason'), a.reason || '—']
+                ];
+                document.getElementById('detailsBody').innerHTML =
+                    '<div class="bk-summary">' + rows.map(r =>
+                        `<div class="bk-summary-row"><span>${escapeHtml(r[0])}</span><span>${escapeHtml(String(r[1]))}</span></div>`
+                    ).join('') + '</div>';
+                showModal('detailsModal');
+                if (a.rejection_reason) showToast('Rejected: ' + a.rejection_reason, 'error', 6000);
             } catch (err) {
                 showToast(err.message, 'error');
             }
@@ -311,10 +344,7 @@
         async function saveReschedule() {
             const btn = document.getElementById('reschedBtn');
             const date = document.getElementById('reschedDate').value;
-            if (!date) {
-                showToast('Please choose a new date', 'error');
-                return;
-            }
+            if (!date) { showToast('Please choose a new date', 'error'); return; }
             btn.disabled = true;
             try {
                 await api('/appointments/' + rescheduleId, 'PUT', {
@@ -342,56 +372,624 @@
             }
         }
 
-        async function loadDoctors() {
-            try {
-                const doctors = await api('/doctors');
-                const select = document.getElementById('bookDoctor');
-                select.innerHTML = '<option value="">Select doctor...</option>' +
-                    doctors.map(d => `<option value="${d.id}">${escapeHtml(d.full_name)}${d.specialty ? ' - ' + escapeHtml(d.specialty) : ''}</option>`).join('');
-            } catch (err) {
-                showToast(err.message, 'error');
-            }
-        }
+        /* =========================================================
+           HOSPITAL-FIRST BOOKING WIZARD
+           1. Hospital  2. Doctor  3. Date & Time  4. Confirm
+           Everything shown comes from the database — no sample data.
+           ========================================================= */
 
-        function showBookModal() {
-            document.getElementById('bookDate').value = new Date().toISOString().split('T')[0];
-            document.getElementById('bookDate').min = new Date().toISOString().split('T')[0];
-            document.getElementById('bookTime').value = '';
-            document.getElementById('bookReason').value = '';
+        const WIZ = {
+            step: 1,
+            mode: 'hospital',          // 'hospital' | 'independent'
+            hospitalQuery: '',
+            hospitals: null,           // null = not loaded yet
+            hospitalsLoading: false,
+            hospitalsError: null,
+            hospital: null,            // selected hospital object
+            hospitalDetail: null,
+            doctors: null,             // doctors of the selected hospital (or independent list)
+            doctorsLoading: false,
+            doctorsError: null,
+            doctorQuery: '',
+            specialty: '',
+            doctor: null,
+            availability: null,
+            availabilityLoading: false,
+            availabilityError: null,
+            date: null,
+            time: null,
+            reason: '',
+            submitting: false,
+            focusId: null,
+            preferredDoctorId: null
+        };
+
+        function esc(s) { return escapeHtml(s === undefined || s === null ? '' : String(s)); }
+
+        function openBooking() {
+            WIZ.step = 1;
+            WIZ.mode = 'hospital';
+            WIZ.hospitalQuery = '';
+            WIZ.hospital = null;
+            WIZ.hospitalDetail = null;
+            WIZ.doctors = null;
+            WIZ.doctorQuery = '';
+            WIZ.specialty = '';
+            WIZ.doctor = null;
+            WIZ.availability = null;
+            WIZ.date = null;
+            WIZ.time = null;
+            WIZ.reason = '';
+            WIZ.hospitalsError = null;
+            WIZ.doctorsError = null;
+            WIZ.availabilityError = null;
+            WIZ.submitting = false;
+            WIZ.focusId = null;
+            WIZ.preferredDoctorId = null;
             showModal('bookModal');
+            renderBooking();
+            if (!WIZ.hospitals || WIZ.hospitalsError) loadHospitals();
         }
 
-        async function bookAppointment() {
-            const btn = document.getElementById('bookBtn');
-            const user = getUser();
-            const date = document.getElementById('bookDate').value;
-            const doctorId = document.getElementById('bookDoctor').value;
-
-            if (!doctorId) {
-                showToast('Please choose a doctor', 'error');
-                return;
-            }
-            if (!date) {
-                showToast('Please choose a date', 'error');
-                return;
-            }
-
-            btn.disabled = true;
+        // Arriving with ?book=<doctorId> (from the Doctors page): work out from
+        // real affiliations whether this doctor needs a hospital, and jump to
+        // the first step that actually needs the patient's input.
+        async function openBookingForDoctor(doctorId) {
+            openBooking();
+            WIZ.preferredDoctorId = doctorId;
+            let doctors;
             try {
-                await api('/appointments', 'POST', {
-                    patient_id: user.id,
-                    doctor_id: doctorId,
-                    appointment_date: date,
-                    appointment_time: document.getElementById('bookTime').value,
-                    reason: document.getElementById('bookReason').value
-                });
-                showToast('Appointment requested. Your doctor will confirm it.');
-                hideModal('bookModal');
-                await loadAppointments(true);
-                btn.disabled = false;
+                doctors = await api('/doctors');
             } catch (err) {
                 showToast(err.message, 'error');
-                btn.disabled = false;
+                return;
+            }
+            const doc = (doctors || []).find(d => Number(d.id) === Number(doctorId));
+            if (!doc) return;
+
+            const hospitals = doc.hospitals || [];
+            if (hospitals.length === 1) {
+                WIZ.hospital = { code: hospitals[0].code, name: hospitals[0].name };
+                WIZ.mode = 'hospital';
+                WIZ.doctors = [doc];
+                WIZ.doctor = null;
+                WIZ.preferredDoctorId = null;
+                WIZ.step = 2;
+                renderBooking();
+                try { WIZ.hospitalDetail = await api('/hospitals/' + encodeURIComponent(WIZ.hospital.code)); }
+                catch (e) { WIZ.hospitalDetail = null; }
+                renderBooking();
+                await pickDoctor(doc.id);
+                return;
+            }
+
+            if (hospitals.length === 0) {
+                WIZ.mode = 'independent';
+                WIZ.hospital = null;
+                WIZ.doctors = [doc];
+                WIZ.doctor = null;
+                WIZ.preferredDoctorId = null;
+                WIZ.step = 2;
+                renderBooking();
+                await pickDoctor(doc.id);
+                return;
+            }
+
+            // Several hospitals: let the patient choose which one to book through.
+            renderBooking();
+            showToast(t('choose_hospital_for_doctor'), 'info', 5000);
+        }
+
+        function closeBooking() { hideModal('bookModal'); }
+
+        function stepsHtml() {
+            const labels = [
+                t('hospital'),
+                t('doctor'),
+                t('date_and_time'),
+                t('step_confirm')
+            ];
+            return labels.map((label, i) => {
+                const n = i + 1;
+                const cls = WIZ.step === n ? 'is-active' : (WIZ.step > n ? 'is-done' : '');
+                const dot = WIZ.step > n ? '✓' : String(n);
+                return `<div class="bk-step ${cls}"><span class="bk-dot">${dot}</span>${esc(label)}</div>` +
+                    (n < 4 ? '<span class="bk-arrow">→</span>' : '');
+            }).join('');
+        }
+
+        async function loadHospitals() {
+            WIZ.hospitalsLoading = true;
+            WIZ.hospitalsError = null;
+            renderBooking();
+            try {
+                const q = (WIZ.hospitalQuery || '').trim();
+                const url = '/hospitals/search' + (q ? ('?q=' + encodeURIComponent(q)) : '');
+                WIZ.hospitals = await api(url);
+            } catch (err) {
+                WIZ.hospitalsError = err.message;
+                WIZ.hospitals = WIZ.hospitals || [];
+            }
+            WIZ.hospitalsLoading = false;
+            renderBooking();
+        }
+
+        let hospitalSearchTimer = null;
+        function onHospitalSearch(value) {
+            WIZ.hospitalQuery = value;
+            if (hospitalSearchTimer) clearTimeout(hospitalSearchTimer);
+            hospitalSearchTimer = setTimeout(loadHospitals, 260);
+        }
+
+        // Filtering happens in the browser over an already hospital-scoped list,
+        // so typing never has to wait on the network.
+        function onDoctorSearch(value) {
+            WIZ.doctorQuery = value;
+            renderBooking();
+        }
+
+        async function pickHospital(code, name) {
+            WIZ.hospital = { code: code, name: name };
+            WIZ.hospitalDetail = null;
+            WIZ.doctors = null;
+            WIZ.doctor = null;
+            WIZ.step = 2;
+            renderBooking();
+            try {
+                WIZ.hospitalDetail = await api('/hospitals/' + encodeURIComponent(code));
+            } catch (e) { WIZ.hospitalDetail = null; }
+            renderBooking();
+            loadDoctors();
+        }
+
+        async function loadIndependentDoctors() {
+            WIZ.mode = 'independent';
+            WIZ.hospital = null;
+            WIZ.hospitalDetail = null;
+            WIZ.doctor = null;
+            WIZ.doctors = null;
+            WIZ.doctorsError = null;
+            WIZ.doctorsLoading = true;
+            WIZ.step = 2;
+            renderBooking();
+            try {
+                WIZ.doctors = await api('/doctors?practice=independent');
+            } catch (err) {
+                WIZ.doctorsError = err.message;
+                WIZ.doctors = [];
+            }
+            WIZ.doctorsLoading = false;
+            renderBooking();
+        }
+
+        async function loadDoctors() {
+            WIZ.doctors = null;
+            WIZ.doctorsLoading = true;
+            WIZ.doctorsError = null;
+            renderBooking();
+            try {
+                if (WIZ.mode === 'independent') {
+                    WIZ.doctors = await api('/doctors?practice=independent');
+                } else {
+                    WIZ.doctors = await api('/hospitals/' + encodeURIComponent(WIZ.hospital.code) + '/doctors');
+                }
+            } catch (err) {
+                WIZ.doctorsError = err.message;
+                WIZ.doctors = [];
+            }
+            WIZ.doctorsLoading = false;
+            renderBooking();
+            autoPickPreferred();
+        }
+
+        // When the patient arrived with a pre-selected doctor, jump straight to
+        // that doctor once we know which list contains them.
+        function autoPickPreferred() {
+            if (!WIZ.preferredDoctorId || !WIZ.doctors || !WIZ.doctors.length) return;
+            const match = WIZ.doctors.find(d => Number(d.id) === Number(WIZ.preferredDoctorId));
+            if (!match) return;
+            WIZ.preferredDoctorId = null;
+            pickDoctor(match.id);
+        }
+
+        async function pickDoctor(id) {
+            const list = WIZ.doctors || [];
+            const doc = list.find(d => String(d.id) === String(id));
+            if (!doc) return;
+            WIZ.doctor = doc;
+            WIZ.availability = null;
+            WIZ.availabilityError = null;
+            WIZ.date = null;
+            WIZ.time = null;
+            WIZ.step = 3;
+            renderBooking();
+            await loadAvailability();
+        }
+
+        async function loadAvailability() {
+            WIZ.availabilityLoading = true;
+            WIZ.availabilityError = null;
+            renderBooking();
+            try {
+                let url = '/doctors/' + WIZ.doctor.id + '/availability?days=14';
+                if (WIZ.hospital) url += '&hospital_id=' + encodeURIComponent(WIZ.hospital.code);
+                WIZ.availability = await api(url);
+            } catch (err) {
+                WIZ.availabilityError = err.message;
+                WIZ.availability = null;
+            }
+            WIZ.availabilityLoading = false;
+            renderBooking();
+        }
+
+        function gotoStep(n) {
+            if (n === WIZ.step) return;
+            WIZ.step = n;
+            renderBooking();
+        }
+
+        function selectMode(mode) {
+            WIZ.mode = mode;
+            if (mode === 'independent') { loadIndependentDoctors(); return; }
+            WIZ.hospital = null;
+            WIZ.hospitalDetail = null;
+            WIZ.doctors = null;
+            WIZ.doctor = null;
+            WIZ.step = 1;
+            renderBooking();
+            if (!WIZ.hospitals || WIZ.hospitalsError) loadHospitals();
+        }
+
+        function filteredDoctors() {
+            const q = (WIZ.doctorQuery || '').trim().toLowerCase();
+            let list = WIZ.doctors || [];
+            if (WIZ.specialty) list = list.filter(d => (d.specialty || '') === WIZ.specialty);
+            if (q) {
+                list = list.filter(d =>
+                    String(d.full_name || '').toLowerCase().includes(q) ||
+                    String(d.specialty || '').toLowerCase().includes(q) ||
+                    String(d.qualification || '').toLowerCase().includes(q)
+                );
+            }
+            return list;
+        }
+
+        function specialtyChips() {
+            const seen = [];
+            (WIZ.doctors || []).forEach(d => {
+                const s = d.specialty || '';
+                if (s && seen.indexOf(s) === -1) seen.push(s);
+            });
+            return seen.sort();
+        }
+
+        function stateHtml(message, retryKey) {
+            return `<div class="bk-state">
+                <div>${esc(message)}</div>
+                ${retryKey ? `<button class="btn btn-sm btn-outline bk-retry" onclick="${retryKey}()">${esc(t('refresh'))}</button>` : ''}
+            </div>`;
+        }
+
+        function hospitalCard(h) {
+            const count = Number(h.doctor_count || 0);
+            // Handler reads the DOM dataset instead of embedding the name in
+            // inline JS, so quotes / apostrophes in hospital names stay safe.
+            return `<div class="bk-card" data-code="${esc(h.hospital_id)}" data-name="${esc(h.name)}">
+                <h4>${esc(h.name)}</h4>
+                <div class="bk-meta">
+                    ${esc([h.city, h.state].filter(Boolean).join(', ') || '—')}<br>
+                    ${count} ${esc(t('doctors_available'))}
+                </div>
+                <button class="btn btn-sm btn-primary" onclick="pickHospitalFrom(this)">${esc(t('select_option'))}</button>
+            </div>`;
+        }
+
+        function pickHospitalFrom(el) {
+            const card = el.closest('[data-code]');
+            if (!card) return;
+            pickHospital(card.getAttribute('data-code'), card.getAttribute('data-name') || '');
+        }
+
+        function pickSpecialtyFrom(el) {
+            WIZ.specialty = el.getAttribute('data-spec') || '';
+            renderBooking();
+        }
+
+        function doctorCard(d) {
+            const fee = d.consultation_fee !== undefined && d.consultation_fee !== null && d.consultation_fee !== ''
+                ? `<span class="bk-fee">₹${esc(d.consultation_fee)}</span>` : '';
+            const dept = (WIZ.mode === 'hospital' && d.department) ? esc(d.department) : esc(d.specialty || '');
+            return `<div class="bk-card">
+                <div class="bk-docline">
+                    ${avatarHtml(d.full_name, d.photo, 'sm')}
+                    <div style="min-width:0;">
+                        <h4>${esc(d.full_name)}</h4>
+                        <div class="bk-meta">${dept || '—'}${d.qualification ? ' · ' + esc(d.qualification) : ''}</div>
+                    </div>
+                </div>
+                <div class="bk-meta">
+                    ${d.experience_years ? esc(d.experience_years) + ' ' + esc(t('experience')) : ''}
+                    ${fee}
+                </div>
+                <div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:auto;">
+                    <button class="btn btn-sm btn-outline" onclick="showDoctorProfile(${Number(d.id)})">${esc(t('view_profile'))}</button>
+                    <button class="btn btn-sm btn-primary" onclick="pickDoctor(${Number(d.id)})">${esc(t('select_doctor'))}</button>
+                </div>
+            </div>`;
+        }
+
+        function stepHospitalHtml() {
+            const modes = `
+                <div class="bk-modes">
+                    <button class="bk-mode ${WIZ.mode === 'hospital' ? 'is-active' : ''}" type="button" onclick="selectMode('hospital')">
+                        <strong>${esc(t('select_hospital'))}</strong>
+                        <span>${esc(t('select_hospital_hint'))}</span>
+                    </button>
+                    <button class="bk-mode ${WIZ.mode === 'independent' ? 'is-active' : ''}" type="button" onclick="selectMode('independent')">
+                        <strong>${esc(t('independent_clinic_doctor'))}</strong>
+                        <span>${esc(t('independent_clinic_hint'))}</span>
+                    </button>
+                </div>`;
+
+            let body;
+            if (WIZ.hospitalsLoading && !WIZ.hospitals) {
+                body = stateHtml(t('loading_hospitals'));
+            } else if (WIZ.hospitalsError) {
+                body = stateHtml(t('unable_to_load_hospitals'), 'loadHospitals');
+            } else if (!WIZ.hospitals || !WIZ.hospitals.length) {
+                body = stateHtml(WIZ.hospitalQuery ? t('no_hospitals_found') : t('no_hospitals_available'));
+            } else {
+                body = `<div class="bk-grid">${WIZ.hospitals.map(hospitalCard).join('')}</div>`;
+            }
+
+            return modes + `
+                <div class="bk-search">
+                    <input type="search" class="form-control" id="bkHospitalSearch"
+                           placeholder="${esc(t('search_hospitals_hint'))}"
+                           value="${esc(WIZ.hospitalQuery)}"
+                           onfocus="WIZ.focusId='bkHospitalSearch'"
+                           onblur="WIZ.focusId=null"
+                           oninput="onHospitalSearch(this.value)" aria-label="${esc(t('search_hospitals'))}">
+                </div>
+                <div class="bk-title">${esc(t('select_hospital'))}</div>
+                ${body}`;
+        }
+
+        function stepDoctorHtml() {
+            const hero = WIZ.mode === 'hospital' && WIZ.hospital ? `
+                <div class="bk-hero">
+                    ${WIZ.hospitalDetail && WIZ.hospitalDetail.logo
+                        ? `<img class="bk-logo" src="${esc(WIZ.hospitalDetail.logo)}" alt="">`
+                        : `<div class="bk-logo">${esc((WIZ.hospital.name || '?').charAt(0).toUpperCase())}</div>`}
+                    <div style="min-width:0; flex:1 1 220px;">
+                        <h4 style="margin:0 0 6px; font-size:15.5px;">${esc(WIZ.hospital.name)}</h4>
+                        <div class="bk-meta">
+                            ${WIZ.hospitalDetail ? esc([WIZ.hospitalDetail.address, WIZ.hospitalDetail.city, WIZ.hospitalDetail.state].filter(Boolean).join(', ')) : ''}
+                            ${WIZ.hospitalDetail && WIZ.hospitalDetail.phone ? '<br>' + esc(t('phone')) + ': ' + esc(WIZ.hospitalDetail.phone) : ''}
+                            ${WIZ.hospitalDetail && WIZ.hospitalDetail.hospital_id ? '<br>' + esc(t('hospital_id')) + ': ' + esc(WIZ.hospitalDetail.hospital_id) : ''}
+                            <br>${esc(t('doctors_available'))}: ${WIZ.hospitalDetail ? Number(WIZ.hospitalDetail.doctor_count || 0) : ((WIZ.doctors || []).length)}
+                        </div>
+                        ${WIZ.hospitalDetail && WIZ.hospitalDetail.departments && WIZ.hospitalDetail.departments.length
+                            ? `<div class="bk-chips" style="margin-top:8px;">${WIZ.hospitalDetail.departments.map(d => `<span class="bk-chip">${esc(d.name)}</span>`).join('')}</div>` : ''}
+                    </div>
+                    <button class="btn btn-sm btn-outline" onclick="gotoStep(1)">${esc(t('change_hospital'))}</button>
+                </div>` : `
+                <div class="bk-hero">
+                    <div class="bk-logo">🏛</div>
+                    <div style="min-width:0; flex:1 1 200px;">
+                        <h4 style="margin:0 0 4px; font-size:15.5px;">${esc(t('independent_doctors'))}</h4>
+                        <div class="bk-meta">${esc(t('independent_doctors_hint'))}</div>
+                    </div>
+                    <button class="btn btn-sm btn-outline" onclick="selectMode('hospital')">${esc(t('change_hospital'))}</button>
+                </div>`;
+
+            let body;
+            if (WIZ.doctorsLoading && !WIZ.doctors) {
+                body = stateHtml(t('loading_doctors'));
+            } else if (WIZ.doctorsError) {
+                body = stateHtml(t('unable_to_load_doctors'), 'loadDoctors');
+            } else {
+                const list = filteredDoctors();
+                if (!list.length) {
+                    body = stateHtml(WIZ.doctorQuery || WIZ.specialty ? t('no_doctors_found') : t('no_doctors_at_hospital'));
+                } else {
+                    body = `<div class="bk-grid">${list.map(doctorCard).join('')}</div>`;
+                }
+            }
+
+            const chips = specialtyChips();
+            return hero + `
+                <div class="bk-toolbar">
+                    <input type="search" class="form-control" style="max-width:280px;" id="bkDoctorSearch"
+                           placeholder="${esc(t('search_doctors_placeholder'))}"
+                           value="${esc(WIZ.doctorQuery)}"
+                           onfocus="WIZ.focusId='bkDoctorSearch'"
+                           onblur="WIZ.focusId=null"
+                           oninput="onDoctorSearch(this.value)" aria-label="${esc(t('search_doctors_placeholder'))}">
+                </div>
+                ${chips.length > 1 ? `<div class="bk-chips" style="margin-bottom:12px;">
+                    <button class="bk-chip ${WIZ.specialty ? '' : 'is-active'}" data-spec="" onclick="pickSpecialtyFrom(this)">${esc(t('all'))}</button>
+                    ${chips.map(s => `<button class="bk-chip ${WIZ.specialty === s ? 'is-active' : ''}" data-spec="${esc(s)}" onclick="pickSpecialtyFrom(this)">${esc(s)}</button>`).join('')}
+                </div>` : ''}
+                <div class="bk-title">${esc(t('available_doctors'))}</div>
+                ${body}`;
+        }
+
+        function stepDateTimeHtml() {
+            const doc = WIZ.doctor || {};
+            const head = `
+                <div class="bk-hero">
+                    ${avatarHtml(doc.full_name || doc.name, doc.photo, 'sm')}
+                    <div style="min-width:0; flex:1 1 180px;">
+                        <h4 style="margin:0 0 4px; font-size:15.5px;">${esc(doc.full_name || doc.name || '')}</h4>
+                        <div class="bk-meta">
+                            ${esc(doc.department || doc.specialty || '')}
+                            ${doc.qualification ? ' · ' + esc(doc.qualification) : ''}
+                            ${doc.consultation_fee ? ' · ' + esc(t('consultation_fee')) + ' ₹' + esc(doc.consultation_fee) : ''}
+                        </div>
+                    </div>
+                    <button class="btn btn-sm btn-outline" onclick="gotoStep(2)">${esc(t('change_doctor'))}</button>
+                </div>`;
+
+            let body;
+            if (WIZ.availabilityLoading && !WIZ.availability) {
+                body = stateHtml(t('checking_availability'));
+            } else if (WIZ.availabilityError) {
+                body = stateHtml(WIZ.availabilityError, 'loadAvailability');
+            } else if (!WIZ.availability || !WIZ.availability.dates || !WIZ.availability.dates.length) {
+                body = stateHtml(t('no_slots_available'));
+            } else {
+                const dates = WIZ.availability.dates;
+                const chosen = dates.find(d => d.date === WIZ.date) || dates[0];
+                // Re-sync so a stale date (e.g. slot no longer offered) never
+                // leaves the row un-highlighted or the summary pointing at it.
+                WIZ.date = chosen.date;
+                body = `
+                    <div class="bk-title">${esc(t('date'))}</div>
+                    <div class="bk-dates">
+                        ${dates.map(d => `
+                            <button class="bk-date ${d.date === WIZ.date ? 'is-active' : ''}"
+                                    onclick="WIZ.date='${esc(d.date)}'; WIZ.time=null; renderBooking();">
+                                <strong>${esc(d.label)}</strong>
+                                <span>${esc(d.weekday)}${d.is_today ? ' · ' + esc(t('date_today')) : ''}</span>
+                            </button>`).join('')}
+                    </div>
+                    <div class="bk-title">${esc(t('time'))}</div>
+                    <div class="bk-slots">
+                        ${(chosen.slots || []).map(s => `
+                            <button class="bk-slot ${s === WIZ.time ? 'is-active' : ''}"
+                                    onclick="WIZ.time='${esc(s)}'; renderBooking();">${esc(s)}</button>`).join('')}
+                    </div>`;
+            }
+
+            return head + body + `
+                <div class="bk-title">${esc(t('reason_for_appointment'))}</div>
+                <div class="form-group">
+                    <textarea id="bkReason" rows="3" class="form-control"
+                              placeholder="${esc(t('symptoms_placeholder'))}"
+                              oninput="WIZ.reason=this.value">${esc(WIZ.reason)}</textarea>
+                </div>`;
+        }
+
+        function stepConfirmHtml() {
+            const doc = WIZ.doctor || {};
+            const rows = [
+                [t('hospital'), WIZ.hospital ? (WIZ.hospital.name) : t('independent_clinic_doctor')],
+                [t('doctor'), doc.full_name || doc.name || ''],
+                [t('specialty'), doc.specialty || '—'],
+                [t('department'), doc.department || '—'],
+                [t('date'), WIZ.date ? formatDate(WIZ.date) : '—'],
+                [t('time'), WIZ.time || '—'],
+                [t('consultation_fee'), doc.consultation_fee ? '₹' + doc.consultation_fee : '—'],
+                [t('reason'), WIZ.reason || '—']
+            ];
+            return `
+                <div class="bk-title">${esc(t('confirm_appointment'))}</div>
+                <div class="bk-summary">
+                    ${rows.map(r => `<div class="bk-summary-row"><span>${esc(r[0])}</span><span>${esc(String(r[1]))}</span></div>`).join('')}
+                </div>`;
+        }
+
+        function actionsHtml() {
+            if (WIZ.step === 1) return '';
+            if (WIZ.step === 2) {
+                const ready = !!WIZ.doctor;
+                return `
+                    <button class="btn btn-secondary" onclick="gotoStep(1)">${esc(t('back'))}</button>
+                    <button class="btn btn-primary" ${ready ? '' : 'disabled'} onclick="gotoStep(3)">${esc(t('next'))}</button>`;
+            }
+            if (WIZ.step === 3) {
+                return `
+                    <button class="btn btn-secondary" onclick="gotoStep(2)">${esc(t('back'))}</button>
+                    <button class="btn btn-primary" ${(WIZ.date && WIZ.time) ? '' : 'disabled'} onclick="gotoStep(4)">${esc(t('next'))}</button>`;
+            }
+            return `
+                <button class="btn btn-secondary" onclick="gotoStep(1)">${esc(t('change_hospital'))}</button>
+                <button class="btn btn-secondary" onclick="gotoStep(2)">${esc(t('change_doctor'))}</button>
+                <button class="btn btn-primary" id="bkConfirmBtn" ${WIZ.submitting ? 'disabled' : ''} onclick="confirmBooking()">
+                    ${esc(t('confirm_appointment'))}
+                </button>`;
+        }
+
+        function renderBooking(focusId) {
+            const steps = document.getElementById('bkSteps');
+            const panel = document.getElementById('bkPanel');
+            const actions = document.getElementById('bkActions');
+            if (!steps || !panel || !actions) return;
+
+            steps.innerHTML = stepsHtml();
+
+            let html = '';
+            if (WIZ.step === 1) html = stepHospitalHtml();
+            else if (WIZ.step === 2) html = stepDoctorHtml();
+            else if (WIZ.step === 3) html = stepDateTimeHtml();
+            else html = stepConfirmHtml();
+
+            panel.innerHTML = html;
+            actions.innerHTML = actionsHtml();
+
+            // Keep the caret in a search box that is still being typed into —
+            // the panel is rebuilt wholesale, so focus has to be restored.
+            const target = focusId || WIZ.focusId;
+            if (target) {
+                const el = document.getElementById(target);
+                if (el && document.activeElement !== el) {
+                    el.focus();
+                    try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) { /* type=search on old browsers */ }
+                }
+            }
+        }
+
+        async function showDoctorProfile(id) {
+            const d = (WIZ.doctors || []).find(x => Number(x.id) === Number(id));
+            if (!d) return;
+            document.getElementById('detailsTitle').textContent = t('view_profile');
+            const rows = [
+                [t('doctor'), d.full_name],
+                [t('specialty'), d.specialty || '—'],
+                [t('department'), d.department || '—'],
+                [t('qualification'), d.qualification || '—'],
+                [t('experience'), d.experience_years ? d.experience_years + ' years' : '—'],
+                [t('hospital'), WIZ.hospital ? WIZ.hospital.name : t('independent_clinic_doctor')],
+                [t('consultation_fee'), d.consultation_fee ? '₹' + d.consultation_fee : '—'],
+                [t('availability'), d.availability || '—']
+            ];
+            document.getElementById('detailsBody').innerHTML =
+                '<div class="bk-docline" style="margin-bottom:12px;">' + avatarHtml(d.full_name, d.photo, 'md') + '</div>' +
+                '<div class="bk-summary">' + rows.map(r =>
+                    `<div class="bk-summary-row"><span>${esc(r[0])}</span><span>${esc(String(r[1]))}</span></div>`
+                ).join('') + '</div>';
+            showModal('detailsModal');
+        }
+
+        async function confirmBooking() {
+            if (WIZ.submitting) return;
+            if (!WIZ.doctor) { showToast(t('select_doctor'), 'error'); return; }
+            if (!WIZ.date || !WIZ.time) { showToast(t('select_time_first'), 'error'); return; }
+
+            WIZ.submitting = true;
+            renderBooking();
+
+            try {
+                const user = getUser();
+                const payload = {
+                    patient_id: user.id,
+                    doctor_id: WIZ.doctor.id,
+                    appointment_date: WIZ.date,
+                    appointment_time: WIZ.time,
+                    reason: WIZ.reason || ''
+                };
+                if (WIZ.hospital) payload.hospital_id = WIZ.hospital.code;
+
+                await api('/appointments', 'POST', payload);
+                WIZ.submitting = false;
+                closeBooking();
+                showToast(t('appointment_booked'));
+                await loadAppointments(true);
+            } catch (err) {
+                WIZ.submitting = false;
+                renderBooking();
+                showToast(err.message || t('unable_to_book'), 'error', 6000);
             }
         }
     </script>

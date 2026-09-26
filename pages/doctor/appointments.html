@@ -83,6 +83,7 @@
                         <thead>
                             <tr>
                                 <th>Patient</th>
+                                <th><span data-i18n="hospital">Hospital</span></th>
                                 <th>Date</th>
                                 <th>Time</th>
                                 <th>Reason</th>
@@ -274,6 +275,7 @@
                             </div>
                         </div>
                     </td>
+                    <td>${escapeHtml(a.hospital_name || '—')}</td>
                     <td>${formatDate(a.date)}</td>
                     <td>${escapeHtml(a.appointment_time || 'N/A')}</td>
                     <td>${escapeHtml(a.reason || 'N/A')}</td>
@@ -412,6 +414,7 @@
                         </div>
                     </div>
                     <div class="detail-grid">
+                        <div class="detail-item"><label><span data-i18n="hospital">Hospital</span></label><div class="detail-value">${escapeHtml(a.hospital_name || '—')}</div></div>
                         <div class="detail-item"><label>Date</label><div class="detail-value">${formatDate(a.date)}</div></div>
                         <div class="detail-item"><label>Time</label><div class="detail-value">${escapeHtml(a.appointment_time || 'N/A')}</div></div>
                         <div class="detail-item"><label>Status</label><div class="detail-value">${statusBadge(a.status)}</div></div>

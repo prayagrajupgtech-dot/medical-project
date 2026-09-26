@@ -90,6 +90,15 @@
                             <p class="text-muted">Loading...</p>
                         </div>
                     </div>
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h3 data-i18n="appointments_today">Today's Appointments</h3>
+                        </div>
+                        <div class="card-body" id="todayAppointments">
+                            <p class="text-muted" data-i18n="loading_appointments">Loading appointments...</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </main>
@@ -148,6 +157,31 @@
                     }).join('');
                 }
             } catch(e) { console.error('Doctors error:', e); }
+
+            // Hospital-scoped appointments only — another hospital's rows never
+            // reach this endpoint (enforced server-side).
+            try {
+                var appts = await api('/hospital/appointments?date=today');
+                var box = document.getElementById('todayAppointments');
+                if (!box) return;
+                if (!appts || appts.length === 0) {
+                    box.innerHTML = '<p class="text-muted">' + t('no_appointments_today') + '</p>';
+                } else {
+                    box.innerHTML = appts.slice(0, 8).map(function(a) {
+                        return '<div class="list-item"><div style="min-width:0;">' +
+                            '<strong>' + escapeHtml(a.doctor_name || t('unknown')) + '</strong>' +
+                            '<br><small class="text-muted">' +
+                            escapeHtml(t('patient')) + ': ' + escapeHtml(a.patient_name || '—') +
+                            ' &middot; ' + escapeHtml(a.appointment_time || '—') +
+                            '</small></div>' +
+                            '<div>' + statusBadge(a.status) + '</div></div>';
+                    }).join('');
+                }
+            } catch(e) {
+                var errBox = document.getElementById('todayAppointments');
+                if (errBox) errBox.innerHTML = '<p class="text-muted">' + t('unable_to_load_appointments') + '</p>';
+                console.error('Appointments error:', e);
+            }
         }
     </script>
 </body>

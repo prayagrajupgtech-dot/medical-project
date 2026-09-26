@@ -56,6 +56,10 @@ CREATE TABLE IF NOT EXISTS consultations (
     id SERIAL PRIMARY KEY,
     patient_id INTEGER NOT NULL REFERENCES patients (id),
     doctor_id INTEGER NOT NULL REFERENCES users (id),
+    -- Hospital the patient picked when booking. NULL = independent clinic doctor.
+    -- (Plain INTEGER on purpose: hospitals is created later in this file, and this
+    -- column is added to existing databases by migration without touching rows.)
+    hospital_id INTEGER,
     date TEXT NOT NULL,
     appointment_time TEXT,
     reason TEXT,

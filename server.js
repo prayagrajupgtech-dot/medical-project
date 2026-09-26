@@ -779,19 +779,68 @@ app.post('/api/auth/change-password', authenticateToken, (req, res) => {
 });
 
 // Protected: List doctors (public professional info, for patients)
+// Optional filters:
+//   ?practice=independent -> only doctors with no active hospital relationship
+//   ?hospital_id=3        -> only doctors actively affiliated with that hospital
 app.get('/api/doctors', authenticateToken, (req, res) => {
+    const practice = String(req.query.practice || '');
+    const hospitalId = req.query.hospital_id;
+    let where = "WHERE u.role = 'doctor' AND u.accountStatus = 'active'";
+    const params = [];
+
+    if (hospitalId) {
+        where += ` AND EXISTS (
+            SELECT 1 FROM hospital_memberships hm
+            WHERE hm.doctor_id = u.id AND hm.hospital_id = ?
+              AND hm.status = 'approved' AND hm.ended_at IS NULL)`;
+        params.push(Number(hospitalId));
+    } else if (practice === 'independent') {
+        where += ` AND NOT EXISTS (
+            SELECT 1 FROM hospital_memberships hm
+            WHERE hm.doctor_id = u.id
+              AND hm.status = 'approved' AND hm.ended_at IS NULL)`;
+    }
+
     db.all(
         `SELECT u.id, u.full_name, u.specialty, u.phone, u.email, u.photo,
                 dp.qualification, dp.experience_years, dp.hospital, dp.bio, dp.languages,
-                dp.consultation_fee, dp.availability, dp.verified,
+                dp.consultation_fee, dp.availability, dp.verified, dp.practice_type,
+                dp.clinic_name, dp.clinic_city,
                 (SELECT AVG(rating) FROM reviews WHERE doctor_id = u.id) AS rating,
                 (SELECT COUNT(*) FROM reviews WHERE doctor_id = u.id) AS review_count
          FROM users u
          LEFT JOIN doctor_profiles dp ON dp.user_id = u.id
-         WHERE u.role = 'doctor' ORDER BY u.full_name`,
+         ${where} ORDER BY u.full_name`,
+        params,
         (err, doctors) => {
             if (err) return res.status(500).json({ error: 'Server error' });
-            res.json(doctors);
+            const list = doctors || [];
+            if (!list.length) return res.json(list);
+
+            // Attach the hospitals each doctor is ACTIVELY affiliated with, so the
+            // patient booking flow can route a pre-selected doctor correctly.
+            const ids = list.map(d => d.id);
+            const placeholders = ids.map(() => '?').join(',');
+            db.all(
+                `SELECT hm.doctor_id, h.hospital_id AS code, h.name, h.city, h.state
+                 FROM hospital_memberships hm
+                 JOIN hospitals h ON h.id = hm.hospital_id
+                 WHERE hm.status = 'approved' AND hm.ended_at IS NULL
+                   AND h.account_status = 'active'
+                   AND hm.doctor_id IN (${placeholders})`,
+                ids,
+                (err2, rows) => {
+                    if (err2) return res.json(list.map(d => Object.assign({}, d, { hospitals: [] })));
+                    const byDoctor = {};
+                    (rows || []).forEach(r => {
+                        if (!byDoctor[r.doctor_id]) byDoctor[r.doctor_id] = [];
+                        byDoctor[r.doctor_id].push({
+                            code: r.code, name: r.name, city: r.city, state: r.state
+                        });
+                    });
+                    res.json(list.map(d => Object.assign({}, d, { hospitals: byDoctor[d.id] || [] })));
+                }
+            );
         }
     );
 });
@@ -909,11 +958,13 @@ app.delete('/api/patients/me/photo', authenticateToken, requireRole('patient'), 
 app.get('/api/patients/me/appointments', authenticateToken, requireRole('patient'), (req, res) => {
     db.all(
         `SELECT c.*, pu.id as patient_user_id, pu.full_name as patient_name, pu.photo as patient_photo, pu.phone as patient_phone, pu.email as patient_email,
-                u.full_name as doctor_name, u.specialty, u.photo as doctor_photo
+                u.full_name as doctor_name, u.specialty, u.photo as doctor_photo,
+                h.name as hospital_name, h.hospital_id as hospital_code, h.city as hospital_city
          FROM consultations c
          JOIN users u ON c.doctor_id = u.id
          JOIN patients p ON c.patient_id = p.id
          JOIN users pu ON p.user_id = pu.id
+         LEFT JOIN hospitals h ON c.hospital_id = h.id
          WHERE c.patient_id = (SELECT id FROM patients WHERE user_id = ?)
          ORDER BY c.date DESC, c.appointment_time DESC`,
         [req.user.id],
@@ -928,9 +979,11 @@ app.get('/api/patients/me/appointments', authenticateToken, requireRole('patient
 // Patient: own consultations
 app.get('/api/patients/me/consultations', authenticateToken, requireRole('patient'), (req, res) => {
     db.all(
-        `SELECT c.*, u.full_name as doctor_name, u.specialty
+        `SELECT c.*, u.full_name as doctor_name, u.specialty,
+                h.name as hospital_name, h.hospital_id as hospital_code, h.city as hospital_city
          FROM consultations c
          JOIN users u ON c.doctor_id = u.id
+         LEFT JOIN hospitals h ON c.hospital_id = h.id
          WHERE c.patient_id = (SELECT id FROM patients WHERE user_id = ?)
          ORDER BY c.created_at DESC`,
         [req.user.id],
@@ -1195,17 +1248,33 @@ const APPOINTMENT_SELECT = `
     c.*,
     p.id as patient_table_id, pu.full_name as patient_name, pu.id as patient_user_id,
     pu.photo as patient_photo, pu.phone as patient_phone, pu.email as patient_email,
-    u.full_name as doctor_name, u.photo as doctor_photo, u.specialty
+    u.full_name as doctor_name, u.photo as doctor_photo, u.specialty,
+    h.name as hospital_name, h.hospital_id as hospital_code
     FROM consultations c
     JOIN patients p ON c.patient_id = p.id
     JOIN users pu ON p.user_id = pu.id
-    JOIN users u ON c.doctor_id = u.id`;
+    JOIN users u ON c.doctor_id = u.id
+    LEFT JOIN hospitals h ON c.hospital_id = h.id`;
+
+// Today's date in the SERVER'S local timezone (toISOString() would give UTC and
+// shift the label by a day for anyone east of Greenwich).
+function localDateString(d) {
+    const dt = d || new Date();
+    const y = dt.getFullYear();
+    const m = String(dt.getMonth() + 1).padStart(2, '0');
+    const day = String(dt.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+
+function isoToDate(iso) {
+    const parts = String(iso).split('-');
+    return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+}
 
 // Validate an appointment date is not in the past
 function isValidAppointmentDate(dateStr) {
     if (!dateStr) return false;
-    const today = new Date().toISOString().split('T')[0];
-    return dateStr >= today;
+    return dateStr >= localDateString();
 }
 
 // Resolve a patient reference (patients.id OR user_id) to the patients table id
@@ -1218,6 +1287,297 @@ function resolvePatientId(ref, cb) {
             cb(null, byUser ? byUser.id : null);
         });
     });
+}
+
+// ========== DOCTOR ↔ HOSPITAL AFFILIATION HELPERS (appointment booking) ==========
+// A doctor may only be booked through a hospital when the membership row is
+// approved AND not ended. Pending / rejected / inactive rows never match.
+function hasActiveHospitalAffiliation(doctorId, hospitalId, cb) {
+    if (!doctorId || !hospitalId) return cb(null, false);
+    db.get(
+        `SELECT id FROM hospital_memberships
+         WHERE doctor_id = ? AND hospital_id = ? AND status = 'approved' AND ended_at IS NULL
+         LIMIT 1`,
+        [Number(doctorId), Number(hospitalId)],
+        (err, row) => cb(err, !!row)
+    );
+}
+
+// Number of active hospital affiliations (0 => the doctor runs an independent clinic)
+function countActiveAffiliations(doctorId, cb) {
+    if (!doctorId) return cb(null, 0);
+    db.get(
+        `SELECT COUNT(*) AS count FROM hospital_memberships
+         WHERE doctor_id = ? AND status = 'approved' AND ended_at IS NULL`,
+        [Number(doctorId)],
+        (err, row) => cb(err, err ? 0 : (row ? row.count : 0))
+    );
+}
+
+// ========== DOCTOR AVAILABILITY ==========
+// doctor_profiles.availability is free text written by the doctor, e.g.
+//   "Mon-Fri 10:00-13:00, 16:00-19:00"  /  "Tuesday, Thursday 9am to 1pm"
+// We parse it best-effort and fall back to a default weekly pattern. Booked
+// slots are always removed from the result — that part comes from the DB.
+
+const WEEKDAY_TOKENS = {
+    sunday: 0, sun: 0,
+    monday: 1, mon: 1,
+    tuesday: 2, tue: 2, tues: 2,
+    wednesday: 3, wed: 3,
+    thursday: 4, thu: 4, thur: 4, thurs: 4,
+    friday: 5, fri: 5,
+    saturday: 6, sat: 6
+};
+const WEEKDAY_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DEFAULT_AVAILABILITY = {
+    days: [1, 2, 3, 4, 5, 6],
+    windows: [{ start: '10:00', end: '13:00' }, { start: '16:00', end: '19:00' }],
+    slotMinutes: 30
+};
+
+function minutesToHHMM(mins) {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+}
+
+function hhmmToMinutes(value) {
+    const m = /^(\d{1,2}):(\d{2})$/.exec(String(value).trim());
+    if (!m) return null;
+    return Number(m[1]) * 60 + Number(m[2]);
+}
+
+// "10:00", "10am", "9:30 pm" -> minutes since midnight (or null)
+function parseClockToken(hourStr, minuteStr, meridiem) {
+    let h = Number(hourStr);
+    if (isNaN(h)) return null;
+    const m = minuteStr ? Number(minuteStr) : 0;
+    const mer = (meridiem || '').toLowerCase();
+    if (mer === 'pm' && h < 12) h += 12;
+    if (mer === 'am' && h === 12) h = 0;
+    if (h > 23 || m > 59) return null;
+    return h * 60 + m;
+}
+
+function parseAvailabilityText(text) {
+    const result = {
+        days: DEFAULT_AVAILABILITY.days.slice(),
+        windows: DEFAULT_AVAILABILITY.windows.map(w => Object.assign({}, w)),
+        slotMinutes: DEFAULT_AVAILABILITY.slotMinutes
+    };
+    const raw = String(text || '').trim();
+    if (!raw) return result;
+    const lower = raw.toLowerCase();
+
+    // Weekdays
+    const dayRe = /\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday|sun|mon|tues|tue|wed|thur|thurs|thu|fri|sat)\b/g;
+    const days = [];
+    let dm;
+    while ((dm = dayRe.exec(lower)) !== null) {
+        const idx = WEEKDAY_TOKENS[dm[1]];
+        if (idx !== undefined && days.indexOf(idx) === -1) days.push(idx);
+    }
+    if (days.length) result.days = days.sort((a, b) => a - b);
+
+    // Time windows: "10:00-13:00", "9am-5pm", "10:00 to 13:30", "4 PM till 8 PM"
+    const winRe = /(\d{1,2})(?::(\d{2}))?\s*(am|pm)?\s*(?:-|–|—|to|till|until)\s*(\d{1,2})(?::(\d{2}))?\s*(am|pm)?/g;
+    const windows = [];
+    let wm;
+    while ((wm = winRe.exec(lower)) !== null) {
+        const start = parseClockToken(wm[1], wm[2], wm[3]);
+        const end = parseClockToken(wm[4], wm[5], wm[6]);
+        if (start === null || end === null) continue;
+        let endMin = end;
+        if (endMin <= start) {
+            // "10am-2pm" / "9-5" style: end lands on the other side of noon
+            if (endMin + 720 <= 24 * 60) endMin += 720;
+            else continue;
+        }
+        if (endMin - start < 30) continue;
+        windows.push({ start: minutesToHHMM(start), end: minutesToHHMM(endMin) });
+    }
+    if (windows.length) result.windows = windows;
+
+    // Slot length, e.g. "every 20 minutes" or "30 min slots"
+    const stepRe = /(?:every|slot(?:s)?\s*(?:of|length)?|appointments?\s*(?:of|every)?)\s*(\d{1,3})\s*(?:min|minutes?|m\b)/;
+    const stepMatch = stepRe.exec(lower);
+    if (stepMatch) {
+        const step = Number(stepMatch[1]);
+        if (step >= 10 && step <= 120) result.slotMinutes = step;
+    }
+
+    return result;
+}
+
+function slotsForWindow(window, stepMinutes) {
+    const start = hhmmToMinutes(window.start);
+    const end = hhmmToMinutes(window.end);
+    if (start === null || end === null || end <= start) return [];
+    const out = [];
+    for (let m = start; m + stepMinutes <= end; m += stepMinutes) {
+        out.push(minutesToHHMM(m));
+    }
+    return out;
+}
+
+// Statuses that occupy a slot (cancelled/rejected free it up again)
+const BUSY_APPOINTMENT_STATUSES = ['pending', 'seen', 'accepted', 'in_progress'];
+
+// Slots that are genuinely free for this doctor on this date.
+function getFreeSlots(doctorId, dateStr, cb) {
+    db.get('SELECT availability FROM doctor_profiles WHERE user_id = ?', [doctorId], (err, profile) => {
+        if (err) return cb(err, null);
+        const schedule = parseAvailabilityText(profile ? profile.availability : null);
+
+        const dayIdx = isoToDate(dateStr).getDay();
+        if (schedule.days.indexOf(dayIdx) === -1) return cb(null, []);
+
+        let candidates = [];
+        schedule.windows.forEach(w => { candidates = candidates.concat(slotsForWindow(w, schedule.slotMinutes)); });
+        if (!candidates.length) return cb(null, []);
+
+        // Remove slots already taken, then anything in the past today
+        db.all(
+            `SELECT appointment_time FROM consultations
+             WHERE doctor_id = ? AND date = ? AND appointment_time IS NOT NULL
+               AND status IN ('pending','seen','accepted','in_progress')`,
+            [Number(doctorId), dateStr],
+            (err2, rows) => {
+                if (err2) return cb(err2, null);
+                const busy = {};
+                (rows || []).forEach(r => { busy[String(r.appointment_time).slice(0, 5)] = true; });
+
+                const today = localDateString();
+                let cutoff = -1;
+                if (dateStr === today) {
+                    const now = new Date();
+                    cutoff = now.getHours() * 60 + now.getMinutes() + 30; // 30 min lead time
+                }
+                const free = candidates.filter(t => {
+                    if (busy[t]) return false;
+                    if (cutoff >= 0) {
+                        const mins = hhmmToMinutes(t);
+                        if (mins === null || mins <= cutoff) return false;
+                    }
+                    return true;
+                });
+                cb(null, free);
+            }
+        );
+    });
+}
+
+// Build the date + slot calendar a patient sees after picking a doctor.
+// Only days that actually have at least one free slot are returned.
+function buildAvailability(doctorId, fromDate, dayCount, cb) {
+    const today = localDateString();
+    const start = fromDate && fromDate >= today ? fromDate : today;
+    const out = [];
+    let i = 0;
+
+    const next = () => {
+        if (i >= dayCount) return cb(null, out);
+        const d = isoToDate(start);
+        d.setDate(d.getDate() + i);
+        const iso = localDateString(d);
+        i++;
+        getFreeSlots(doctorId, iso, (err, slots) => {
+            if (err) return cb(err, null);
+            if (slots && slots.length) {
+                out.push({
+                    date: iso,
+                    weekday: WEEKDAY_SHORT[d.getDay()],
+                    label: d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+                    is_today: iso === today,
+                    slots: slots
+                });
+            }
+            next();
+        });
+    };
+    next();
+}
+
+// A patient must not create the exact same appointment twice (page refresh,
+// double click). Same patient + doctor + date + time, still-active status.
+function findDuplicateBooking(patientId, doctorId, dateStr, timeStr, cb) {
+    if (!timeStr) return cb(null, null);
+    db.get(
+        `SELECT id FROM consultations
+         WHERE patient_id = ? AND doctor_id = ? AND date = ? AND appointment_time = ?
+           AND status IN ('pending','seen','accepted','in_progress')`,
+        [Number(patientId), Number(doctorId), dateStr, timeStr],
+        (err, row) => cb(err, row || null)
+    );
+}
+
+// ========== AI APPOINTMENT DIRECTORY (real database rows only) ==========
+// The assistant must never invent a hospital, doctor or time slot. /api/ai/chat
+// hands it this directory, built from exactly the tables the booking flow uses.
+function buildAppointmentDirectory(message, cb) {
+    const lower = String(message || '').toLowerCase();
+    const keywords = [
+        'hospital', 'appointment', 'appointments', 'book', 'booking', 'doctor', 'doctors',
+        'available', 'availability', 'slot', 'slots', 'clinic', 'specialist', 'opd',
+        'schedule', 'cardiology', 'neurology', 'ortho', 'gynec', 'ent', 'ophthalm',
+        'बुक', 'अस्पताल', 'अपॉइंटमेंट', 'डॉक्टर', 'स्लॉट', 'समय'
+    ];
+    if (!keywords.some(k => lower.includes(k))) return cb(null, null);
+
+    db.all(
+        `SELECT h.id, h.hospital_id AS code, h.name, h.address, h.city, h.state, h.phone,
+                (SELECT COUNT(*) FROM hospital_memberships hm
+                  WHERE hm.hospital_id = h.id AND hm.status = 'approved' AND hm.ended_at IS NULL) AS doctor_count
+         FROM hospitals h
+         WHERE h.account_status = 'active'
+         ORDER BY h.name LIMIT 30`,
+        [],
+        (err, hospitals) => {
+            if (err) return cb(null, null);
+            const list = hospitals || [];
+            const ids = list.map(h => h.id);
+            const empty = { hospitals: list, affiliated: [], independent: [] };
+            if (!ids.length) return cb(null, empty);
+
+            const ph = ids.map(() => '?').join(',');
+            db.all(
+                `SELECT hm.hospital_id AS hospital_pk, u.id AS doctor_id, u.full_name, u.specialty,
+                        dp.consultation_fee, dp.qualification, hm.department
+                 FROM hospital_memberships hm
+                 JOIN users u ON u.id = hm.doctor_id
+                 LEFT JOIN doctor_profiles dp ON dp.user_id = u.id
+                 WHERE hm.status = 'approved' AND hm.ended_at IS NULL
+                   AND u.role = 'doctor' AND u.accountStatus = 'active'
+                   AND hm.hospital_id IN (${ph})
+                 ORDER BY u.full_name`,
+                ids,
+                (err2, rows) => {
+                    if (err2) return cb(null, empty);
+                    db.all(
+                        `SELECT u.id AS doctor_id, u.full_name, u.specialty, u.phone,
+                                dp.consultation_fee, dp.qualification, dp.clinic_name, dp.clinic_city
+                         FROM users u
+                         LEFT JOIN doctor_profiles dp ON dp.user_id = u.id
+                         WHERE u.role = 'doctor' AND u.accountStatus = 'active'
+                           AND NOT EXISTS (
+                               SELECT 1 FROM hospital_memberships hm
+                               WHERE hm.doctor_id = u.id AND hm.status = 'approved' AND hm.ended_at IS NULL)
+                         ORDER BY u.full_name LIMIT 30`,
+                        [],
+                        (err3, indep) => {
+                            if (err3) return cb(null, empty);
+                            cb(null, {
+                                hospitals: list,
+                                affiliated: rows || [],
+                                independent: indep || []
+                            });
+                        }
+                    );
+                }
+            );
+        }
+    );
 }
 
 // Whether a user may access a given consultation (doctor's or their own)
@@ -1244,7 +1604,7 @@ app.post('/api/consultations', authenticateToken, (req, res) => {
         if (!pid) return res.status(404).json({ error: 'Patient not found' });
 
         const isDoctor = req.user.role === 'doctor' || req.user.role === 'admin';
-        const date = appointment_date || new Date().toISOString().split('T')[0];
+        const date = appointment_date || localDateString();
         const finalStatus = isDoctor ? (status || 'in_progress') : 'pending';
 
         db.run(
@@ -1265,12 +1625,14 @@ app.get('/api/consultations/:id', authenticateToken, (req, res) => {
     const consultId = req.params.id;
     
     db.get(
-        `SELECT c.*, p.id as patient_table_id, u.full_name as doctor_name, 
-         pu.full_name as patient_name, pu.id as patient_user_id
+        `SELECT c.*, p.id as patient_table_id, u.full_name as doctor_name, u.specialty,
+         pu.full_name as patient_name, pu.id as patient_user_id,
+         h.name as hospital_name, h.hospital_id as hospital_code
          FROM consultations c
          JOIN users u ON c.doctor_id = u.id
          JOIN patients p ON c.patient_id = p.id
          JOIN users pu ON p.user_id = pu.id
+         LEFT JOIN hospitals h ON c.hospital_id = h.id
          WHERE c.id = ?`,
         [consultId],
         (err, consultation) => {
@@ -1599,6 +1961,14 @@ app.post('/api/ai/chat', authenticateToken, async (req, res) => {
             conversationLocale: locale,
             reportContext: reportContext || null
         };
+
+        // Real hospitals / doctors / affiliations for booking questions. Built
+        // from the same tables the booking flow reads; null when the message is
+        // not about hospitals or appointments.
+        context.appointmentDirectory = await new Promise((resolve) => {
+            buildAppointmentDirectory(message, (_err, dir) => resolve(dir || null));
+        });
+
         const result = await aiService.chat(message, context);
         res.json(result);
     } catch (error) {
@@ -2412,7 +2782,7 @@ app.get('/api/doctors/me', authenticateToken, requireRole('doctor'), (req, res) 
                 db.get('SELECT COUNT(*) as count FROM consultations WHERE doctor_id = ? AND status = ?', [uid, 'completed'], (e2, resolved) => {
                     db.get(`SELECT COUNT(*) as count FROM (SELECT DISTINCT pu.user_id FROM consultations c JOIN patients pu ON c.patient_id = pu.id WHERE c.doctor_id = ?)`, [uid], (e3, patients) => {
                         db.get('SELECT AVG(rating) as avg, COUNT(*) as count FROM reviews WHERE doctor_id = ?', [uid], (e4, rev) => {
-                            const today = new Date().toISOString().split('T')[0];
+                            const today = localDateString();
                             const upcomingQ = `SELECT COUNT(*) as count FROM consultations WHERE doctor_id = ? AND date(date) >= ? AND status IN ('pending','seen','accepted','in_progress')`;
                             db.get(upcomingQ, [uid, today], (e5, upcoming) => {
                                 db.get('SELECT COUNT(*) as count FROM consultations WHERE doctor_id = ? AND date(date) = ? AND status != ? AND status != ?', [uid, today, 'cancelled', 'rejected'], (e6, todayA) => {
@@ -2518,11 +2888,13 @@ app.get('/api/doctors/me/patients', authenticateToken, requireRole('doctor'), (r
 app.get('/api/doctors/me/appointments', authenticateToken, requireRole('doctor'), (req, res) => {
     db.all(
         `SELECT c.*, pu.id as patient_user_id, pu.full_name as patient_name, pu.photo as patient_photo, pu.phone as patient_phone, pu.email as patient_email,
-                u.full_name as doctor_name, u.specialty, u.photo as doctor_photo
+                u.full_name as doctor_name, u.specialty, u.photo as doctor_photo,
+                h.name as hospital_name, h.hospital_id as hospital_code, h.city as hospital_city
          FROM consultations c
          JOIN patients p ON c.patient_id = p.id
          JOIN users pu ON p.user_id = pu.id
          JOIN users u ON c.doctor_id = u.id
+         LEFT JOIN hospitals h ON c.hospital_id = h.id
          WHERE c.doctor_id = ?
          ORDER BY c.date DESC, c.appointment_time DESC`,
         [req.user.id],
@@ -2614,7 +2986,7 @@ function fetchHospitalStats(cb) {
 
 // Dashboard statistics (all values computed from the database)
 app.get('/api/admin/dashboard/stats', authenticateToken, requireRole('admin'), (req, res) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = localDateString();
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
 
@@ -3109,18 +3481,20 @@ app.post('/api/admin/users/bulk-deactivate', authenticateToken, requireRole('adm
 // All appointments (admin overview)
 app.get('/api/admin/appointments', authenticateToken, requireRole('admin'), (req, res) => {
     const { filter, search } = req.query;
-    const today = new Date().toISOString().split('T')[0];
+    const today = localDateString();
     let where = 'WHERE 1=1';
     const params = [];
-    if (filter === 'today') { where += ' AND date(c.date) = ?'; params.push(today); }
+    if (filter === 'today') { where += ' AND substr(c.date, 1, 10) = ?'; params.push(today); }
     if (filter === 'upcoming') { where += ' AND c.date >= ? AND c.status IN (?, ?, ?, ?)'; params.push(today, 'pending', 'seen', 'accepted', 'in_progress'); }
     if (filter && ['pending', 'seen', 'accepted', 'in_progress', 'completed', 'cancelled', 'rejected', 'follow_up'].includes(filter)) { where += ' AND c.status = ?'; params.push(filter); }
     if (search) { where += ' AND (pu.full_name LIKE ? OR u.full_name LIKE ? OR c.reason LIKE ?)'; params.push(`%${search}%`, `%${search}%`, `%${search}%`); }
 
-    db.all(`SELECT c.*, pu.full_name as patient_name, u.full_name as doctor_name, pu.id as patient_user_id
+    db.all(`SELECT c.*, pu.full_name as patient_name, u.full_name as doctor_name, pu.id as patient_user_id,
+                   u.specialty, h.name as hospital_name, h.hospital_id as hospital_code, h.city as hospital_city
             FROM consultations c
             JOIN patients p ON c.patient_id = p.id JOIN users pu ON p.user_id = pu.id
             JOIN users u ON c.doctor_id = u.id
+            LEFT JOIN hospitals h ON c.hospital_id = h.id
             ${where}
             ORDER BY c.date DESC, c.appointment_time DESC LIMIT 500`, params, (err, appointments) => {
         if (err) return res.status(500).json({ error: 'Server error' });
@@ -3149,7 +3523,7 @@ app.get('/api/admin/consultations', authenticateToken, requireRole('admin'), (re
 
 // Reports overview + totals
 app.get('/api/admin/reports', authenticateToken, requireRole('admin'), (req, res) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = localDateString();
     const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
     const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
     const { search } = req.query;
@@ -3353,7 +3727,7 @@ app.get('/api/admin/stats', authenticateToken, requireRole('admin'), (req, res) 
 });
 
 app.get('/api/dashboard/stats', authenticateToken, (req, res) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = localDateString();
     const role = req.user.role;
     const isDoctor = role === 'doctor';
     const isAdmin = role === 'admin';
@@ -3374,8 +3748,8 @@ app.get('/api/dashboard/stats', authenticateToken, (req, res) => {
 
     let todayQ, pendingQ, patientQ, recentQ, recentParams;
     if (isDoctor || isAdmin) {
-        todayQ = doctorScope('SELECT COUNT(*) as count FROM consultations c WHERE date(c.date) = ? AND c.status != "cancelled" AND c.status != "rejected"');
-        pendingQ = doctorScope('SELECT COUNT(*) as count FROM consultations c WHERE (c.status = "pending" OR c.status = "seen")');
+        todayQ = doctorScope(`SELECT COUNT(*) as count FROM consultations c WHERE substr(c.date, 1, 10) = ? AND c.status != 'cancelled' AND c.status != 'rejected'`);
+        pendingQ = doctorScope(`SELECT COUNT(*) as count FROM consultations c WHERE (c.status = 'pending' OR c.status = 'seen')`);
         patientQ = isDoctor
             ? `SELECT COUNT(*) as count FROM (SELECT DISTINCT pu.user_id FROM consultations c JOIN patients pu ON c.patient_id = pu.id WHERE c.doctor_id = ?)`
             : `SELECT COUNT(*) as count FROM patients p JOIN users u ON p.user_id = u.id WHERE u.role = 'patient'`;
@@ -3394,8 +3768,8 @@ app.get('/api/dashboard/stats', authenticateToken, (req, res) => {
                JOIN users u ON c.doctor_id = u.id
                ORDER BY c.created_at DESC LIMIT 5`;
     } else {
-        todayQ = 'SELECT COUNT(*) as count FROM consultations c WHERE c.patient_id = (SELECT id FROM patients WHERE user_id = ?) AND date(c.date) = ? AND c.status != "cancelled"';
-        pendingQ = 'SELECT COUNT(*) as count FROM consultations c WHERE c.patient_id = (SELECT id FROM patients WHERE user_id = ?) AND c.status = "pending"';
+        todayQ = `SELECT COUNT(*) as count FROM consultations c WHERE c.patient_id = (SELECT id FROM patients WHERE user_id = ?) AND substr(c.date, 1, 10) = ? AND c.status != 'cancelled'`;
+        pendingQ = `SELECT COUNT(*) as count FROM consultations c WHERE c.patient_id = (SELECT id FROM patients WHERE user_id = ?) AND c.status = 'pending'`;
         patientQ = 'SELECT COUNT(*) as count FROM patients p JOIN users u ON p.user_id = u.id WHERE u.role = \'patient\'';
         recentQ = `SELECT c.*, u.full_name as doctor_name
                    FROM consultations c
@@ -3443,10 +3817,10 @@ app.get('/api/consultations', authenticateToken, (req, res) => {
     }
 
     if (date === 'today') {
-        where += ' AND date(c.date) = ?';
-        params.push(new Date().toISOString().split('T')[0]);
+        where += ' AND substr(c.date, 1, 10) = ?';
+        params.push(localDateString());
     } else if (date) {
-        where += ' AND date(c.date) = ?';
+        where += ' AND substr(c.date, 1, 10) = ?';
         params.push(date);
     }
     if (status) {
@@ -3505,10 +3879,10 @@ app.get('/api/appointments', authenticateToken, (req, res) => {
     }
 
     if (date === 'today') {
-        where += ' AND date(c.date) = ?';
-        params.push(new Date().toISOString().split('T')[0]);
+        where += ' AND substr(c.date, 1, 10) = ?';
+        params.push(localDateString());
     } else if (date) {
-        where += ' AND date(c.date) = ?';
+        where += ' AND substr(c.date, 1, 10) = ?';
         params.push(date);
     }
     if (status) {
@@ -3535,13 +3909,13 @@ app.get('/api/appointments', authenticateToken, (req, res) => {
 // Today's appointments
 app.get('/api/appointments/today', authenticateToken, (req, res) => {
     req.query.date = 'today';
-    const today = new Date().toISOString().split('T')[0];
+    const today = localDateString();
     const isDoctor = req.user.role === 'doctor';
     const isAdmin = req.user.role === 'admin';
 
     let where = isDoctor ? 'WHERE c.doctor_id = ?' : (isAdmin ? 'WHERE 1=1' : 'WHERE c.patient_id = (SELECT id FROM patients WHERE user_id = ?)');
     const params = isDoctor ? [req.user.id] : (isAdmin ? [] : [req.user.id]);
-    where += ' AND date(c.date) = ? AND c.status != "cancelled" AND c.status != "rejected"';
+    where += ` AND substr(c.date, 1, 10) = ? AND c.status != 'cancelled' AND c.status != 'rejected'`;
     params.push(today);
 
     db.all(
@@ -3562,7 +3936,7 @@ app.get('/api/appointments/pending', authenticateToken, (req, res) => {
 
     let where = isDoctor ? 'WHERE c.doctor_id = ?' : (isAdmin ? 'WHERE 1=1' : 'WHERE c.patient_id = (SELECT id FROM patients WHERE user_id = ?)');
     const params = isDoctor ? [req.user.id] : (isAdmin ? [] : [req.user.id]);
-    where += ' AND (c.status = "pending" OR c.status = "seen")';
+    where += ` AND (c.status = 'pending' OR c.status = 'seen')`;
 
     db.all(
         `SELECT ${APPOINTMENT_SELECT}
@@ -3577,7 +3951,7 @@ app.get('/api/appointments/pending', authenticateToken, (req, res) => {
 
 // Book a new appointment
 app.post('/api/appointments', authenticateToken, (req, res) => {
-    const { patient_id, doctor_id, appointment_date, appointment_time, reason } = req.body;
+    const { patient_id, doctor_id, appointment_date, appointment_time, reason, hospital_id } = req.body;
 
     if (!patient_id || !appointment_date) {
         return res.status(400).json({ error: 'patient_id and appointment_date are required' });
@@ -3591,6 +3965,7 @@ app.post('/api/appointments', authenticateToken, (req, res) => {
         if (!pid) return res.status(404).json({ error: 'Patient not found' });
 
         const isDoctor = req.user.role === 'doctor' || req.user.role === 'admin';
+        const httpError = (status, message) => Object.assign(new Error(message), { status });
 
         // Patients may only book for themselves
         if (!isDoctor) {
@@ -3602,16 +3977,23 @@ app.post('/api/appointments', authenticateToken, (req, res) => {
             });
             return;
         }
+
         insertAppointment();
 
         function insertAppointment() {
             // The doctor requested for this appointment (validated below).
             // Patients always specify a doctor; doctor/admin bookings default to themselves.
             const requestedDoctorId = isDoctor ? (doctor_id || req.user.id) : doctor_id;
+            if (!requestedDoctorId) {
+                return res.status(400).json({ error: 'doctor_id is required' });
+            }
+
+            const requestedHospital = (hospital_id !== undefined && hospital_id !== null && String(hospital_id).trim() !== '')
+                ? String(hospital_id).trim()
+                : null;
 
             // Validate the target doctor: must exist, be a doctor, and be active
             const validateDoctor = (cb) => {
-                if (!requestedDoctorId) return cb(null, null);
                 db.get(
                     "SELECT id FROM users WHERE id = ? AND role = 'doctor' AND accountStatus = 'active'",
                     [requestedDoctorId],
@@ -3630,6 +4012,95 @@ app.post('/api/appointments', authenticateToken, (req, res) => {
                 });
             };
 
+            // ---- 12. Doctor ↔ hospital relationship must be real and ACTIVE ----
+            // Anything sent by the client is re-checked against hospital_memberships.
+            const validateHospital = (targetDoctorId, cb) => {
+                if (requestedHospital) {
+                    db.get(
+                        `SELECT id, name, account_status FROM hospitals
+                         WHERE hospital_id = ? OR CAST(id AS TEXT) = ?`,
+                        [requestedHospital, requestedHospital],
+                        (errH, hospital) => {
+                            if (errH) return cb(errH, null);
+                            if (!hospital) return cb(httpError(404, 'Hospital not found'), null);
+                            if (hospital.account_status !== 'active') {
+                                return cb(httpError(403, 'This hospital is not accepting bookings'), null);
+                            }
+                            hasActiveHospitalAffiliation(targetDoctorId, hospital.id, (errA, ok) => {
+                                if (errA) return cb(errA, null);
+                                if (!ok) {
+                                    return cb(httpError(409,
+                                        'This doctor is not available at the selected hospital. Please choose another hospital.'), null);
+                                }
+                                cb(null, hospital.id);
+                            });
+                        }
+                    );
+                    return;
+                }
+
+                // No hospital supplied.
+                if (isDoctor) {
+                    // Staff bookings: fall back to the doctor's active hospital so the
+                    // appointment still records where it happened. If the doctor works
+                    // at more than one hospital we leave it NULL rather than guess.
+                    db.all(
+                        `SELECT hospital_id FROM hospital_memberships
+                         WHERE doctor_id = ? AND status = 'approved' AND ended_at IS NULL
+                         LIMIT 2`,
+                        [targetDoctorId],
+                        (errM, rows) => {
+                            if (errM) return cb(errM, null);
+                            cb(null, rows && rows.length === 1 ? rows[0].hospital_id : null);
+                        }
+                    );
+                    return;
+                }
+
+                // Patients MUST pick a hospital when the doctor works at one.
+                countActiveAffiliations(targetDoctorId, (errC, activeCount) => {
+                    if (errC) return cb(errC, null);
+                    if (activeCount > 0) {
+                        return cb(httpError(400, 'Please select a hospital for this doctor first.'), null);
+                    }
+                    cb(null, null); // independent clinic doctor
+                });
+            };
+
+            // ---- 6 + 11. The chosen slot must be genuinely free ----
+            const validateSlot = (targetDoctorId, cb) => {
+                if (!appointment_time) return cb(null, null);
+                const time = String(appointment_time).slice(0, 5);
+
+                findDuplicateBooking(pid, targetDoctorId, appointment_date, time, (errD, dup) => {
+                    if (errD) return cb(errD, null);
+                    if (dup) return cb(httpError(409, 'You already have an appointment booked at this time.'), null);
+
+                    getFreeSlots(targetDoctorId, appointment_date, (errS, free) => {
+                        if (errS) return cb(errS, null);
+                        if (free && free.indexOf(time) !== -1) return cb(null, time);
+
+                        if (isDoctor) {
+                            // Staff may book outside the published schedule, but never
+                            // on top of somebody else's booking.
+                            db.get(
+                                `SELECT id FROM consultations
+                                 WHERE doctor_id = ? AND date = ? AND appointment_time = ?
+                                   AND status IN ('pending','seen','accepted','in_progress')`,
+                                [targetDoctorId, appointment_date, time],
+                                (errF, row) => {
+                                    if (errF) return cb(errF, null);
+                                    if (row) return cb(httpError(409, 'That time slot is already booked.'), null);
+                                    cb(null, time);
+                                }
+                            );
+                            return;
+                        }
+                        cb(httpError(409, 'That time slot is not available. Please choose another time.'), null);
+                    });
+                });
+            };
+
             findPatientUserId((errU, patientUserId) => {
                 if (errU) return res.status(500).json({ error: 'Server error' });
 
@@ -3639,20 +4110,42 @@ app.post('/api/appointments', authenticateToken, (req, res) => {
                         return res.status(404).json({ error: isDoctor ? 'Doctor not found or inactive' : 'Selected doctor is unavailable. Please choose another doctor.' });
                     }
 
-                    const finalStatus = isDoctor ? 'accepted' : 'pending';
-                    db.run(
-                        'INSERT INTO consultations (patient_id, doctor_id, date, appointment_time, reason, status) VALUES (?, ?, ?, ?, ?, ?)',
-                        [pid, doctorId, appointment_date, appointment_time || null, reason || null, finalStatus],
-                        function(err4) {
-                            if (err4) return res.status(500).json({ error: 'Server error' });
-                            logAction(req.user.id, 'CREATE', 'consultations', this.lastID, { type: 'appointment' }, req.ip);
-                            const appointmentId = this.lastID;
-                            // Notify the doctor about the new booking
-                            notifyAppointment(patientUserId, doctorId, 'New appointment request',
-                                `A new appointment has been requested for ${appointment_date}${appointment_time ? ' at ' + appointment_time : ''}.`);
-                            res.status(201).json({ message: 'Appointment booked', appointment_id: appointmentId, status: finalStatus });
-                        }
-                    );
+                    validateHospital(doctorId, (errH, resolvedHospitalId) => {
+                        if (errH) return res.status(errH.status || 500).json({ error: errH.message || 'Server error' });
+
+                        validateSlot(doctorId, (errS, cleanTime) => {
+                            if (errS) return res.status(errS.status || 500).json({ error: errS.message || 'Server error' });
+
+                            const finalStatus = isDoctor ? 'accepted' : 'pending';
+                            db.run(
+                                `INSERT INTO consultations
+                                    (patient_id, doctor_id, hospital_id, date, appointment_time, reason, status)
+                                 VALUES (?, ?, ?, ?, ?, ?, ?)`,
+                                [pid, doctorId, resolvedHospitalId, appointment_date,
+                                 appointment_time || null, reason || null, finalStatus],
+                                function(err4) {
+                                    if (err4) return res.status(500).json({ error: 'Server error' });
+                                    logAction(req.user.id, 'CREATE', 'consultations', this.lastID, {
+                                        type: 'appointment',
+                                        doctor_id: doctorId,
+                                        hospital_id: resolvedHospitalId
+                                    }, req.ip);
+                                    const appointmentId = this.lastID;
+                                    // Notify the doctor about the new booking
+                                    notifyAppointment(patientUserId, doctorId, 'New appointment request',
+                                        `A new appointment has been requested for ${appointment_date}${cleanTime ? ' at ' + cleanTime : ''}.`);
+                                    res.status(201).json({
+                                        message: 'Appointment booked',
+                                        appointment_id: appointmentId,
+                                        status: finalStatus,
+                                        hospital_id: resolvedHospitalId,
+                                        date: appointment_date,
+                                        appointment_time: cleanTime
+                                    });
+                                }
+                            );
+                        });
+                    });
                 });
             });
         }
@@ -3829,7 +4322,7 @@ app.post('/api/appointments/:id/start', authenticateToken, requireRole('doctor')
         // Starting implies acceptance; record accepted_at if it was never accepted
         const acceptedSet = existing.status !== 'accepted' ? ', accepted_at = COALESCE(accepted_at, CURRENT_TIMESTAMP)' : '';
         db.run(`UPDATE consultations SET status = ?, date = ?, in_progress_at = CURRENT_TIMESTAMP${acceptedSet} WHERE id = ?`,
-            ['in_progress', new Date().toISOString().split('T')[0], id],
+            ['in_progress', localDateString(), id],
             function(err2) {
                 if (err2) return res.status(500).json({ error: 'Server error' });
                 logAction(req.user.id, 'UPDATE', 'consultations', id, { action: 'start_consultation' }, req.ip);
@@ -3856,8 +4349,10 @@ app.get('/api/my/consultations', authenticateToken, (req, res) => {
             if (err || !patient) return res.json([]);
             
             db.all(
-                `SELECT c.*, u.full_name as doctor_name 
-                 FROM consultations c JOIN users u ON c.doctor_id = u.id 
+                `SELECT c.*, u.full_name as doctor_name, u.specialty,
+                        h.name as hospital_name, h.hospital_id as hospital_code, h.city as hospital_city
+                 FROM consultations c JOIN users u ON c.doctor_id = u.id
+                 LEFT JOIN hospitals h ON c.hospital_id = h.id
                  WHERE c.patient_id = ? ORDER BY c.created_at DESC`,
                 [patient.id],
                 (err, consultations) => {
@@ -4144,7 +4639,8 @@ app.get('/api/hospitals/search', (req, res) => {
     }
 
     db.all(
-        `SELECT h.id, h.hospital_id, h.name, h.type, h.city, h.state, h.verification_status,
+        `SELECT h.id, h.hospital_id, h.name, h.type, h.address, h.city, h.state, h.pincode,
+                h.phone, h.email, h.logo, h.verification_status,
                 (SELECT COUNT(*) FROM hospital_memberships hm WHERE hm.hospital_id = h.id AND hm.status = 'approved' AND hm.ended_at IS NULL) as doctor_count,
                 (SELECT COUNT(*) FROM departments d WHERE d.hospital_id = h.id) as department_count
          FROM hospitals h ${where} ORDER BY h.name LIMIT 50`,
@@ -4167,7 +4663,18 @@ app.get('/api/hospitals/:hospitalId', (req, res) => {
         (err, hospital) => {
             if (err) return res.status(500).json({ error: 'Server error' });
             if (!hospital) return res.status(404).json({ error: 'Hospital not found' });
-            res.json(hospital);
+
+            // Departments offered by this hospital (only real rows, active only)
+            db.all(
+                `SELECT id, name, description FROM departments
+                 WHERE hospital_id = ? AND COALESCE(is_active, 1) = 1
+                 ORDER BY name`,
+                [hospital.id],
+                (err2, departments) => {
+                    if (err2) return res.json(Object.assign({}, hospital, { departments: [] }));
+                    res.json(Object.assign({}, hospital, { departments: departments || [] }));
+                }
+            );
         }
     );
 });
@@ -4523,6 +5030,62 @@ app.get('/api/hospital/patients', authenticateToken, requireHospitalAdmin, (req,
     );
 });
 
+// ========== HOSPITAL ADMIN: APPOINTMENTS (scoped to this hospital only) ==========
+// Hospital A can only ever see appointments booked through Hospital A.
+// Query params: date=YYYY-MM-DD | date=today, status=..., appointment_id=...
+app.get('/api/hospital/appointments', authenticateToken, requireHospitalAdmin, (req, res) => {
+    const { date, status } = req.query;
+    const appointmentId = req.query.appointment_id || req.query.id;
+
+    // Appointments explicitly booked through this hospital, PLUS legacy rows
+    // (hospital_id IS NULL) whose doctor is currently affiliated with it.
+    // A row booked through another hospital never matches either branch.
+    const scope = `(
+        c.hospital_id = ?
+        OR (c.hospital_id IS NULL AND EXISTS (
+            SELECT 1 FROM hospital_memberships hm2
+            WHERE hm2.doctor_id = c.doctor_id AND hm2.hospital_id = ?
+              AND hm2.status = 'approved' AND hm2.ended_at IS NULL))
+    )`;
+
+    if (appointmentId) {
+        return db.get(
+            `SELECT ${APPOINTMENT_SELECT} WHERE c.id = ? AND ${scope}`,
+            [appointmentId, req.hospitalId, req.hospitalId],
+            (err, row) => {
+                if (err) return res.status(500).json({ error: 'Server error' });
+                if (!row) return res.status(404).json({ error: 'Appointment not found' });
+                res.json(serializeAppointment(row));
+            }
+        );
+    }
+
+    let where = 'WHERE ' + scope;
+    const params = [req.hospitalId, req.hospitalId];
+
+    if (date === 'today') {
+        where += ' AND substr(c.date, 1, 10) = ?';
+        params.push(localDateString());
+    } else if (date) {
+        where += ' AND substr(c.date, 1, 10) = ?';
+        params.push(date);
+    }
+    if (status) {
+        where += ' AND c.status = ?';
+        params.push(status);
+    }
+
+    db.all(
+        `SELECT ${APPOINTMENT_SELECT} ${where}
+         ORDER BY c.date ASC, c.appointment_time ASC, c.created_at ASC`,
+        params,
+        (err, rows) => {
+            if (err) return res.status(500).json({ error: 'Server error' });
+            res.json((rows || []).map(serializeAppointment));
+        }
+    );
+});
+
 // ========== HOSPITAL ADMIN: NOTIFICATIONS ==========
 app.get('/api/hospital/notifications', authenticateToken, requireHospitalAdmin, (req, res) => {
     db.all(
@@ -4645,26 +5208,205 @@ app.get('/api/doctors/my-join-requests', authenticateToken, requireRole('doctor'
 });
 
 // ========== HOSPITAL: GET DOCTORS IN HOSPITAL (public) ==========
+// Only doctors with an ACTIVE/APPROVED membership of this hospital are returned.
+// Pending / rejected / ended relationships never appear here — enforced in SQL.
 app.get('/api/hospitals/:hospitalId/doctors', (req, res) => {
-    db.get('SELECT id FROM hospitals WHERE hospital_id = ?', [req.params.hospitalId], (err, hospital) => {
-        if (err || !hospital) return res.status(404).json({ error: 'Hospital not found' });
-
-        db.all(
-            `SELECT u.id, u.full_name, u.specialty, u.photo, u.email, u.phone,
-                    dp.qualification, dp.experience_years, dp.verified,
-                    hm.department
-             FROM hospital_memberships hm
-             JOIN users u ON hm.doctor_id = u.id
-             LEFT JOIN doctor_profiles dp ON dp.user_id = u.id
-             WHERE hm.hospital_id = ? AND hm.status = 'approved' AND hm.ended_at IS NULL
-             ORDER BY u.full_name`,
-            [hospital.id],
-            (err2, doctors) => {
-                if (err2) return res.status(500).json({ error: 'Server error' });
-                res.json(doctors || []);
+    const ref = String(req.params.hospitalId || '');
+    db.get(
+        `SELECT id, name, account_status FROM hospitals
+         WHERE hospital_id = ? OR CAST(id AS TEXT) = ?`,
+        [ref, ref],
+        (err, hospital) => {
+            if (err) return res.status(500).json({ error: 'Server error' });
+            if (!hospital) return res.status(404).json({ error: 'Hospital not found' });
+            if (hospital.account_status !== 'active') {
+                return res.status(404).json({ error: 'Hospital is not accepting bookings' });
             }
-        );
-    });
+
+            const q = String(req.query.q || '').trim();
+            const specialty = String(req.query.specialty || '').trim();
+
+            let where = `WHERE hm.hospital_id = ? AND hm.status = 'approved' AND hm.ended_at IS NULL
+                         AND u.role = 'doctor' AND u.accountStatus = 'active'`;
+            const params = [hospital.id];
+            if (q) {
+                where += ' AND (u.full_name LIKE ? OR u.specialty LIKE ? OR dp.qualification LIKE ?)';
+                params.push(`%${q}%`, `%${q}%`, `%${q}%`);
+            }
+            if (specialty) {
+                where += ' AND u.specialty = ?';
+                params.push(specialty);
+            }
+
+            db.all(
+                `SELECT u.id, u.full_name, u.specialty, u.photo,
+                        dp.qualification, dp.experience_years, dp.verified,
+                        dp.consultation_fee, dp.availability, hm.department,
+                        (SELECT AVG(rating) FROM reviews r WHERE r.doctor_id = u.id) AS rating,
+                        (SELECT COUNT(*) FROM reviews r WHERE r.doctor_id = u.id) AS review_count
+                 FROM hospital_memberships hm
+                 JOIN users u ON hm.doctor_id = u.id
+                 LEFT JOIN doctor_profiles dp ON dp.user_id = u.id
+                 ${where}
+                 ORDER BY u.full_name`,
+                params,
+                (err2, doctors) => {
+                    if (err2) return res.status(500).json({ error: 'Server error' });
+
+                    // hm.department holds a name for new rows and a legacy id for old
+                    // ones — resolve both against this hospital's real departments.
+                    db.all('SELECT id, name FROM departments WHERE hospital_id = ?', [hospital.id], (err3, depts) => {
+                        if (err3) return res.json(doctors || []);
+                        const byId = {};
+                        const byLower = {};
+                        (depts || []).forEach(d => {
+                            byId[String(d.id)] = d.name;
+                            byLower[String(d.name).toLowerCase()] = d.name;
+                        });
+                        res.json((doctors || []).map(doc => {
+                            const raw = doc.department == null ? '' : String(doc.department);
+                            let name = byId[raw] || byLower[raw.toLowerCase()] || null;
+                            if (!name && raw && isNaN(Number(raw))) name = raw;
+                            return Object.assign({}, doc, { department: name });
+                        }));
+                    });
+                }
+            );
+        }
+    );
+});
+
+// ========== DOCTOR AVAILABILITY (real schedule + booked slots) ==========
+// GET /api/doctors/:doctorId/availability?hospital_id=&days=14&date=YYYY-MM-DD
+// Returns ONLY free slots computed from the doctor's own availability text
+// minus appointments already in the database.
+app.get('/api/doctors/:doctorId/availability', authenticateToken, (req, res) => {
+    const doctorId = Number(req.params.doctorId);
+    const hospitalRef = req.query.hospital_id ? String(req.query.hospital_id) : null;
+    const singleDate = req.query.date ? String(req.query.date) : null;
+    const days = Math.min(Math.max(Number(req.query.days) || 14, 1), 30);
+
+    if (!doctorId || isNaN(doctorId)) {
+        return res.status(400).json({ error: 'Invalid doctor' });
+    }
+
+    // 1. Doctor must exist, be a doctor and be allowed to take appointments
+    db.get(
+        `SELECT u.id, u.full_name, u.specialty, u.photo, u.accountStatus,
+                dp.qualification, dp.experience_years, dp.consultation_fee,
+                dp.availability, dp.verified, dp.practice_type
+         FROM users u
+         LEFT JOIN doctor_profiles dp ON dp.user_id = u.id
+         WHERE u.id = ? AND u.role = 'doctor'`,
+        [doctorId],
+        (err, doctor) => {
+            if (err) return res.status(500).json({ error: 'Server error' });
+            if (!doctor) return res.status(404).json({ error: 'Doctor not found' });
+            if (doctor.accountStatus !== 'active') {
+                return res.status(403).json({ error: 'This doctor is not accepting appointments' });
+            }
+
+            // 2. Resolve the hospital (if the patient picked one) and verify the
+            //    doctor is ACTIVELY affiliated with it. Never trust the client.
+            const resolveHospital = (cb) => {
+                if (!hospitalRef) return cb(null, null);
+                db.get(
+                    `SELECT id, hospital_id, name, address, city, state, pincode, phone, email, logo,
+                            verification_status, account_status
+                     FROM hospitals WHERE hospital_id = ? OR CAST(id AS TEXT) = ?`,
+                    [hospitalRef, hospitalRef],
+                    (errH, hospital) => {
+                        if (errH) return cb(errH, null);
+                        if (!hospital) return cb(Object.assign(new Error('Hospital not found'), { status: 404 }), null);
+                        if (hospital.account_status !== 'active') {
+                            return cb(Object.assign(new Error('Hospital is not accepting bookings'), { status: 403 }), null);
+                        }
+                        hasActiveHospitalAffiliation(doctorId, hospital.id, (errA, ok) => {
+                            if (errA) return cb(errA, null);
+                            if (!ok) {
+                                return cb(Object.assign(
+                                    new Error('This doctor is not available at the selected hospital'),
+                                    { status: 409 }
+                                ), null);
+                            }
+                            cb(null, hospital);
+                        });
+                    }
+                );
+            };
+
+            resolveHospital((errR, hospital) => {
+                if (errR) return res.status(errR.status || 500).json({ error: errR.message || 'Server error' });
+
+                // 3. Hospital doctors must be booked through a hospital.
+                //    Independent doctors must NOT be booked through one.
+                countActiveAffiliations(doctorId, (errC, activeCount) => {
+                    if (errC) return res.status(500).json({ error: 'Server error' });
+
+                    if (activeCount > 0 && !hospital) {
+                        return res.status(400).json({
+                            error: 'This doctor works at a hospital. Please select a hospital first.'
+                        });
+                    }
+                    if (activeCount === 0 && hospital) {
+                        return res.status(409).json({ error: 'This doctor is not affiliated with the selected hospital' });
+                    }
+
+                    // 4. Build the calendar from real free slots
+                    const build = () => {
+                        buildAvailability(doctorId, singleDate, singleDate ? 1 : days, (errA, dates) => {
+                            if (errA) return res.status(500).json({ error: 'Server error' });
+                            const respond = (department) => {
+                                res.json({
+                                    doctor: {
+                                        id: doctor.id,
+                                        name: doctor.full_name,
+                                        specialty: doctor.specialty,
+                                        photo: doctor.photo || null,
+                                        qualification: doctor.qualification || null,
+                                        experience_years: doctor.experience_years,
+                                        consultation_fee: doctor.consultation_fee,
+                                        availability: doctor.availability || null,
+                                        verified: !!doctor.verified,
+                                        practice_type: doctor.practice_type || 'independent'
+                                    },
+                                    hospital: hospital ? {
+                                        id: hospital.id,
+                                        hospital_id: hospital.hospital_id,
+                                        name: hospital.name,
+                                        address: hospital.address,
+                                        city: hospital.city,
+                                        state: hospital.state,
+                                        phone: hospital.phone
+                                    } : null,
+                                    department: department,
+                                    schedule_text: doctor.availability || null,
+                                    dates: dates || []
+                                });
+                            };
+
+                            if (!hospital) return respond(null);
+
+                            // Department of THIS membership (legacy rows store an id)
+                            db.get(
+                                'SELECT department FROM hospital_memberships WHERE doctor_id = ? AND hospital_id = ? AND ended_at IS NULL',
+                                [doctorId, hospital.id],
+                                (errM, memb) => {
+                                    if (errM || !memb || memb.department == null) return respond(null);
+                                    const raw = String(memb.department);
+                                    if (isNaN(Number(raw))) return respond(raw);
+                                    db.get('SELECT name FROM departments WHERE id = ? AND hospital_id = ?',
+                                        [Number(raw), hospital.id],
+                                        (errD, dep) => respond(errD || !dep ? null : dep.name));
+                                }
+                            );
+                        });
+                    };
+                    build();
+                });
+            });
+        }
+    );
 });
 
 // ========== DOCTOR: PRACTICE / HOSPITAL AFFILIATION ==========

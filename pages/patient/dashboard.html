@@ -129,10 +129,19 @@
                         <p id="conditionsList">None documented</p>
                     </div>
                     <div class="mt-3" style="display: flex; gap: 10px; flex-wrap: wrap;">
-                        <button class="btn btn-primary" onclick="showBookModal()"><span data-i18n="book_appointment">Book Appointment</span></button>
+                        <button class="btn btn-primary" onclick="openBookingWizard()"><span data-i18n="book_appointment">Book Appointment</span></button>
                         <a href="/patient/doctors" class="btn btn-outline"><span data-i18n="find_doctors">Find Doctors</span></a>
                     </div>
                 </div>
+            </div>
+
+            <!-- Upcoming Appointment (hospital-first booking) -->
+            <div class="admin-card mt-4">
+                <div class="admin-card-header">
+                    <h2><span data-i18n="upcoming_appointments">Upcoming Appointment</span></h2>
+                    <a href="/patient/appointments?filter=upcoming" class="btn btn-sm btn-outline"><span data-i18n="view_all">View All</span></a>
+                </div>
+                <div id="upcomingCard"></div>
             </div>
 
             <!-- Recent Consultations -->
@@ -147,6 +156,7 @@
                             <tr>
                                 <th><span data-i18n="date">Date</span></th>
                                 <th><span data-i18n="doctor">Doctor</span></th>
+                                <th><span data-i18n="hospital">Hospital</span></th>
                                 <th><span data-i18n="specialty">Specialty</span></th>
                                 <th><span data-i18n="diagnosis">Diagnosis</span></th>
                                 <th><span data-i18n="status">Status</span></th>
@@ -160,40 +170,6 @@
         </div>
     </section>
 
-    <!-- Book Appointment Modal -->
-    <div class="modal" id="bookModal" role="dialog" aria-modal="true" aria-labelledby="bookTitle">
-        <div class="modal-content" style="max-width: 520px; text-align: left;">
-            <div class="modal-header">
-                <h3 id="bookTitle"><span data-i18n="book_appointment">Book Appointment</span></h3>
-                <button class="btn btn-sm btn-outline" onclick="hideModal('bookModal')" aria-label="Close">×</button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label for="bookDoctor"><span data-i18n="doctor">Doctor</span></label>
-                    <select id="bookDoctor" class="form-control" aria-label="Doctor"></select>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="bookDate"><span data-i18n="date">Date</span></label>
-                        <input type="date" id="bookDate" class="form-control" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="bookTime"><span data-i18n="time">Time</span></label>
-                        <input type="time" id="bookTime" class="form-control">
-                    </div>
-                </div>
-                <div class="form-group">
-                    <label for="bookReason"><span data-i18n="description">Reason</span></label>
-                    <textarea id="bookReason" rows="3" class="form-control" data-i18n-placeholder="description" placeholder="Reason for appointment"></textarea>
-                </div>
-            </div>
-            <div class="modal-actions" style="justify-content: flex-end;">
-                <button class="btn btn-secondary" onclick="hideModal('bookModal')"><span data-i18n="cancel">Cancel</span></button>
-                <button class="btn btn-primary" id="bookBtn" onclick="bookAppointment()"><span data-i18n="book_appointment">Request Appointment</span></button>
-            </div>
-        </div>
-    </div>
-
     <script src="/js/i18n.js?v=2.2"></script>
     <script src="/js/main.js?v=2.1"></script>
     <script>
@@ -202,8 +178,11 @@
 
             loadProfile();
             loadDashboard();
-            loadDoctors();
         });
+
+        function openBookingWizard() {
+            window.location.href = '/patient/appointments?book=1';
+        }
 
         async function loadProfile() {
             try {
@@ -245,21 +224,49 @@
                     api('/messages/unread-count')
                 ]);
 
-                const upcoming = appointments.filter(a => ['pending', 'seen', 'accepted', 'in_progress'].includes(a.status)).length;
-                document.getElementById('upcomingCount').textContent = upcoming;
+                const open = ['pending', 'seen', 'accepted', 'in_progress'];
+                const upcomingList = appointments
+                    .filter(a => open.includes(a.status))
+                    .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+                document.getElementById('upcomingCount').textContent = upcomingList.length;
                 document.getElementById('consultationCount').textContent = consultations.length;
                 document.getElementById('reportCount').textContent = reports.length;
                 document.getElementById('unreadCount').textContent = unread.count;
 
+                renderUpcoming(upcomingList[0] || null);
                 renderRecent(consultations.slice(0, 5));
             } catch (err) {
                 document.getElementById('upcomingCount').textContent = '—';
                 document.getElementById('consultationCount').textContent = '—';
                 document.getElementById('reportCount').textContent = '—';
                 document.getElementById('unreadCount').textContent = '—';
+                document.getElementById('upcomingCard').innerHTML = '';
                 document.getElementById('recentConsultations').innerHTML = '';
                 showErrorState(document.getElementById('recentState'), 'Unable to load dashboard. Please try again.', 'loadDashboard');
             }
+        }
+
+        function renderUpcoming(a) {
+            const el = document.getElementById('upcomingCard');
+            const t = function(key) { return typeof ShrijalI18n !== 'undefined' ? ShrijalI18n.t(key) : key; };
+            if (!el) return;
+            if (!a) {
+                showEmptyState(el, t('no_upcoming_appointments'));
+                return;
+            }
+            const rows = [
+                [t('hospital'), a.hospital_name || t('independent_clinic_doctor')],
+                [t('doctor'), a.doctor_name],
+                [t('specialty'), (a.doctor && a.doctor.specialty) || a.specialty || '—'],
+                [t('date'), formatDate(a.date) + (a.appointment_time ? ' — ' + a.appointment_time : '')],
+                [t('status'), a.status]
+            ];
+            el.innerHTML = '<div style="padding:6px 16px;">' + rows.map(r =>
+                `<div class="bk-summary-row" style="border-bottom:1px solid var(--border,#e5e7eb); display:flex; justify-content:space-between; gap:14px; padding:10px 0; font-size:14px;">
+                    <span style="color:var(--text-muted,#6b7280);">${escapeHtml(r[0])}</span>
+                    <span style="font-weight:600; text-align:right;">${escapeHtml(String(r[1]))}</span>
+                </div>`
+            ).join('') + '</div>';
         }
 
         function renderRecent(list) {
@@ -278,65 +285,12 @@
                 <tr>
                     <td>${formatDate(c.date)}</td>
                     <td>${escapeHtml(c.doctor_name || t('doctor'))}</td>
+                    <td>${escapeHtml(c.hospital_name || '—')}</td>
                     <td>${escapeHtml(c.specialty || 'N/A')}</td>
                     <td>${escapeHtml((c.diagnosis || 'N/A').substring(0, 40))}</td>
                     <td>${statusBadge(c.status)}</td>
                 </tr>
             `).join('');
-        }
-
-        async function loadDoctors() {
-            try {
-                const doctors = await api('/doctors');
-                const select = document.getElementById('bookDoctor');
-                const t = function(key) { return typeof ShrijalI18n !== 'undefined' ? ShrijalI18n.t(key) : key; };
-                select.innerHTML = '<option value="">' + t('select') + '...' + '</option>' +
-                    doctors.map(d => `<option value="${d.id}">${escapeHtml(d.full_name)}${d.specialty ? ' - ' + escapeHtml(d.specialty) : ''}</option>`).join('');
-            } catch (err) {
-                showToast(err.message, 'error');
-            }
-        }
-
-        function showBookModal() {
-            document.getElementById('bookDate').value = new Date().toISOString().split('T')[0];
-            document.getElementById('bookDate').min = new Date().toISOString().split('T')[0];
-            document.getElementById('bookTime').value = '';
-            document.getElementById('bookReason').value = '';
-            showModal('bookModal');
-        }
-
-        async function bookAppointment() {
-            const btn = document.getElementById('bookBtn');
-            const user = getUser();
-            const date = document.getElementById('bookDate').value;
-            const doctorId = document.getElementById('bookDoctor').value;
-
-            if (!doctorId) {
-                showToast('Please choose a doctor', 'error');
-                return;
-            }
-            if (!date) {
-                showToast('Please choose a date', 'error');
-                return;
-            }
-
-            btn.disabled = true;
-            try {
-                await api('/appointments', 'POST', {
-                    patient_id: user.id,
-                    doctor_id: doctorId,
-                    appointment_date: date,
-                    appointment_time: document.getElementById('bookTime').value,
-                    reason: document.getElementById('bookReason').value
-                });
-                showToast('Appointment requested. Your doctor will confirm it.');
-                hideModal('bookModal');
-                loadDashboard();
-                btn.disabled = false;
-            } catch (err) {
-                showToast(err.message, 'error');
-                btn.disabled = false;
-            }
         }
     </script>
 </body>

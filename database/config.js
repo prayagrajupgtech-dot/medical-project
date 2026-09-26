@@ -110,6 +110,7 @@ async function initDatabase() {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 patient_id INTEGER NOT NULL,
                 doctor_id INTEGER NOT NULL,
+                hospital_id INTEGER,
                 date TEXT NOT NULL,
                 appointment_time TEXT,
                 reason TEXT,
@@ -410,6 +411,8 @@ async function initDatabase() {
                         addIfMissing('completed_at', 'completed_at DATETIME');
                         addIfMissing('cancelled_by', 'cancelled_by TEXT');
                         addIfMissing('rejection_reason', 'rejection_reason TEXT');
+                        // Hospital the patient selected when booking (NULL = independent doctor)
+                        addIfMissing('hospital_id', 'hospital_id INTEGER');
                         // Legacy 'confirmed' maps to the new 'accepted' status
                         db.run("UPDATE consultations SET status = 'accepted' WHERE status = 'confirmed'", () => seed());
                     });
@@ -661,6 +664,8 @@ async function initDatabase() {
                     CREATE INDEX IF NOT EXISTS idx_users_role_status ON users(role, accountStatus);
                     CREATE INDEX IF NOT EXISTS idx_users_created ON users(created_at);
                     CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+                    CREATE INDEX IF NOT EXISTS idx_consultations_hospital ON consultations(hospital_id);
+                    CREATE INDEX IF NOT EXISTS idx_consultations_doctor_date ON consultations(doctor_id, date);
                     CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
                     CREATE INDEX IF NOT EXISTS idx_audit_user ON audit_logs(user_id);
                     CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_logs(action);
