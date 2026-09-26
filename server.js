@@ -58,22 +58,35 @@ app.use(['/admin', '/patient', '/doctor'], (req, res, next) => {
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'pages', 'landing.html')));
 app.get('/login', (req, res) => {
+    const sendLogin = () => res.sendFile(path.join(__dirname, 'pages', 'login.html'));
     const token = readToken(req);
-    if (token) {
-        jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-            if (!err) {
-                let target = '/patient/dashboard';
-                if (user.role === 'admin') target = '/admin/dashboard';
-                else if (user.role === 'doctor') target = '/doctor/dashboard';
-                else if (user.role === 'hospital_admin') target = '/hospital/dashboard';
-                else if (user.role === 'staff') target = '/patient/dashboard';
-                return res.redirect(target);
+    if (!token) return sendLogin();
+
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+        if (err) {
+            res.clearCookie('token', { path: '/' });
+            return sendLogin();
+        }
+        // A cookie can outlive the row it points at (deleted user, reset
+        // database, deactivated account). Re-check the DB here, otherwise
+        // /login bounces to a protected page which bounces straight back —
+        // an ERR_TOO_MANY_REDIRECTS loop the browser can never leave.
+        db.get('SELECT role, accountStatus FROM users WHERE id = ?', [user.id], (e2, row) => {
+            if (e2) return sendLogin();            // transient: show login, keep cookie
+            if (!row || row.accountStatus !== 'active') {
+                res.clearCookie('token', { path: '/' });
+                return sendLogin();
             }
-            res.sendFile(path.join(__dirname, 'pages', 'login.html'));
+            const targets = {
+                admin: '/admin/dashboard',
+                doctor: '/doctor/dashboard',
+                hospital_admin: '/hospital/dashboard',
+                staff: '/',
+                patient: '/patient/dashboard'
+            };
+            return res.redirect(targets[row.role] || '/patient/dashboard');
         });
-        return;
-    }
-    res.sendFile(path.join(__dirname, 'pages', 'login.html'));
+    });
 });
 app.get('/register', (req, res) => res.sendFile(path.join(__dirname, 'pages', 'login.html')));
 app.get('/forgot-password', (req, res) => res.sendFile(path.join(__dirname, 'pages', 'forgot-password.html')));
@@ -281,17 +294,41 @@ function protectPage(allowedRoles) {
             // A token WAS supplied but is invalid/expired -> genuine session expiry.
             if (err) return res.redirect('/login?reason=session_expired');
             db.get('SELECT role, accountStatus FROM users WHERE id = ?', [user.id], (e2, row) => {
-                if (e2 || !row) return res.redirect('/login?reason=session_expired');
-                if (row.accountStatus !== 'active') return res.redirect('/login');
+                if (e2) return res.redirect('/login?reason=session_expired');
+                // Row gone (reset/deleted account): drop the dead cookie so the
+                // next hop to /login renders the form instead of redirecting back.
+                if (!row) {
+                    res.clearCookie('token', { path: '/' });
+                    return res.redirect('/login?reason=session_expired');
+                }
+                if (row.accountStatus !== 'active') {
+                    res.clearCookie('token', { path: '/' });
+                    return res.redirect('/login');
+                }
                 if (allowedRoles && allowedRoles.length > 0 && !allowedRoles.includes(row.role)) {
                     const roleRedirect = {
                         patient: '/patient/dashboard',
                         doctor: '/doctor/dashboard',
                         admin: '/admin/dashboard',
                         hospital_admin: '/hospital/dashboard',
-                        staff: '/patient/dashboard'
+                        // staff has no portal of its own: send it to the public
+                        // home instead of /patient/dashboard, which would bounce
+                        // straight back here (the old infinite redirect).
+                        staff: '/'
                     };
-                    return res.redirect(roleRedirect[row.role] || '/login');
+                    const target = roleRedirect[row.role] || '/login';
+                    // Never bounce a user to the page they are already on.
+                    if (target === req.path || target === '/login') {
+                        return res.status(403).type('html').send(
+                            '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">' +
+                            '<meta name="viewport" content="width=device-width,initial-scale=1">' +
+                            '<title>Access denied</title></head><body style="font-family:system-ui,sans-serif;' +
+                            'display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f8fafc;color:#0f172a">' +
+                            '<div style="text-align:center;padding:24px"><h1 style="font-size:22px">Access denied</h1>' +
+                            '<p style="color:#64748b">Your account does not have access to this page.</p>' +
+                            '<a href="/" style="color:#2563eb">Go to home</a></div></body></html>');
+                    }
+                    return res.redirect(target);
                 }
                 req.user = { id: user.id, role: row.role, username: user.username, accountStatus: row.accountStatus };
                 next();
