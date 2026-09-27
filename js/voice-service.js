@@ -53,10 +53,10 @@ const ShrijalVoice = (() => {
     // ══════════════════════════════════════════════════════════════════════════
 
     const LOCALE_MAP = {
-        'en': 'en-US', 'hi': 'hi-IN', 'bn': 'bn-IN', 'mr': 'mr-IN',
+        'en': 'en-IN', 'hi': 'hi-IN', 'bn': 'bn-IN', 'mr': 'mr-IN',
         'ta': 'ta-IN', 'te': 'te-IN', 'gu': 'gu-IN', 'kn': 'kn-IN',
         'ml': 'ml-IN', 'pa': 'pa-IN', 'or': 'or-IN', 'as': 'as-IN',
-        'ur': 'ur-IN', 'ne': 'ne-IN', 'sa': 'sa-IN'
+        'ur': 'ur-IN', 'ne': 'ne-NP', 'sa': 'sa-IN'
     };
 
     // ══════════════════════════════════════════════════════════════════════════

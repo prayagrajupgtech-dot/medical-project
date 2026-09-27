@@ -45,7 +45,9 @@ async function logout() {
         // Proceed with local logout even if the API is unreachable
     }
     clearAuth();
-    window.location.replace('/login');
+    // ?session=1 guarantees /login renders even if the server-side cookie
+    // could not be cleared above (offline / 5xx) — no bounce loop either way.
+    window.location.replace('/login?session=1');
 }
 
 // API helper - throws Error with server-provided message
@@ -71,7 +73,7 @@ async function api(endpoint, method = 'GET', data = null) {
         clearAuth();
         // No token + 401 = not a session problem (e.g. public call). Only flag expiry
         // when an existing session/token was actually rejected by the server.
-        window.location.replace('/login' + (hadToken ? '?reason=session_expired' : ''));
+        window.location.replace('/login' + (hadToken ? '?reason=session_expired' : '?session=1'));
         throw new Error('Session expired. Please log in again.');
     }
 
@@ -281,7 +283,9 @@ function requireAuth(allowedRoles) {
     const user = getUser();
 
     if (!token || !user.id) {
-        window.location.replace('/login');
+        // No usable client session: tell /login so it drops any orphaned
+        // cookie instead of bouncing us straight back here forever.
+        window.location.replace('/login?session=1');
         return false;
     }
 

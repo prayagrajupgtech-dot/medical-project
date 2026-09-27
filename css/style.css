@@ -1587,3 +1587,45 @@ button:disabled, .btn:disabled, .btn.disabled { opacity: 0.55; cursor: not-allow
     .ai-chat-panel { height: 500px; }
     .ai-msg { max-width: 90%; }
 }
+
+/* ============================================================================
+   GLOBAL UNICODE FONT STACK
+   Latin keeps Montserrat/Roboto; every Indian script (and Arabic for Urdu)
+   falls through to the matching Noto family so no glyph renders as a box or
+   in the wrong letter form. Purely additive - visual design is unchanged.
+   ============================================================================ */
+:root {
+    --font-ui: 'Montserrat', 'Roboto', 'Noto Sans', 'Noto Sans Devanagari',
+               'Noto Sans Bengali', 'Noto Sans Tamil', 'Noto Sans Telugu',
+               'Noto Sans Gujarati', 'Noto Sans Kannada', 'Noto Sans Malayalam',
+               'Noto Sans Gurmukhi', 'Noto Sans Oriya', 'Noto Sans Arabic',
+               'Segoe UI', 'Nirmala UI', system-ui, sans-serif;
+}
+
+body,
+.btn,
+.logo-text,
+.stat-number,
+.stat-value,
+.admin-brand span,
+.brand-panel-inner h1,
+.auth-card-header h2,
+.reg-section-title {
+    font-family: var(--font-ui);
+}
+
+/* ============================================================================
+   RTL (Urdu)
+   dir="rtl" is set by applyLanguageToDOM() and already mirrors flow layout.
+   These rules only correct the handful of selectors that pin an explicit side.
+   ============================================================================ */
+[dir="rtl"] .admin-table th,
+[dir="rtl"] .admin-table td,
+[dir="rtl"] .chat-conversation-item,
+[dir="rtl"] .search-item,
+[dir="rtl"] .detail-grid,
+[dir="rtl"] .timeline-item {
+    text-align: right;
+}
+
+[dir="rtl"] .admin-nav ul { justify-content: center; }

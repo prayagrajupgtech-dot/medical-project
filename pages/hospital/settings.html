@@ -23,17 +23,17 @@
                 <li><a href="/hospital/notifications">Notifications</a></li>
                 <li><a href="/hospital/settings" class="active">Settings</a></li>
             </ul>
-            <div class="sidebar-footer"><button class="btn btn-sm btn-outline btn-block" onclick="logout()">Sign Out</button></div>
+            <div class="sidebar-footer"><button class="btn btn-sm btn-outline btn-block" onclick="logout()" data-i18n="sign_out">Sign Out</button></div>
         </nav>
         <main class="main-content">
-            <header class="topbar"><button class="menu-toggle" onclick="toggleSidebar()">☰</button><h1 id="page-title">Settings</h1><div class="topbar-actions"><button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button></div></header>
+            <header class="topbar"><button class="menu-toggle" onclick="toggleSidebar()">☰</button><h1 id="page-title"><span data-i18n="settings">Settings</span></h1><div class="topbar-actions"><button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button></div></header>
             <div class="content">
                 <div class="card">
-                    <div class="card-header"><h3>Change Password</h3></div>
+                    <div class="card-header"><h3 data-i18n="change_password">Change Password</h3></div>
                     <div class="card-body">
-                        <div class="form-group"><label>Current Password</label><input type="password" id="currentPassword" class="form-control" required></div>
-                        <div class="form-group"><label>New Password</label><input type="password" id="newPassword" class="form-control" required></div>
-                        <button class="btn btn-primary" onclick="changePassword()">Update Password</button>
+                        <div class="form-group"><label data-i18n="current_password">Current Password</label><input type="password" id="currentPassword" class="form-control" required></div>
+                        <div class="form-group"><label data-i18n="new_password">New Password</label><input type="password" id="newPassword" class="form-control" required></div>
+                        <button class="btn btn-primary" onclick="changePassword()" data-i18n="update_password">Update Password</button>
                     </div>
                 </div>
                 <div id="languageContainer" style="margin-top:16px;"></div>
@@ -55,13 +55,13 @@
         async function changePassword() {
             var current = document.getElementById('currentPassword').value;
             var newPass = document.getElementById('newPassword').value;
-            if (!current || !newPass) { showToast('Both fields are required', 'error'); return; }
+            if (!current || !newPass) { showToast(t('both_fields_required'), 'error'); return; }
             try {
                 await api('/auth/change-password', 'POST', { current_password: current, new_password: newPass });
-                showToast('Password updated');
+                showToast(t('password_updated'));
                 document.getElementById('currentPassword').value = '';
                 document.getElementById('newPassword').value = '';
-            } catch(e) { showToast('Error changing password', 'error'); }
+            } catch(e) { showToast(t('error_changing_password'), 'error'); }
         }
     </script>
 </body>

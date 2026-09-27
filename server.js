@@ -59,6 +59,14 @@ app.use(['/admin', '/patient', '/doctor'], (req, res, next) => {
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'pages', 'landing.html')));
 app.get('/login', (req, res) => {
     const sendLogin = () => res.sendFile(path.join(__dirname, 'pages', 'login.html'));
+    // The client only comes here with ?session=1 when it has no usable session
+    // of its own (localStorage cleared while the HttpOnly cookie survived).
+    // Serving the login page — and dropping that orphan cookie — is what stops
+    // /login <-> dashboard ping-pong (ERR_TOO_MANY_REDIRECTS).
+    if (req.query && req.query.session === '1') {
+        res.clearCookie('token', { path: '/' });
+        return sendLogin();
+    }
     const token = readToken(req);
     if (!token) return sendLogin();
 
@@ -759,7 +767,7 @@ const SUPPORTED_LOCALES = {
     'en': 'en-IN', 'hi': 'hi-IN', 'bn': 'bn-IN', 'mr': 'mr-IN',
     'ta': 'ta-IN', 'te': 'te-IN', 'gu': 'gu-IN', 'kn': 'kn-IN',
     'ml': 'ml-IN', 'pa': 'pa-IN', 'or': 'or-IN', 'as': 'as-IN',
-    'ur': 'ur-IN', 'ne': 'ne-IN'
+    'ur': 'ur-IN', 'ne': 'ne-NP'
 };
 
 // Protected: Update preferred language

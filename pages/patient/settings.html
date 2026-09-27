@@ -52,37 +52,37 @@
         <div class="container">
             <div class="dashboard-welcome">
                 <h1 id="page-title"><span data-i18n="settings">Settings</span></h1>
-                <p id="page-subtitle">Account security and preferences</p>
+                <p id="page-subtitle" data-i18n="account_security_preferences">Account security and preferences</p>
             </div>
 
             <div class="admin-card" style="max-width: 640px;">
-                <div class="admin-card-header"><h2>Change Password</h2></div>
+                <div class="admin-card-header"><h2 data-i18n="change_password">Change Password</h2></div>
                 <div class="form-group">
                     <label for="currentPassword"><span data-i18n="current_password">Current Password</span></label>
                     <input type="password" id="currentPassword" class="form-control" autocomplete="current-password">
                 </div>
                 <div class="form-group">
-                    <label for="newPassword">New Password (min 6 characters)</label>
+                    <label for="newPassword" data-i18n="new_password_min">New Password (min 6 characters)</label>
                     <input type="password" id="newPassword" class="form-control" autocomplete="new-password">
                 </div>
                 <div class="form-group">
-                    <label for="confirmPassword">Confirm New Password</label>
+                    <label for="confirmPassword" data-i18n="confirm_new_password">Confirm New Password</label>
                     <input type="password" id="confirmPassword" class="form-control" autocomplete="new-password">
                 </div>
                 <button class="btn btn-primary" onclick="changePassword()"><span data-i18n="update_password">Update Password</span></button>
             </div>
 
             <div class="admin-card mt-4" style="max-width: 640px;">
-                <div class="admin-card-header"><h2>Preferences</h2></div>
+                <div class="admin-card-header"><h2 data-i18n="preferences">Preferences</h2></div>
                 <div class="form-group" style="display:flex; align-items:center; gap:10px;">
                     <input type="checkbox" id="emailNotif" style="width:auto;">
-                    <label for="emailNotif" style="margin:0;">Email me about appointments and reports</label>
+                    <label for="emailNotif" style="margin:0;" data-i18n="email_appointments_reports">Email me about appointments and reports</label>
                 </div>
                 <div class="form-group" style="display:flex; align-items:center; gap:10px;">
                     <input type="checkbox" id="smsNotif" style="width:auto;">
-                    <label for="smsNotif" style="margin:0;">SMS me for appointment reminders</label>
+                    <label for="smsNotif" style="margin:0;" data-i18n="sms_appointment_reminders">SMS me for appointment reminders</label>
                 </div>
-                <button class="btn btn-outline" onclick="savePrefs()">Save Preferences</button>
+                <button class="btn btn-outline" onclick="savePrefs()" data-i18n="save_preferences">Save Preferences</button>
             </div>
 
             <div id="languageContainer" style="max-width: 640px;"></div>
@@ -116,18 +116,18 @@
             const next = document.getElementById('newPassword').value;
             const confirm = document.getElementById('confirmPassword').value;
             if (!current || !next) {
-                showToast('Fill in all password fields', 'error');
+                showToast(t('fill_all_password_fields'), 'error');
                 return;
             }
             if (next !== confirm) {
-                showToast('New passwords do not match', 'error');
+                showToast(t('passwords_do_not_match'), 'error');
                 return;
             }
             const btn = event.target;
             btn.disabled = true;
             try {
                 await api('/auth/change-password', 'POST', { current_password: current, new_password: next });
-                showToast('Password changed successfully');
+                showToast(t('password_changed'));
                 document.getElementById('currentPassword').value = '';
                 document.getElementById('newPassword').value = '';
                 document.getElementById('confirmPassword').value = '';
@@ -141,7 +141,7 @@
         function savePrefs() {
             localStorage.setItem('pat_notif_email', document.getElementById('emailNotif').checked ? '1' : '0');
             localStorage.setItem('pat_notif_sms', document.getElementById('smsNotif').checked ? '1' : '0');
-            showToast('Preferences saved');
+            showToast(t('preferences_saved'));
         }
     </script>
 </body>

@@ -51,18 +51,18 @@
         <div class="container">
             <div class="dashboard-welcome">
                 <h1 id="page-title"><span data-i18n="settings">Settings</span></h1>
-                <p id="page-subtitle">System preferences for your account</p>
+                <p id="page-subtitle" data-i18n="system_preferences">System preferences for your account</p>
             </div>
 
             <div class="admin-card">
                 <div id="settingsState" style="display:none; margin-bottom:16px; padding:14px 16px; border:1.5px solid #ef4444; border-radius:12px; background:var(--bg-card); color:var(--text-primary);">
-                    <span>Unable to load settings. Please try again.</span>
-                    <button class="btn btn-sm btn-secondary" onclick="loadSettings()" style="margin-left:10px;">Retry</button>
+                    <span data-i18n="unable_to_load_settings">Unable to load settings. Please try again.</span>
+                    <button class="btn btn-sm btn-secondary" onclick="loadSettings()" style="margin-left:10px;" data-i18n="retry">Retry</button>
                 </div>
                 <div class="setting-item">
                     <div class="setting-title">
-                        <h3>Notification Emails</h3>
-                        <p class="text-muted">Receive an email when a new doctor or patient registers on the platform</p>
+                        <h3 data-i18n="notification_emails">Notification Emails</h3>
+                        <p class="text-muted" data-i18n="notification_emails_desc">Receive an email when a new doctor or patient registers on the platform</p>
                     </div>
                     <label class="switch">
                         <input type="checkbox" id="notifyNewUser">
@@ -71,8 +71,8 @@
                 </div>
                 <div class="setting-item">
                     <div class="setting-title">
-                        <h3>Block Notifications</h3>
-                        <p class="text-muted">Get notified when you block or unblock a doctor or patient account</p>
+                        <h3 data-i18n="block_notifications">Block Notifications</h3>
+                        <p class="text-muted" data-i18n="block_notifications_desc">Get notified when you block or unblock a doctor or patient account</p>
                     </div>
                     <label class="switch">
                         <input type="checkbox" id="notifyBlock">
@@ -81,8 +81,8 @@
                 </div>
                 <div class="setting-item">
                     <div class="setting-title">
-                        <h3>Report Deletion Confirmation</h3>
-                        <p class="text-muted">Require a typed confirmation before deleting a medical report</p>
+                        <h3 data-i18n="report_deletion_confirmation">Report Deletion Confirmation</h3>
+                        <p class="text-muted" data-i18n="report_deletion_confirmation_desc">Require a typed confirmation before deleting a medical report</p>
                     </div>
                     <label class="switch">
                         <input type="checkbox" id="confirmDelete">
@@ -90,8 +90,8 @@
                     </label>
                 </div>
                 <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:20px;">
-                    <button class="btn btn-primary" onclick="saveSettings()">Save Settings</button>
-                    <button class="btn btn-secondary" onclick="resetSettings()">Reset</button>
+                    <button class="btn btn-primary" onclick="saveSettings()" data-i18n="save_settings">Save Settings</button>
+                    <button class="btn btn-secondary" onclick="resetSettings()" data-i18n="reset">Reset</button>
                 </div>
             </div>
 
