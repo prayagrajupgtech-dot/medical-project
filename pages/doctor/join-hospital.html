@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Join Hospital - Doctor Portal</title>
+    <title data-i18n="join_hospital">Join Hospital - Doctor Portal</title>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="icon" href="/favicon.png" type="image/x-icon">
     <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
@@ -17,90 +17,150 @@
         .option-card p{color:var(--gray);font-size:.9rem;margin-bottom:16px}
         .search-result{background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.2);border-radius:8px;padding:16px;margin:12px 0}
         .search-result h4{color:var(--success);margin-bottom:4px}
+        .search-result[role="button"]{cursor:pointer}
+        .search-result[role="button"]:hover{border-color:var(--primary);background:rgba(37,99,235,0.05)}
+        .search-result[role="button"]:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+        .search-result.is-locked{opacity:.65;background:rgba(100,116,139,0.08);border-color:var(--border);cursor:not-allowed}
+        .search-result.is-locked h4{color:var(--text-muted,#64748b)}
+        .search-result.is-selected{border-color:var(--primary);background:rgba(37,99,235,0.07);box-shadow:0 0 0 1px var(--primary)}
         .back-link{display:inline-flex;align-items:center;gap:6px;margin-bottom:16px;color:var(--primary);font-size:.9rem;cursor:pointer;font-weight:500;text-decoration:none}
         .back-link:hover{text-decoration:underline}
+        @media (max-width: 600px){
+            .form-group > div[style*="flex"]{flex-wrap:wrap}
+        }
     </style>
 </head>
 <body>
     <div class="portal">
         <nav class="sidebar" id="sidebar">
-            <div class="sidebar-header"><img src="/images/brand-logo.svg" alt="Logo" class="sidebar-logo"><span class="sidebar-brand">Doctor Portal</span></div>
+            <div class="sidebar-header"><img src="/images/brand-logo.svg" alt="Logo" class="sidebar-logo"><span class="sidebar-brand" data-i18n="doctor_portal">Doctor Portal</span></div>
             <ul class="sidebar-nav">
-                <li><a href="/doctor/dashboard">Dashboard</a></li>
-                <li><a href="/doctor/patients">Patients</a></li>
-                <li><a href="/doctor/appointments">Appointments</a></li>
-                <li><a href="/doctor/consultations">Consultations</a></li>
-                <li><a href="/doctor/messages">Messages</a></li>
-                <li><a href="/doctor/reports">Reports</a></li>
-                <li><a href="/doctor/practice" class="active" aria-current="page">Practice / Hospital</a></li>
-                <li><a href="/doctor/profile">Profile</a></li>
-                <li><a href="/doctor/settings">Settings</a></li>
+                <li><a href="/doctor/dashboard" data-i18n="dashboard">Dashboard</a></li>
+                <li><a href="/doctor/patients" data-i18n="patients">Patients</a></li>
+                <li><a href="/doctor/appointments" data-i18n="appointments">Appointments</a></li>
+                <li><a href="/doctor/consultations" data-i18n="consultations">Consultations</a></li>
+                <li><a href="/doctor/messages" data-i18n="messages">Messages</a></li>
+                <li><a href="/doctor/reports" data-i18n="reports">Reports</a></li>
+                <li><a href="/doctor/practice" class="active" aria-current="page" data-i18n="practice_hospital">Practice / Hospital</a></li>
+                <li><a href="/doctor/profile" data-i18n="profile">Profile</a></li>
+                <li><a href="/doctor/settings" data-i18n="settings">Settings</a></li>
             </ul>
-            <div class="sidebar-footer"><button class="btn btn-sm btn-outline btn-block" onclick="logout()">Sign Out</button></div>
+            <div class="sidebar-footer"><button class="btn btn-sm btn-outline btn-block" onclick="logout()" data-i18n="sign_out">Sign Out</button></div>
         </nav>
         <main class="main-content">
-            <header class="topbar"><button class="menu-toggle" onclick="toggleSidebar()">☰</button><h1>Join a Hospital</h1><div class="topbar-actions"><button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button></div></header>
+            <header class="topbar"><button class="menu-toggle" onclick="toggleSidebar()" aria-label="Menu">☰</button><h1 data-i18n="join_hospital">Join a Hospital</h1><div class="topbar-actions"><button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button></div></header>
             <div class="content">
                 <div class="card" id="optionSelection">
-                    <div class="card-header"><h3>How would you like to proceed?</h3></div>
+                    <div class="card-header"><h3 data-i18n="how_would_you_like_to_proceed">How would you like to proceed?</h3></div>
                     <div class="card-body">
                         <div class="option-cards">
-                            <div class="option-card" onclick="showJoinOption()">
+                            <div class="option-card" role="button" tabindex="0"
+                                 onclick="showJoinOption()"
+                                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); showJoinOption();}">
                                 <div class="opt-icon">🏥</div>
-                                <h3>Join Existing Hospital</h3>
-                                <p>Enter a Hospital ID or search for a hospital to join their team</p>
-                                <button class="btn btn-primary">Join Hospital</button>
+                                <h3 data-i18n="join_existing_hospital">Join Existing Hospital</h3>
+                                <p data-i18n="join_existing_hint">Browse every registered hospital or look one up by name, city or Hospital ID</p>
+                                <button class="btn btn-primary" data-i18n="join_hospital_button">Join Hospital</button>
                             </div>
-                            <div class="option-card" onclick="showCreateOption()">
+                            <div class="option-card" role="button" tabindex="0"
+                                 onclick="showCreateOption()"
+                                 onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault(); showCreateOption();}">
                                 <div class="opt-icon">🏗️</div>
-                                <h3>Register My Own Hospital</h3>
-                                <p>Create a new hospital and become its admin/owner</p>
-                                <button class="btn btn-outline">Register Hospital</button>
+                                <h3 data-i18n="register_own_hospital">Register My Own Hospital</h3>
+                                <p data-i18n="register_own_hint">Create a new hospital and become its admin/owner</p>
+                                <button class="btn btn-outline" data-i18n="register_hospital">Register Hospital</button>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="card hidden" id="joinForm">
-                    <a class="back-link" onclick="showOptionSelection()">← Back</a>
-                    <div class="card-header"><h3>Join an Existing Hospital</h3></div>
+                    <a class="back-link" role="button" tabindex="0" onclick="showOptionSelection()"><span data-i18n="back">Back</span></a>
+                    <div class="card-header"><h3 data-i18n="join_existing_hospital">Join an Existing Hospital</h3></div>
                     <div class="card-body">
                         <div class="form-group">
-                            <label for="hospitalSearch">Search Hospital (by name or Hospital ID)</label>
+                            <label for="hospitalSearch" data-i18n="search_hospital_label">Search Hospital (name, city or Hospital ID)</label>
                             <div style="display:flex;gap:8px">
-                                <input type="text" id="hospitalSearch" class="form-control" placeholder="Enter hospital name or ID (e.g. HOS-XXXX)">
-                                <button class="btn btn-primary" onclick="searchHospital()">Search</button>
+                                <input type="search" id="hospitalSearch" class="form-control" autocomplete="off"
+                                       placeholder="e.g. City Care, Lucknow or HOS-XXXX"
+                                       aria-describedby="hospitalSearchHint"
+                                       oninput="onHospitalSearchInput(this.value)"
+                                       onkeydown="if(event.key==='Enter'){event.preventDefault(); searchHospital();}">
+                                <button class="btn btn-primary" onclick="searchHospital()" data-i18n="search_action">Search</button>
                             </div>
+                            <p class="text-muted" id="hospitalSearchHint" style="font-size:.85rem;margin-top:6px;" data-i18n="search_hospital_hint">Leave the box empty to browse every registered hospital.</p>
                         </div>
-                        <div id="searchResult"></div>
+                        <div id="searchResult" aria-live="polite"></div>
                         <div class="form-group hidden" id="requestForm">
-                            <label for="requestMessage">Message to Hospital Admin (optional)</label>
+                            <label for="requestMessage" data-i18n="message_to_admin">Message to Hospital Admin (optional)</label>
                             <textarea id="requestMessage" class="form-control" rows="3" placeholder="Introduce yourself and mention why you want to join..."></textarea>
                             <input type="hidden" id="selectedHospitalId">
-                            <button class="btn btn-primary" style="margin-top:12px" onclick="sendJoinRequest()">Send Join Request</button>
+                            <button class="btn btn-primary" id="sendRequestBtn" style="margin-top:12px" onclick="sendJoinRequest()" data-i18n="send_join_request">Send Join Request</button>
                         </div>
                     </div>
                 </div>
 
                 <div class="card" id="myHospitals" style="margin-top:20px">
-                    <div class="card-header"><h3>My Hospital Memberships</h3></div>
-                    <div class="card-body" id="membershipsList"><p class="text-muted">Loading...</p></div>
+                    <div class="card-header"><h3 data-i18n="my_hospital_memberships">My Hospital Memberships</h3></div>
+                    <div class="card-body" id="membershipsList"><p class="text-muted" data-i18n="loading_generic">Loading...</p></div>
                 </div>
 
                 <div class="card" id="myRequests" style="margin-top:20px">
-                    <div class="card-header"><h3>My Join Requests</h3></div>
-                    <div class="card-body" id="requestsList"><p class="text-muted">Loading...</p></div>
+                    <div class="card-header"><h3 data-i18n="my_join_requests">My Join Requests</h3></div>
+                    <div class="card-body" id="requestsList"><p class="text-muted" data-i18n="loading_generic">Loading...</p></div>
                 </div>
             </div>
         </main>
     </div>
-    <script src="/js/main.js?v=2.1"></script>
+    <script src="/js/i18n.js?v=2.2"></script>
+    <script src="/js/main.js?v=2.2"></script>
     <script>
+        // ---- helpers -------------------------------------------------------
+        function tr(key) { return typeof ShrijalI18n !== 'undefined' ? ShrijalI18n.t(key) : key; }
+        function esc(v) { return escapeHtml(v); }
+        function dateText(v) { return v ? formatDate(v) : '—'; }
+
+        // Search state. `memberships` / `requests` are this doctor's OWN rows, so
+        // a hospital already joined — or already asked about — is never offered
+        // as if it were new. Every value below comes from the API, never from
+        // hard-coded sample data.
+        var JOIN = {
+            hospitals: [],
+            memberships: [],
+            requests: [],
+            term: '',
+            selected: null,
+            started: false,
+            loading: false,
+            error: null,
+            timer: null
+        };
+
+        // tr() falls back to the raw key until the locale file has arrived, so
+        // the first render must wait for it — otherwise a loading label like
+        // "searching_hospitals" could flash on screen for a moment.
+        function whenI18nReady() {
+            if (typeof ShrijalI18n === 'undefined') return Promise.resolve();
+            return new Promise(function(resolve) {
+                var tries = 0;
+                (function check() {
+                    var ok = false;
+                    try { ok = ShrijalI18n.t('back') !== 'back'; } catch (e) { ok = true; }
+                    if (ok || tries++ >= 40) return resolve();
+                    setTimeout(check, 50);
+                })();
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', function() {
             bootPage('join-hospital', ['doctor']);
-            loadMyMemberships();
-            loadMyRequests();
+            whenI18nReady().then(function() {
+                loadMyMemberships();
+                loadMyRequests();
+                loadHospitals();
+            });
         });
+
         function showOptionSelection() {
             document.getElementById('optionSelection').classList.remove('hidden');
             document.getElementById('joinForm').classList.add('hidden');
@@ -108,72 +168,204 @@
         function showJoinOption() {
             document.getElementById('optionSelection').classList.add('hidden');
             document.getElementById('joinForm').classList.remove('hidden');
+            if (!JOIN.hospitals.length && !JOIN.loading) whenI18nReady().then(loadHospitals);
+            else renderResults();
         }
         function showCreateOption() {
             window.location.href = '/hospital/register';
         }
-        async function searchHospital() {
-            var query = document.getElementById('hospitalSearch').value.trim();
-            if (!query) return;
-            var resultDiv = document.getElementById('searchResult');
-            resultDiv.innerHTML = '<p class="text-muted">Searching...</p>';
-            try {
-                var hospitals = await api('/hospitals/search?q=' + encodeURIComponent(query));
-                if (!hospitals || hospitals.length === 0) {
-                    resultDiv.innerHTML = '<p class="text-muted">No hospitals found. Try a different search term.</p>';
-                    document.getElementById('requestForm').classList.add('hidden');
-                    return;
-                }
-                resultDiv.innerHTML = hospitals.map(function(h) {
-                    return '<div class="search-result" onclick="selectHospital(' + h.id + ', \'' + h.hospital_id + '\', \'' + (h.name||'').replace(/'/g, "\\'") + '\', ' + (h.doctor_count||0) + ')">' +
-                        '<h4>' + h.name + '</h4>' +
-                        '<p>ID: <strong>' + h.hospital_id + '</strong> &middot; Type: ' + h.type + ' &middot; City: ' + (h.city||'N/A') + '</p>' +
-                        '<p>Doctors: ' + (h.doctor_count||0) + ' &middot; Verification: <span class="badge badge-' + (h.verification_status === 'verified' ? 'success' : 'warning') + '">' + h.verification_status + '</span></p>' +
-                        '</div>';
-                }).join('');
-            } catch(e) { resultDiv.innerHTML = '<p class="text-muted">Error searching hospitals</p>'; }
+
+        // ---- search --------------------------------------------------------
+        function loadHospitals() {
+            JOIN.started = true;
+            JOIN.loading = true;
+            JOIN.error = null;
+            renderResults();
+
+            // An empty term is intentional: the API then returns EVERY active
+            // hospital, so a hospital the doctor never heard of still shows up.
+            api('/hospitals/search?q=' + encodeURIComponent(JOIN.term || '')).then(function(list) {
+                JOIN.hospitals = Array.isArray(list) ? list : [];
+                JOIN.loading = false;
+                renderResults();
+            }).catch(function(err) {
+                JOIN.hospitals = [];
+                JOIN.loading = false;
+                JOIN.error = (err && err.message) || tr('unable_to_load_hospitals');
+                renderResults();
+            });
         }
-        function selectHospital(id, code, name, count) {
-            document.getElementById('selectedHospitalId').value = code;
+
+        function onHospitalSearchInput(value) {
+            JOIN.term = value || '';
+            if (JOIN.timer) clearTimeout(JOIN.timer);
+            JOIN.timer = setTimeout(loadHospitals, 300);
+        }
+
+        function searchHospital() {
+            if (JOIN.timer) clearTimeout(JOIN.timer);
+            JOIN.term = (document.getElementById('hospitalSearch').value || '').trim();
+            loadHospitals();
+        }
+
+        // 'joined' | 'pending' | null — derived from the doctor's real rows.
+        function relationshipState(hospitalPk) {
+            var id = Number(hospitalPk);
+            var i;
+            for (i = 0; i < JOIN.memberships.length; i++) {
+                var m = JOIN.memberships[i];
+                if (Number(m.hospital_id) === id && m.status === 'approved' && !m.ended_at) return 'joined';
+            }
+            for (i = 0; i < JOIN.requests.length; i++) {
+                var r = JOIN.requests[i];
+                if (Number(r.hospital_id) === id && r.status === 'pending') return 'pending';
+            }
+            return null;
+        }
+
+        function hospitalCard(h) {
+            var state = relationshipState(h.id);
+            var locked = state === 'joined' || state === 'pending';
+            var selected = JOIN.selected && String(JOIN.selected.hospital_id) === String(h.hospital_id);
+
+            var classes = 'search-result';
+            if (locked) classes += ' is-locked';
+            if (selected) classes += ' is-selected';
+
+            var meta = [h.hospital_id, h.type, h.city].filter(Boolean).map(esc).join(' · ');
+            var verif = '<span class="badge badge-' + (h.verification_status === 'verified' ? 'success' : 'warning') + '">' +
+                esc(h.verification_status || 'pending') + '</span>';
+            var rel = '';
+            if (state === 'joined') rel = ' <span class="badge badge-success">' + esc(tr('already_member')) + '</span>';
+            else if (state === 'pending') rel = ' <span class="badge badge-warning">' + esc(tr('request_pending')) + '</span>';
+
+            var attrs = 'class="' + classes + '"';
+            if (locked) {
+                attrs += ' aria-disabled="true"';
+            } else {
+                attrs += ' role="button" tabindex="0" data-code="' + esc(h.hospital_id) + '"' +
+                    ' onclick="selectHospitalByCode(this.getAttribute(\'data-code\'))"' +
+                    ' onkeydown="if(event.key===\'Enter\'||event.key===\' \'){event.preventDefault(); selectHospitalByCode(this.getAttribute(\'data-code\'))}"';
+            }
+
+            return '<div ' + attrs + '>' +
+                '<h4>' + esc(h.name) + '</h4>' +
+                '<p>' + meta + '</p>' +
+                '<p>' + esc(tr('doctors')) + ': ' + (Number(h.doctor_count) || 0) +
+                ' &middot; ' + esc(tr('verification')) + ': ' + verif + rel + '</p>' +
+                '</div>';
+        }
+
+        function renderResults() {
+            var box = document.getElementById('searchResult');
+            if (!box) return;
+            if (!JOIN.started) { box.innerHTML = ''; return; }
+
+            if (JOIN.loading) {
+                box.innerHTML = '<p class="text-muted" role="status">' + esc(tr('searching_hospitals')) + '</p>';
+                return;
+            }
+            if (JOIN.error) { showErrorState(box, JOIN.error, 'searchHospital'); return; }
+            if (!JOIN.hospitals.length) {
+                showEmptyState(box, JOIN.term ? tr('no_hospitals_found') : tr('no_hospitals_available'));
+                return;
+            }
+            box.innerHTML = JOIN.hospitals.map(hospitalCard).join('');
+        }
+
+        function selectHospitalByCode(code) {
+            var h = null;
+            for (var i = 0; i < JOIN.hospitals.length; i++) {
+                if (String(JOIN.hospitals[i].hospital_id) === String(code)) { h = JOIN.hospitals[i]; break; }
+            }
+            if (!h) return;
+            JOIN.selected = h;
+            document.getElementById('selectedHospitalId').value = h.hospital_id;
             document.getElementById('requestForm').classList.remove('hidden');
-            document.getElementById('searchResult').innerHTML = '<div class="search-result"><h4>' + name + '</h4><p>ID: ' + code + ' &middot; ' + count + ' doctors</p></div>';
+            renderResults();
         }
+
+        // ---- send ----------------------------------------------------------
         async function sendJoinRequest() {
             var hospitalId = document.getElementById('selectedHospitalId').value;
             var message = document.getElementById('requestMessage').value.trim();
-            if (!hospitalId) { showToast('Please select a hospital first', 'error'); return; }
+            var btn = document.getElementById('sendRequestBtn');
+            if (!hospitalId) { showToast(tr('select_hospital_first'), 'error'); return; }
+
+            btn.disabled = true;
             try {
                 var result = await api('/doctors/join-hospital', 'POST', { hospital_id: hospitalId, message: message });
-                showToast(result.message || 'Join request sent!');
+                showToast(result.message || tr('join_request_sent'));
                 document.getElementById('requestForm').classList.add('hidden');
-                document.getElementById('searchResult').innerHTML = '';
+                document.getElementById('requestMessage').value = '';
+                JOIN.selected = null;
+                document.getElementById('selectedHospitalId').value = '';
+                JOIN.term = '';
                 document.getElementById('hospitalSearch').value = '';
-                loadMyRequests();
-            } catch(e) { showToast('Error sending request', 'error'); }
+                await loadMyRequests();
+                await loadMyMemberships();
+                await loadHospitals();     // refresh so the card now says "pending"
+            } catch (e) {
+                // Surface the server's own reason (already a member, pending, ...)
+                showToast((e && e.message) || tr('error_sending_request'), 'error');
+            } finally {
+                btn.disabled = false;
+            }
         }
+
+        // ---- my rows -------------------------------------------------------
         async function loadMyMemberships() {
+            var container = document.getElementById('membershipsList');
             try {
                 var memberships = await api('/doctors/my-hospitals');
-                var container = document.getElementById('membershipsList');
-                if (!memberships || memberships.length === 0) { container.innerHTML = '<p class="text-muted">No hospital memberships yet</p>'; return; }
-                container.innerHTML = '<table class="table"><thead><tr><th>Hospital</th><th>ID</th><th>City</th><th>Status</th><th>Joined</th></tr></thead><tbody>' +
-                    memberships.map(function(m) {
-                        var sc = m.status === 'approved' ? 'success' : (m.status === 'pending' ? 'warning' : 'danger');
-                        return '<tr><td><strong>' + m.hospital_name + '</strong></td><td>' + m.hospital_code + '</td><td>' + (m.city||'-') + '</td><td><span class="badge badge-' + sc + '">' + m.status + '</span></td><td>' + new Date(m.joined_at || m.created_at).toLocaleDateString() + '</td></tr>';
-                    }).join('') + '</tbody></table>';
-            } catch(e) { console.error(e); }
+                JOIN.memberships = Array.isArray(memberships) ? memberships : [];
+                if (!JOIN.memberships.length) {
+                    container.innerHTML = '<p class="text-muted">' + esc(tr('no_memberships_yet')) + '</p>';
+                } else {
+                    container.innerHTML = '<div class="table-container"><table class="table"><thead><tr>' +
+                        '<th>' + esc(tr('hospital')) + '</th><th>' + esc(tr('hospital_id')) + '</th>' +
+                        '<th>' + esc(tr('city')) + '</th><th>' + esc(tr('status')) + '</th>' +
+                        '<th>' + esc(tr('joined')) + '</th></tr></thead><tbody>' +
+                        JOIN.memberships.map(function(m) {
+                            var sc = m.status === 'approved' ? 'success' : (m.status === 'pending' ? 'warning' : 'danger');
+                            return '<tr><td><strong>' + esc(m.hospital_name) + '</strong></td>' +
+                                '<td>' + esc(m.hospital_code) + '</td>' +
+                                '<td>' + esc(m.city || '—') + '</td>' +
+                                '<td><span class="badge badge-' + sc + '">' + esc(m.ended_at ? 'inactive' : m.status) + '</span></td>' +
+                                '<td>' + dateText(m.joined_at || m.created_at) + '</td></tr>';
+                        }).join('') + '</tbody></table></div>';
+                }
+            } catch (e) {
+                JOIN.memberships = [];
+                showErrorState(container, tr('unable_to_load_memberships'), 'loadMyMemberships');
+            }
+            renderResults();
         }
+
         async function loadMyRequests() {
+            var container = document.getElementById('requestsList');
             try {
                 var requests = await api('/doctors/my-join-requests');
-                var container = document.getElementById('requestsList');
-                if (!requests || requests.length === 0) { container.innerHTML = '<p class="text-muted">No join requests</p>'; return; }
-                container.innerHTML = '<table class="table"><thead><tr><th>Hospital</th><th>ID</th><th>Status</th><th>Sent</th></tr></thead><tbody>' +
-                    requests.map(function(r) {
-                        var sc = r.status === 'approved' ? 'success' : (r.status === 'pending' ? 'warning' : 'danger');
-                        return '<tr><td><strong>' + r.hospital_name + '</strong></td><td>' + r.hospital_code + '</td><td><span class="badge badge-' + sc + '">' + r.status + '</span></td><td>' + new Date(r.created_at).toLocaleDateString() + '</td></tr>';
-                    }).join('') + '</tbody></table>';
-            } catch(e) { console.error(e); }
+                JOIN.requests = Array.isArray(requests) ? requests : [];
+                if (!JOIN.requests.length) {
+                    container.innerHTML = '<p class="text-muted">' + esc(tr('no_join_requests')) + '</p>';
+                } else {
+                    container.innerHTML = '<div class="table-container"><table class="table"><thead><tr>' +
+                        '<th>' + esc(tr('hospital')) + '</th><th>' + esc(tr('hospital_id')) + '</th>' +
+                        '<th>' + esc(tr('status')) + '</th><th>' + esc(tr('sent')) + '</th></tr></thead><tbody>' +
+                        JOIN.requests.map(function(r) {
+                            var sc = r.status === 'approved' ? 'success' : (r.status === 'pending' ? 'warning' : 'danger');
+                            return '<tr><td><strong>' + esc(r.hospital_name) + '</strong></td>' +
+                                '<td>' + esc(r.hospital_code) + '</td>' +
+                                '<td><span class="badge badge-' + sc + '">' + esc(r.status) + '</span></td>' +
+                                '<td>' + dateText(r.created_at) + '</td></tr>';
+                        }).join('') + '</tbody></table></div>';
+                }
+            } catch (e) {
+                JOIN.requests = [];
+                showErrorState(container, tr('unable_to_load_requests'), 'loadMyRequests');
+            }
+            renderResults();
         }
     </script>
 </body>

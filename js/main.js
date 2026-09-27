@@ -341,6 +341,33 @@ function bootPage(activeKey, allowedRoles) {
     return true;
 }
 
+// Portal sidebar (mobile). Every portal page's ☰ button calls this — without it
+// the button throws a ReferenceError and the nav is unreachable on a phone.
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    if (!sidebar) return;
+    sidebar.classList.toggle('open');
+}
+
+function closeSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar) sidebar.classList.remove('open');
+}
+
+// Escape and tapping outside an open sidebar close it again.
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeSidebar();
+});
+
+document.addEventListener('click', function (e) {
+    const sidebar = document.getElementById('sidebar');
+    if (!sidebar || !sidebar.classList.contains('open')) return;
+    if (sidebar.contains(e.target)) return;
+    const toggle = document.querySelector('.menu-toggle');
+    if (toggle && toggle.contains(e.target)) return;   // the ☰ click toggles it
+    sidebar.classList.remove('open');
+});
+
 // Mobile menu toggle (landing page)
 document.addEventListener('DOMContentLoaded', function () {
     const mobileToggle = document.getElementById('mobileToggle');

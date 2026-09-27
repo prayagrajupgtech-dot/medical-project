@@ -105,7 +105,7 @@
                         </div>
                         <div class="form-group">
                             <label for="hospEmail">Official Email</label>
-                            <input type="email" id="hospEmail" name="email" class="form-control" placeholder="info@hospital.com">
+                            <input type="email" id="hospEmail" name="email" class="form-control" required placeholder="info@hospital.com">
                         </div>
                         <div class="form-group">
                             <label for="hospLogo">Hospital Logo</label>
@@ -202,13 +202,21 @@
                 var get = function(id) { return document.getElementById(id); };
 
                 // Validate required fields
-                ['hospName','hospType','adminName','adminPassword','adminConfirm'].forEach(function(id) {
+                ['hospName','hospType','hospEmail','adminName','adminPassword','adminConfirm'].forEach(function(id) {
                     var el = get(id);
                     if (el && !el.value.trim()) {
                         setFieldError(el, (el.labels && el.labels[0] ? el.labels[0].textContent.trim().replace(/\*$/,'').trim() : 'This field') + ' is required.');
                         valid = false;
                     }
                 });
+
+                // The hospital contact email is NOT NULL in the database, so
+                // check it here instead of letting the request fail generically.
+                var emailEl = get('hospEmail');
+                if (valid && emailEl && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailEl.value.trim())) {
+                    setFieldError(emailEl, 'Please enter a valid email address.');
+                    valid = false;
+                }
 
                 // Password policy
                 if (valid) {

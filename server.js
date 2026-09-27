@@ -4508,6 +4508,14 @@ app.post('/api/hospitals/register', (req, res) => {
     if (!name || !type || !admin_name || !password || !confirm_password) {
         return res.status(400).json({ error: 'Missing required fields: name, type, admin_name, password, and confirm_password are required' });
     }
+    // Match the CHECK constraints in database/schema.sql so the caller gets a
+    // readable message instead of a generic "Registration failed".
+    if (!['government', 'private', 'clinic', 'other'].includes(type)) {
+        return res.status(400).json({ error: 'Hospital type must be government, private, clinic or other' });
+    }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email))) {
+        return res.status(400).json({ error: 'A valid hospital contact email is required' });
+    }
     if (password !== confirm_password) {
         return res.status(400).json({ error: 'Passwords do not match' });
     }
@@ -4527,6 +4535,7 @@ app.post('/api/hospitals/register', (req, res) => {
                 if (err.message.includes('UNIQUE constraint failed')) {
                     return res.status(409).json({ error: 'Username or email already exists' });
                 }
+                console.error('[hospital-register] user insert failed:', err.message);
                 return res.status(400).json({ error: 'Registration failed' });
             }
             const adminUserId = this.lastID;
@@ -5175,12 +5184,19 @@ app.post('/api/doctors/join-hospital', authenticateToken, requireRole('doctor'),
         if (err) return res.status(500).json({ error: 'Server error' });
         if (!hospital) return res.status(404).json({ error: 'Hospital not found' });
 
-        // Check if already a member
-        db.get('SELECT id FROM hospital_memberships WHERE hospital_id = ? AND doctor_id = ?', [hospital.id, req.user.id], (err2, existing) => {
+        // Only an ACTIVE approved membership blocks a re-join. A row left over
+        // from an ended membership must not lock the doctor out — approval of
+        // this request reactivates it anyway via ON CONFLICT ... DO UPDATE.
+        db.all(
+            'SELECT id, status, ended_at FROM hospital_memberships WHERE hospital_id = ? AND doctor_id = ?',
+            [hospital.id, req.user.id],
+            (err2, memberRows) => {
             if (err2) return res.status(500).json({ error: 'Server error' });
-            if (existing) return res.status(409).json({ error: 'Already a member of this hospital' });
+            const rows = memberRows || [];
+            if (rows.some(m => m.status === 'approved' && !m.ended_at)) {
+                return res.status(409).json({ error: 'Already a member of this hospital' });
+            }
 
-            // Check if already has a pending request
             db.get('SELECT id FROM hospital_join_requests WHERE hospital_id = ? AND doctor_id = ? AND status = ?', [hospital.id, req.user.id, 'pending'], (err3, pending) => {
                 if (err3) return res.status(500).json({ error: 'Server error' });
                 if (pending) return res.status(409).json({ error: 'You already have a pending request for this hospital' });
