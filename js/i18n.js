@@ -13,6 +13,7 @@ const ShrijalI18n = (() => {
     let onLanguageChange = null;
     let loaded = false;
     let initialized = false;
+    let initPromise = null;
 
     const SUPPORTED = ['en','hi','bn','mr','ta','te','gu','kn','ml','pa','or','as','ur','ne'];
     const LOCALES = {
@@ -93,24 +94,44 @@ const ShrijalI18n = (() => {
 
     // ── Language Initialization ────────────────────────────────────────────
 
-    async function init(options) {
-        if (loaded) return;
-        onLanguageChange = (options && options.onLanguageChange) || null;
+    // init() is single-flight. bootPage() (main.js) and the page's own script
+    // both call it on the same tick; the old `if (loaded) return` guard lost
+    // that race because `loaded` is only set after two awaits, so init ran
+    // TWICE: the second run overwrote onLanguageChange (the settings pages
+    // passed `location.reload`) and, once `initialized` was already true,
+    // setLanguage fired it -> infinite page reload -> the screen blinked and
+    // the page never finished loading. A second run also re-fetched
+    // /locales/<lang>/common.json for nothing.
+    function init(options) {
+        var cb = (options && typeof options.onLanguageChange === 'function') ? options.onLanguageChange : null;
 
-        try { await loadFallback(); } catch (e) {}
+        if (initPromise) {
+            // Join the run that is already in flight. A late caller may
+            // register a callback only while none is registered; it can never
+            // replace the one that bootPage installed.
+            if (cb && !onLanguageChange) onLanguageChange = cb;
+            return initPromise;
+        }
+        if (cb) onLanguageChange = cb;
 
-        var user = null;
-        try {
-            var raw = localStorage.getItem('user');
-            if (raw) user = JSON.parse(raw);
-        } catch (e) {}
+        initPromise = (async function () {
+            try { await loadFallback(); } catch (e) {}
 
-        var savedLang = (user && user.preferredLanguage) || 'en';
-        if (!SUPPORTED.includes(savedLang)) savedLang = 'en';
+            var user = null;
+            try {
+                var raw = localStorage.getItem('user');
+                if (raw) user = JSON.parse(raw);
+            } catch (e) {}
 
-        try { await setLanguage(savedLang, false); } catch (e) {}
-        loaded = true;
-        initialized = true;
+            var savedLang = (user && user.preferredLanguage) || 'en';
+            if (!SUPPORTED.includes(savedLang)) savedLang = 'en';
+
+            try { await setLanguage(savedLang, false); } catch (e) {}
+            loaded = true;
+            initialized = true;
+        })();
+
+        return initPromise;
     }
 
     async function setLanguage(lang, saveToServer) {
@@ -127,7 +148,9 @@ const ShrijalI18n = (() => {
             saveLanguageToServer(lang);
         }
 
-        if (initialized && onLanguageChange) onLanguageChange(lang, currentLocale);
+        // Notify listeners only on a real change, and only once. Re-applying
+        // the same language must never re-run page-level handlers.
+        if (initialized && onLanguageChange && oldLang !== lang) onLanguageChange(lang, currentLocale);
     }
 
     function saveLanguageToServer(lang) {

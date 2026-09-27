@@ -2,6 +2,7 @@ node_modules/
 uploads/*
 !uploads/.gitkeep
 database/*.db
+_tmp*.db
 *.log
 .DS_Store
 .env

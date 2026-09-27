@@ -41,12 +41,12 @@
         </main>
     </div>
     <script src="/js/main.js?v=2.2"></script>
-    <script src="/js/i18n.js?v=2.3"></script>
+    <script src="/js/i18n.js?v=2.4"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             bootPage('settings', ['hospital_admin']);
             // Init first so the selector shows the SAVED language, then build it
-            ShrijalI18n.init({ onLanguageChange: function() { location.reload(); } }).then(function() {
+            ShrijalI18n.init({ onLanguageChange: function() { ShrijalI18n.applyLanguageToDOM(); } }).then(function() {
                 try { ShrijalI18n.createLanguageSelector('languageContainer'); } catch(e) {}
             }).catch(function() {
                 try { ShrijalI18n.createLanguageSelector('languageContainer'); } catch(e) {}
