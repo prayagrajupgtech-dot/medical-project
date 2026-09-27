@@ -110,7 +110,9 @@ app.get('/admin/reports', protectPage(['admin']), (req, res) => res.sendFile(pat
 app.get('/admin/profile', protectPage(['admin']), (req, res) => res.sendFile(path.join(__dirname, 'pages', 'admin', 'profile.html')));
 app.get('/admin/settings', protectPage(['admin']), (req, res) => res.sendFile(path.join(__dirname, 'pages', 'admin', 'settings.html')));
 app.get('/admin/audit-logs', protectPage(['admin']), (req, res) => res.sendFile(path.join(__dirname, 'pages', 'admin', 'audit-logs.html')));
-app.get('/admin/ai-assistant', protectPage(['admin']), (req, res) => res.sendFile(path.join(__dirname, 'pages', 'admin', 'ai-assistant.html')));
+// AI Assistant is patient/doctor only — the admin entry point is gone on purpose.
+// Old admin links are redirected instead of dead-ending on a 404.
+app.get('/admin/ai-assistant', protectPage(['admin']), (req, res) => res.redirect('/admin/dashboard'));
 app.get('/admin/knowledge-base', protectPage(['admin']), (req, res) => res.sendFile(path.join(__dirname, 'pages', 'admin', 'knowledge-base.html')));
 
 // Serve doctor portal pages (protected)
