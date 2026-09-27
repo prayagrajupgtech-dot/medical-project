@@ -20,8 +20,6 @@
     <span id="userDisplay">Administrator</span>
     <button class="btn btn-sm btn-outline" onclick="logout()"><span data-i18n="logout">Logout</span></button>
     <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button>
-        🌙
-    </button>
 </div>
             </div>
         </div>
@@ -96,13 +94,13 @@
                 <a href="/admin/reports" class="stat-card stat-card-link"><div class="stat-title"><span data-i18n="total_reports">Total Reports</span></div><div class="stat-value" id="statTotalReports">-</div><span class="stat-hint" data-i18n="manage_reports_hint">Manage reports &rarr;</span></a>
             </div>
 
-            <div class="stats-grid mt-4" style="grid-template-columns: repeat(3, 1fr);" id="reportSummary">
+            <div class="stats-grid mt-4 cols-3" id="reportSummary">
                 <div class="stat-card"><div class="stat-title"><span data-i18n="reports_today">Reports Today</span></div><div class="stat-value" id="statReportsToday">-</div></div>
                 <div class="stat-card"><div class="stat-title"><span data-i18n="reports_this_week">Reports This Week</span></div><div class="stat-value" id="statReportsWeek">-</div></div>
                 <div class="stat-card"><div class="stat-title"><span data-i18n="reports_this_month">Reports This Month</span></div><div class="stat-value" id="statReportsMonth">-</div></div>
             </div>
 
-            <div class="stats-grid mt-4" style="grid-template-columns: 1fr 1fr;" id="recentGrid">
+            <div class="stats-grid mt-4 cols-2" id="recentGrid">
                 <div class="admin-card">
                     <div class="admin-card-header">
                         <h2 data-i18n="recent_doctors">Recent Doctors</h2>

@@ -54,32 +54,56 @@
     </style>
 </head>
 <body>
-    <div class="admin-layout">
-        <nav class="admin-sidebar">
-            <div class="sidebar-header"><h2>MediConnect</h2><p>Admin Panel</p></div>
-            <ul class="sidebar-nav">
+    <header class="admin-header">
+        <div class="container">
+            <div class="admin-header-content">
+                <div class="admin-brand">
+                    <img src="/favicon.png" alt="AI Doctor Assistant">
+                    <span>AI Doctor Assistant - Admin Panel</span>
+                </div>
+<div class="admin-user">
+    <span id="userDisplay">Administrator</span>
+    <button class="btn btn-sm btn-outline" onclick="logout()"><span data-i18n="logout">Logout</span></button>
+    <button class="theme-toggle-btn" onclick="toggleTheme()" id="themeToggle" aria-label="Toggle dark mode" data-i18n-aria="theme_toggle">🌙</button>
+</div>
+            </div>
+        </div>
+    </header>
+
+    <nav class="admin-nav" aria-label="Main navigation">
+        <div class="container">
+            <button class="admin-nav-toggle" aria-label="Toggle navigation menu" aria-expanded="false">
+                <span></span><span></span><span></span>
+            </button>
+            <ul>
                 <li><a href="/admin/dashboard" data-nav="dashboard" data-i18n="dashboard">Dashboard</a></li>
                 <li><a href="/admin/doctors" data-nav="doctors" data-i18n="doctors">Doctors</a></li>
                 <li><a href="/admin/patients" data-nav="patients" data-i18n="patients">Patients</a></li>
                 <li><a href="/admin/hospitals" data-nav="hospitals" data-i18n="hospitals">Hospitals</a></li>
                 <li><a href="/admin/appointments" data-nav="appointments" data-i18n="appointments">Appointments</a></li>
                 <li><a href="/admin/consultations" data-nav="consultations" data-i18n="consultations">Consultations</a></li>
-                <li><a href="/admin/reports" data-nav="reports" data-i18n="reports">Reports</a></li>
                 <li><a href="/admin/messages" data-nav="messages" data-i18n="messages">Messages</a></li>
-                <li><a href="/admin/knowledge-base" data-nav="knowledge-base" class="active" aria-current="page" data-i18n="knowledge-base">Knowledge Base</a></li>
+                <li><a href="/admin/reports" data-nav="reports" data-i18n="reports">Reports</a></li>
                 <li><a href="/admin/audit-logs" data-nav="audit-logs" data-i18n="audit-logs">Audit Logs</a></li>
-                <li><a href="/admin/settings" data-nav="settings" data-i18n="settings">Settings</a></li>
                 <li><a href="/admin/profile" data-nav="profile" data-i18n="profile">Profile</a></li>
+                <li><a href="/admin/settings" data-nav="settings" data-i18n="settings">Settings</a></li>
+                <li><a href="/admin/knowledge-base" data-nav="knowledge-base" class="active" aria-current="page" data-i18n="knowledge-base">Knowledge Base</a></li>
             </ul>
-        </nav>
-        <main class="admin-main">
-            <header class="admin-header">
-                <h1 data-i18n="medical_knowledge_base">Medical Knowledge Base</h1>
-                <div class="header-actions">
+        </div>
+    </nav>
+
+    <section class="admin-section">
+        <div class="container">
+            <div class="dashboard-welcome d-flex justify-between align-center" style="flex-wrap: wrap; gap: 12px;">
+                <div>
+                    <h1 data-i18n="medical_knowledge_base">Medical Knowledge Base</h1>
+                    <p>Medical sources Shrijal answers from — add, index and test them</p>
+                </div>
+                <div style="display: flex; gap: 10px; flex-wrap: wrap;">
                     <button class="btn btn-outline" onclick="loadStats()" data-i18n="refresh">Refresh</button>
                     <button class="btn btn-primary" onclick="showAddSourceModal()" data-i18n="add_source">+ Add Source</button>
                 </div>
-            </header>
+            </div>
 
             <div class="kb-stats" id="statsGrid">
                 <div class="kb-stat"><div class="num" id="statTotalSources">-</div><div class="label">Total Sources</div></div>
@@ -105,8 +129,8 @@
                 </div>
                 <div id="testResult" class="test-result" style="display:none"></div>
             </div>
-        </main>
-    </div>
+        </div>
+    </section>
 
     <!-- Add Source Modal -->
     <div class="modal-overlay" id="addSourceModal">
@@ -192,7 +216,13 @@
         </div>
     </div>
 
+    <script src="/js/i18n.js?v=2.2"></script>
+    <script src="/js/main.js?v=2.2"></script>
     <script>
+        // Shared admin shell: auth guard, header name, active nav highlight,
+        // i18n and the mobile hamburger — same behaviour as every other admin page.
+        const SHELL_OK = bootPage('knowledge-base', ['admin']);
+
         const API = '/api/medical-knowledge';
         const token = localStorage.getItem('token');
         const headers = { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' };
@@ -338,9 +368,11 @@
 
         function esc(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
 
-        // Init
-        loadStats();
-        loadSources();
+        // Init (skipped when bootPage bounced us to the login page)
+        if (SHELL_OK) {
+            loadStats();
+            loadSources();
+        }
     </script>
 </body>
 </html>

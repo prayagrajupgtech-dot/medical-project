@@ -400,15 +400,30 @@ body { background: var(--bg-primary); color: var(--text-primary); transition: ba
 .radio input { margin: 0; }
 
 /* Admin Layout */
-.admin-header { background: linear-gradient(135deg, #059669, #10b981, #34d399); padding: 15px 0; }
-.admin-header-content { display: flex; justify-content: space-between; align-items: center; }
-.admin-brand { display: flex; align-items: center; gap: 10px; }
-.admin-brand img { height: 35px; }
-.admin-brand span { color: #fff; font-weight: 600; font-family: 'Montserrat', sans-serif; }
+.admin-header { background: linear-gradient(135deg, #059669, #10b981, #34d399); padding: 9px 0; }
+/* Header + menu own the whole viewport width instead of the 1200px page column.
+   Without this the 12-item admin menu ran out of room and got clipped on laptops. */
+.admin-header > .container, .admin-nav > .container { width: 100%; max-width: 100%; }
+.admin-header > .container { padding: 0 20px; }
+.admin-nav > .container { padding: 0 8px; }
+.admin-header-content { display: flex; justify-content: space-between; align-items: center; gap: 14px; min-width: 0; }
+.admin-brand { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.admin-brand img { height: 28px; width: 28px; flex: 0 0 28px; object-fit: contain; }
+.admin-brand span { color: #fff; font-weight: 600; font-family: 'Montserrat', sans-serif; font-size: 0.95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.admin-user { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex: 0 1 auto; flex-wrap: wrap; min-width: 0; white-space: nowrap; }
 .admin-nav { background: linear-gradient(90deg, #047857, #059669); }
-.admin-nav ul { display: flex; list-style: none; gap: 0; }
-.admin-nav a { display: block; padding: 15px 25px; color: #fff; text-decoration: none; font-weight: 500; transition: var(--transition); }
-.admin-nav a:hover, .admin-nav a.active { background: rgba(255,255,255,0.1); border-bottom: 3px solid var(--accent); }
+.admin-nav ul { display: flex; flex-wrap: nowrap; justify-content: center; list-style: none; gap: 0; margin: 0 auto; padding: 0; width: 100%; max-width: 100%; min-width: 0; }
+.admin-nav li { flex: 0 1 auto; min-width: 0; }
+/* 12px horizontal / 16px vertical + a transparent underline on every item keeps the
+   bar at ~51px and keeps heights identical when the active item changes (no jump). */
+.admin-nav a { display: block; padding: 16px 12px; color: #fff; text-decoration: none; font-weight: 500; font-size: 0.9375rem; line-height: 1.15; text-align: center; white-space: nowrap; border-bottom: 3px solid transparent; transition: var(--transition); }
+.admin-nav a:hover, .admin-nav a.active { background: rgba(255,255,255,0.1); border-bottom-color: var(--accent); }
+/* Below ~1280px one row no longer fits: wrap onto a second line rather than
+   shrink/overlap or clip an item. Hamburger still takes over at 768px. */
+@media (max-width: 1280px) {
+    .admin-nav ul { flex-wrap: wrap; }
+    .admin-nav a { white-space: normal; }
+}
 .admin-section { padding: 30px 0; }
 .dashboard-welcome { margin-bottom: 25px; }
 .dashboard-welcome h1 { font-size: 1.8rem; color: var(--dark); }
@@ -1252,6 +1267,17 @@ button:disabled, .btn:disabled, .btn.disabled { opacity: 0.55; cursor: not-allow
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 16px;
     margin-bottom: 24px;
+}
+/* Cells must be allowed to shrink below their content width, otherwise a wide
+   table inside a 1fr track widens the whole page and the page scrolls sideways. */
+.stats-grid > * { min-width: 0; }
+/* Column overrides used to be inline styles, so they beat every responsive rule
+   and kept a fixed 2-up/3-up grid (and horizontal overflow) on narrow screens. */
+.stats-grid.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.stats-grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.stats-grid.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 768px) {
+    .stats-grid.cols-2, .stats-grid.cols-3, .stats-grid.cols-4 { grid-template-columns: minmax(0, 1fr); }
 }
 .stat-card {
     background: #e0fcff;
