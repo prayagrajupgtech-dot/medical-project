@@ -3,6 +3,7 @@ uploads/*
 !uploads/.gitkeep
 database/*.db
 _tmp*.db
+_tmp*
 *.log
 .DS_Store
 .env
