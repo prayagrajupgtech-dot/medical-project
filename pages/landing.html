@@ -6,25 +6,26 @@
     <title>AI Doctor Assistant</title>
     <meta name="description" content="AI-Powered Doctor Assistant for patient management, consultations, and clinical decision support.">
     <link rel="icon" href="favicon.ico" type="image/x-icon">
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         :root {
-            --primary: #2563eb;
-            --primary-dark: #1d4ed8;
-            --secondary: #0f7173;
-            --accent: #f59e0b;
-            --success: #10b981;
-            --danger: #ef4444;
-            --light: #f8fafc;
-            --dark: #1e293b;
-            --gray: #64748b;
-            --gray-light: #cbd5e1;
-            --border: #e2e8f0;
+            --primary: #0F766E;
+            --primary-dark: #115E59;
+            --secondary: #0EA5E9;
+            --accent: #F59E0B;
+            --success: #10B981;
+            --danger: #EF4444;
+            --light: #E0F2FE;
+            --dark: #0F172A;
+            --gray: #64748B;
+            --gray-light: #CBD5E1;
+            --border: #E2E8F0;
+            --font-ui: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', sans-serif;
         }
         body {
-            font-family: 'Roboto', sans-serif;
-            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f4d4d 100%);
+            font-family: var(--font-ui);
+            background: linear-gradient(135deg, #0f172a 0%, #0f172a 50%, #0f4d4d 100%);
             color: #fff;
             min-height: 100vh;
             display: flex;
@@ -36,10 +37,10 @@
         .landing-logo {
             width: 80px; height: 80px; background: var(--primary); border-radius: 20px;
             display: flex; align-items: center; justify-content: center; margin: 0 auto 20px;
-            font-size: 32px; box-shadow: 0 10px 25px rgba(37,99,231,0.3);
+            font-size: 32px; box-shadow: 0 10px 25px rgba(15, 118, 110, 0.35);
         }
         .landing-logo:after { content: '🩺'; }
-        .landing-header h1 { font-size: 2.5rem; font-family: 'Montserrat', sans-serif; margin-bottom: 10px; }
+        .landing-header h1 { font-size: 2.5rem; font-family: var(--font-ui); margin-bottom: 10px; }
         .landing-header p { color: #cbd5e1; font-size: 1.1rem; }
         
         .features-grid {
@@ -66,7 +67,7 @@
         .cta-section p { margin-bottom: 25px; opacity: 0.9; }
         .cta-buttons { display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; }
         .btn { 
-            display: inline-block; padding: 12px 28px; border-radius: 8px; font-family: 'Montserrat', sans-serif;
+            display: inline-block; padding: 12px 28px; border-radius: 8px; font-family: var(--font-ui);
             font-weight: 600; text-decoration: none; border: none; cursor: pointer; transition: all 0.3s ease;
             font-size: 1rem;
         }

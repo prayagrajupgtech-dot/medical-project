@@ -336,7 +336,7 @@ function protectPage(allowedRoles) {
                             'display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f8fafc;color:#0f172a">' +
                             '<div style="text-align:center;padding:24px"><h1 style="font-size:22px">Access denied</h1>' +
                             '<p style="color:#64748b">Your account does not have access to this page.</p>' +
-                            '<a href="/" style="color:#2563eb">Go to home</a></div></body></html>');
+                            '<a href="/" style="color:#0F766E">Go to home</a></div></body></html>');
                     }
                     return res.redirect(target);
                 }
@@ -441,7 +441,7 @@ async function registerUserHandler(req, res) {
                     const token = jwt.sign(
                         { id: userId, role: normalizedRole, username },
                         process.env.JWT_SECRET,
-                        { expiresIn: '24h' }
+                        { expiresIn: '30d' }
                     );
 
                     res.cookie('token', token, TOKEN_COOKIE_OPTIONS);
@@ -595,7 +595,7 @@ app.post('/api/auth/login', (req, res) => {
             const token = jwt.sign(
                 { id: user.id, role: user.role, username: user.username },
                 process.env.JWT_SECRET,
-                { expiresIn: '24h' }
+                { expiresIn: '30d' }
             );
 
             res.cookie('token', token, TOKEN_COOKIE_OPTIONS);
@@ -2597,8 +2597,8 @@ app.get('/api/prescriptions/:id/pdf', (req, res, next) => {
     <title>Prescription</title>
     <style>
         body { font-family: Arial, sans-serif; padding: 40px; }
-        .header { border-bottom: 2px solid #2563eb; padding-bottom: 15px; margin-bottom: 25px; }
-        .logo { font-size: 24px; font-weight: bold; color: #2563eb; }
+        .header { border-bottom: 2px solid #0F766E; padding-bottom: 15px; margin-bottom: 25px; }
+        .logo { font-size: 24px; font-weight: bold; color: #0F766E; }
         .prescription-info { display: flex; justify-content: space-between; margin-bottom: 30px; }
         .info-block h4 { margin-bottom: 5px; color: #333; }
         .info-block p { color: #666; }
@@ -4573,7 +4573,7 @@ app.post('/api/hospitals/register', (req, res) => {
                             const token = jwt.sign(
                                 { id: adminUserId, role: 'hospital_admin', username: adminUsername },
                                 process.env.JWT_SECRET,
-                                { expiresIn: '24h' }
+                                { expiresIn: '30d' }
                             );
                             res.cookie('token', token, TOKEN_COOKIE_OPTIONS);
 
@@ -4641,7 +4641,7 @@ app.post('/api/hospitals/login', (req, res) => {
                 const token = jwt.sign(
                     { id: user.id, role: 'hospital_admin', username: user.username, hospitalId: hospital.id },
                     process.env.JWT_SECRET,
-                    { expiresIn: '24h' }
+                    { expiresIn: '30d' }
                 );
                 res.cookie('token', token, TOKEN_COOKIE_OPTIONS);
 

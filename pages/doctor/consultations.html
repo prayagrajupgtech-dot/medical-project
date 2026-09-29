@@ -6,7 +6,7 @@
     <title>Consultations - AI Doctor Assistant</title>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="icon" href="/favicon.png" type="image/x-icon">
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <!-- Admin Header -->
@@ -415,7 +415,7 @@
                         </ul>
 
                         ${(aiData.safety_alerts || []).length > 0 ? `
-                            <h5 style="color: #dc2626;">Safety Alerts:</h5>
+                            <h5 style="color: #ef4444;">Safety Alerts:</h5>
                             ${aiData.safety_alerts.map(a => `
                                 <div style="background: ${a.severity === 'high' ? '#fee2e2' : '#fffbeb'}; padding: 10px; border-radius: 6px; margin: 5px 0;">
                                     ⚠️ <strong>${escapeHtml(a.type)}:</strong> ${escapeHtml(a.message)}

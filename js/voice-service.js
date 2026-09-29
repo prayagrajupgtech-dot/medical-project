@@ -502,6 +502,22 @@ const ShrijalVoice = (() => {
     // INITIALIZATION
     // ══════════════════════════════════════════════════════════════════════════
 
+    // Ask browser for mic permission explicitly before starting recognition.
+    // Must live at module scope: it is exported on the public API object, and
+    // nesting it inside init() threw a ReferenceError that killed ShrijalVoice.
+    async function ensureMicAccess() {
+        try {
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return true;
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            stream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
+            micBlocked = false;
+            return true;
+        } catch (e) {
+            micBlocked = true;
+            return false;
+        }
+    }
+
     function init(options = {}) {
         synthesis = window.speechSynthesis || null;
         onStateChange = options.onStateChange || (() => {});
@@ -540,20 +556,6 @@ const ShrijalVoice = (() => {
                 micBlocked = false;
                 setVoiceState('LISTENING');
             };
-
-    // Ask browser for mic permission explicitly before starting recognition
-    async function ensureMicAccess() {
-        try {
-            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return true;
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            stream.getTracks().forEach(t => { try { t.stop(); } catch (e) {} });
-            micBlocked = false;
-            return true;
-        } catch (e) {
-            micBlocked = true;
-            return false;
-        }
-    }
 
             recognition.onresult = function (event) {
                 let transcript = '';

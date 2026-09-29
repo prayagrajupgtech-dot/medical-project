@@ -6,7 +6,7 @@
     <title>My Reports - AI Doctor Assistant</title>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="icon" href="/favicon.png" type="image/x-icon">
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <!-- Admin Header -->
@@ -145,7 +145,7 @@
             } catch (err) {
                 tbody.innerHTML = '';
                 state.style.display = 'block';
-                state.innerHTML = `<p style="color: #dc2626;">Unable to load reports. Please try again.</p>
+                state.innerHTML = `<p style="color: #ef4444;">Unable to load reports. Please try again.</p>
                     <button class="btn btn-primary btn-sm" onclick="loadReports()">${t('try_again')}</button>`;
             }
         }
