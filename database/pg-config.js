@@ -10,6 +10,20 @@
  */
 const fs = require('fs');
 const path = require('path');
+const dns = require('dns');
+
+// Prefer IPv4 when resolving the database host.
+// Some hosts publish AAAA first, and platforms with IPv6 enabled but no IPv6
+// route (Railway, most container hosts) then fail every query with
+//     connect ENETUNREACH 2406:da14:...:5432
+// Note: this only helps when the hostname has an IPv4 (A) record at all.
+// A Supabase project created on the IPv6-only network publishes ONLY AAAA, so
+// for those the DATABASE_URL must use the Supavisor pooler host, which is
+// IPv4-only:
+//     postgresql://postgres.<ref>:<password>@aws-0-<region>.pooler.supabase.com:5432/postgres
+if (typeof dns.setDefaultResultOrder === 'function') {
+    dns.setDefaultResultOrder('ipv4first');
+}
 
 // Load .env here too, not only in config.js. Without it, requiring pg-config
 // directly (scripts, tests, `node -e`) left DATABASE_URL undefined, the pool
