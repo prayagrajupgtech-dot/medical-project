@@ -427,10 +427,15 @@ async function registerUserHandler(req, res) {
             [username, email, hashedPassword, normalizedRole, full_name, phone || null, specialty || null],
             function(err) {
                 if (err) {
-                    if (err.message.includes('UNIQUE constraint failed')) {
+                    const dbMsg = String(err.message || err);
+                    if (/UNIQUE constraint failed|duplicate key|already exists/i.test(dbMsg)) {
                         return res.status(409).json({ error: 'Username or email already exists' });
                     }
-                    return res.status(400).json({ error: 'Registration failed. Username or email already exists' });
+                    // Every other failure (missing table, missing column, driver
+                    // error) used to be reported as "already exists", which sent us
+                    // hunting collisions that did not exist. Log it and tell the truth.
+                    console.error('[register] INSERT INTO users failed:', dbMsg);
+                    return res.status(500).json({ error: 'Registration failed: ' + dbMsg });
                 }
 
                 const userId = this.lastID;
@@ -574,7 +579,13 @@ app.post('/api/auth/login', (req, res) => {
         'SELECT * FROM users WHERE username = ? OR email = ? OR originalUsername = ? OR originalEmail = ?',
         [username, username, username, username],
         async (err, user) => {
-            if (err || !user) {
+            if (err) {
+                // A dead/missing table used to masquerade as "No user found",
+                // which looks identical to a wrong username. Report it as a 500.
+                console.error('[login] SELECT FROM users failed:', String(err.message || err));
+                return res.status(500).json({ error: 'Login failed: ' + String(err.message || err) });
+            }
+            if (!user) {
                 return res.status(401).json({ error: 'No user found' });
             }
 
