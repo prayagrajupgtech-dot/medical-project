@@ -37,17 +37,96 @@ if (!process.env.DATABASE_URL) {
     console.error('DATABASE_URL is not set - set it in .env or the host environment before using PostgreSQL.');
 }
 
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-    max: 10,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 15000
-});
+function makePool(connectionString) {
+    const p = new Pool({
+        connectionString,
+        ssl: { rejectUnauthorized: false },
+        max: 10,
+        idleTimeoutMillis: 30000,
+        connectionTimeoutMillis: 15000
+    });
+    p.on('error', (err) => {
+        console.error('Supabase pool error:', err.message);
+    });
+    return p;
+}
 
-pool.on('error', (err) => {
-    console.error('Supabase pool error:', err.message);
-});
+let pool = makePool(process.env.DATABASE_URL);
+
+// ---------------------------------------------------------------------------
+// Pooler failover
+//
+// A Supabase project on the IPv6-only network answers only on AAAA records. Any
+// host without an IPv6 route (Railway and most container platforms) then fails
+// every query with:
+//
+//     connect ENETUNREACH 2406:da14:...:5432
+//
+// The fix is the Supavisor pooler host, which is IPv4-only. Rather than depend
+// on the DATABASE_URL stored on the host being rewritten by hand - a step that
+// is easy to miss and easy to apply to the wrong environment - the app detects
+// the failure at boot and tries the pooler itself. If DATABASE_URL already
+// points at a reachable host, nothing here runs.
+// ---------------------------------------------------------------------------
+const POOLER_REGIONS = [
+    'ap-northeast-1', 'ap-south-1', 'ap-southeast-1', 'ap-southeast-2', 'ap-northeast-2',
+    'us-east-1', 'us-west-1', 'us-west-2',
+    'eu-west-1', 'eu-west-2', 'eu-central-1', 'eu-north-1',
+    'ca-central-1', 'sa-east-1'
+];
+
+function poolerCandidates(url) {
+    const out = [];
+    if (process.env.SUPABASE_POOLER_URL) out.push(process.env.SUPABASE_POOLER_URL);
+
+    let parsed;
+    try { parsed = new URL(url); } catch (e) { return out; }
+
+    // Only the direct host is worth translating; anything else is left alone.
+    const m = /^(?:db|aws-0-[a-z0-9-]+)\.([a-z0-9]+)\.supabase\.co$/i.exec(parsed.hostname);
+    if (!m) return out;
+
+    const ref = m[1];
+    if (parsed.username === 'postgres') parsed.username = 'postgres.' + ref;
+
+    for (const region of POOLER_REGIONS) {
+        const u = new URL(parsed.toString());
+        u.hostname = 'aws-0-' + region + '.pooler.supabase.com';
+        u.port = '5432'; // session mode, so session state behaves like a direct connection
+        out.push(u.toString());
+    }
+    return out;
+}
+
+// Swap to the first candidate that actually answers. Returns the URL in use.
+async function ensureReachable() {
+    const primary = process.env.DATABASE_URL;
+    try {
+        const c = await pool.connect();
+        c.release();
+        return primary;
+    } catch (e) {
+        console.warn('Database host unreachable (' + e.message + '), trying the Supabase pooler...');
+    }
+
+    for (const url of poolerCandidates(primary)) {
+        const probe = makePool(url);
+        probe.on('error', () => {}); // the probe is expected to fail for wrong regions
+        try {
+            const c = await probe.connect();
+            c.release();
+            await pool.end().catch(() => {});
+            pool = makePool(url);
+            console.log('Connected to Supabase via the pooler:', new URL(url).hostname);
+            return url;
+        } catch (e) {
+            await probe.end().catch(() => {});
+        }
+    }
+
+    console.error('Could not reach the database with DATABASE_URL or any pooler host. Check DATABASE_URL.');
+    return null;
+}
 
 // Replace ? placeholders with $1, $2... without touching ? inside 'strings'
 function toPostgresPlaceholders(sql) {
@@ -152,6 +231,16 @@ const db = {
 };
 
 async function initDatabase() {
+    // Make sure we are actually talking to a reachable host before touching the
+    // schema. This is what transparently switches an IPv6-only DATABASE_URL over
+    // to the IPv4 pooler on hosts without IPv6.
+    const active = await ensureReachable();
+    if (!active) {
+        // Bail out now. Continuing would retry all ~60 schema statements against a
+        // dead socket and stall the boot for minutes.
+        throw new Error('Database is unreachable. Check DATABASE_URL (and use the Supabase pooler host on hosts without IPv6).');
+    }
+
     // 1. Run schema (CREATE TABLE IF NOT EXISTS — safe to re-run).
     //
     //    Executed one statement at a time on purpose. Sending the whole file as
