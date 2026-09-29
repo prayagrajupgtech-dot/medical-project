@@ -6,7 +6,18 @@ try { require('dotenv').config({ path: path.join(__dirname, '..', '.env') }); } 
 
 // Supabase switch: USE_SUPABASE=true uses PostgreSQL instead of SQLite.
 // All consumers (server.js, api/*) keep `require('./database/config')` unchanged.
-if (process.env.USE_SUPABASE === 'true') {
+//
+// Safety net: if USE_SUPABASE is not set at all but DATABASE_URL is present we
+// assume PostgreSQL. Hosting platforms (Railway) have an ephemeral container
+// filesystem, so a SQLite file there is wiped on every deploy and the whole app
+// dies with SQLITE_CANTOPEN. Setting USE_SUPABASE explicitly always wins, so
+// USE_SUPABASE='' or 'false' still forces SQLite (used by migrate-supabase.js).
+const _useSupabase = process.env.USE_SUPABASE;
+const _usePostgres = _useSupabase === 'true'
+    || (_useSupabase === undefined && !!process.env.DATABASE_URL);
+
+if (_usePostgres) {
+    console.log('Using PostgreSQL (Supabase) database driver');
     module.exports = require('./pg-config');
     return;
 }
@@ -24,6 +35,13 @@ if (!fs.existsSync(dbDir)) {
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
         console.error('Error connecting to database:', err.message);
+        if (err.code === 'SQLITE_CANTOPEN') {
+            console.error(
+                'SQLite is not usable here. This host has an ephemeral filesystem, so the ' +
+                'database file is wiped on every deploy. Set DATABASE_URL (and optionally ' +
+                'USE_SUPABASE=true) to point at a persistent PostgreSQL/Supabase database.'
+            );
+        }
     } else {
         console.log('Connected to SQLite database at:', dbPath);
     }
