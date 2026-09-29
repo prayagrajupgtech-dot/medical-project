@@ -925,4 +925,4 @@ async function initDatabase() {
     });
 }
 
-module.exports = { db, initDatabase };
+module.exports = { db, initDatabase, driverName: () => 'sqlite' };

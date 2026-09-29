@@ -75,25 +75,51 @@ const POOLER_REGIONS = [
     'ca-central-1', 'sa-east-1'
 ];
 
+// Every project reference we can find, most trustworthy first.
+//
+// SUPABASE_URL wins because it is independent of DATABASE_URL: a stale or
+// hand-edited DATABASE_URL can carry a truncated/typo'd reference, and Supavisor
+// rejects those with "tenant/user not found" rather than a network error, so the
+// failure looks like a wrong password instead of a wrong host.
+function projectRefs(url) {
+    const refs = [];
+    const add = r => { if (r && !refs.includes(r)) refs.push(r); };
+
+    try {
+        const host = new URL(process.env.SUPABASE_URL).hostname; // <ref>.supabase.co
+        const sub = host.split('.')[0];
+        if (/^[a-z0-9]{15,25}$/i.test(sub)) add(sub);
+    } catch (e) { /* SUPABASE_URL is optional */ }
+
+    let parsed = null;
+    try { parsed = new URL(url); } catch (e) { /* reported below */ }
+    if (!parsed) return refs;
+
+    const m = /^(?:db|aws-0-[a-z0-9-]+)\.([a-z0-9]+)\.supabase\.co$/i.exec(parsed.hostname);
+    if (m) add(m[1]);
+
+    const u = /^(?:postgres|postgres\.([a-z0-9]+))$/i.exec(decodeURIComponent(parsed.username || ''));
+    if (u && u[1]) add(u[1]);
+
+    return refs;
+}
+
 function poolerCandidates(url) {
     const out = [];
     if (process.env.SUPABASE_POOLER_URL) out.push(process.env.SUPABASE_POOLER_URL);
 
     let parsed;
     try { parsed = new URL(url); } catch (e) { return out; }
+    if (!/^postgres(\.[a-z0-9]+)?$/i.test(decodeURIComponent(parsed.username || ''))) return out;
 
-    // Only the direct host is worth translating; anything else is left alone.
-    const m = /^(?:db|aws-0-[a-z0-9-]+)\.([a-z0-9]+)\.supabase\.co$/i.exec(parsed.hostname);
-    if (!m) return out;
-
-    const ref = m[1];
-    if (parsed.username === 'postgres') parsed.username = 'postgres.' + ref;
-
-    for (const region of POOLER_REGIONS) {
-        const u = new URL(parsed.toString());
-        u.hostname = 'aws-0-' + region + '.pooler.supabase.com';
-        u.port = '5432'; // session mode, so session state behaves like a direct connection
-        out.push(u.toString());
+    for (const ref of projectRefs(url)) {
+        for (const region of POOLER_REGIONS) {
+            const u = new URL(parsed.toString());
+            u.username = 'postgres.' + ref;
+            u.hostname = 'aws-0-' + region + '.pooler.supabase.com';
+            u.port = '5432'; // session mode, so session state behaves like a direct connection
+            out.push(u.toString());
+        }
     }
     return out;
 }
@@ -330,4 +356,12 @@ async function initDatabase() {
     return true;
 }
 
-module.exports = { db, initDatabase, pool };
+module.exports = {
+    db,
+    initDatabase,
+    // A getter, not a snapshot: ensureReachable() replaces the pool at boot when the
+    // configured host is unreachable, and a captured reference would keep pointing at
+    // the pool that was just closed.
+    get pool() { return pool; },
+    driverName: () => 'postgres'
+};

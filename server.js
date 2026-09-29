@@ -31,6 +31,7 @@ function adminKeyMatches(providedKey) {
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const STARTED_AT = new Date().toISOString();
 
 // Middleware
 app.use(cors());
@@ -48,6 +49,20 @@ app.get('/favicon.ico', (req, res) => res.sendFile(path.join(__dirname, 'favicon
 app.use('/pages', express.static(path.join(__dirname, 'pages')));
 app.get('/pages/login.html', (req, res) => res.sendFile(path.join(__dirname, 'pages', 'login.html')));
 app.get('/pages/landing.html', (req, res) => res.sendFile(path.join(__dirname, 'pages', 'landing.html')));
+
+// Build stamp. Reporting which commit is actually serving traffic is the only
+// reliable way to tell a redeploy apart from a stale container, and a broken
+// database host looks identical from the outside in both cases.
+const BUILD_ID = process.env.RAILWAY_GIT_COMMIT_SHA || process.env.RAILWAY_GIT_COMMIT_SHORT || 'local';
+app.get('/api/version', (req, res) => {
+    res.json({
+        build: BUILD_ID,
+        startedAt: STARTED_AT,
+        uptimeSec: Math.round(process.uptime()),
+        node: process.version,
+        dbDriver: db.driverName ? db.driverName() : (process.env.USE_SUPABASE ? 'postgres' : 'sqlite')
+    });
+});
 
 // Prevent browser/back-button caching of protected pages
 app.use(['/admin', '/patient', '/doctor'], (req, res, next) => {
