@@ -402,3 +402,15 @@ CREATE INDEX IF NOT EXISTS idx_medical_chunks_topic ON medical_chunks(medical_to
 CREATE INDEX IF NOT EXISTS idx_medical_chunks_specialty ON medical_chunks(specialty);
 CREATE INDEX IF NOT EXISTS idx_medical_index_jobs_status ON medical_index_jobs(status);
 CREATE INDEX IF NOT EXISTS idx_medical_retrieval_user ON medical_retrieval_logs(user_id);
+
+-- Hospital-first booking: which appointments belong to a hospital, and which
+-- slots a doctor already has booked on a given date.
+CREATE INDEX IF NOT EXISTS idx_consultations_hospital ON consultations(hospital_id);
+CREATE INDEX IF NOT EXISTS idx_consultations_doctor_date ON consultations(doctor_id, date);
+
+-- One ACTIVE affiliation row per (hospital, doctor). Remove duplicates created
+-- before this constraint existed, otherwise the unique index cannot be built.
+DELETE FROM hospital_memberships a USING hospital_memberships b
+ WHERE a.id > b.id AND a.hospital_id = b.hospital_id AND a.doctor_id = b.doctor_id;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_hospital_memberships_pair ON hospital_memberships(hospital_id, doctor_id);
+
