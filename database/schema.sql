@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE TABLE IF NOT EXISTS patients (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users (id),
+    user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     date_of_birth TEXT,
     gender TEXT CHECK(gender IN ('male', 'female', 'other')),
     address TEXT,
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS patients (
 
 CREATE TABLE IF NOT EXISTS medical_history (
     id SERIAL PRIMARY KEY,
-    patient_id INTEGER NOT NULL REFERENCES patients (id),
+    patient_id INTEGER REFERENCES patients (id) ON DELETE SET NULL,
     condition_name TEXT NOT NULL,
     diagnosed_date TEXT,
     severity TEXT,
@@ -54,8 +54,8 @@ CREATE TABLE IF NOT EXISTS medical_history (
 
 CREATE TABLE IF NOT EXISTS consultations (
     id SERIAL PRIMARY KEY,
-    patient_id INTEGER NOT NULL REFERENCES patients (id),
-    doctor_id INTEGER NOT NULL REFERENCES users (id),
+    patient_id INTEGER REFERENCES patients (id) ON DELETE SET NULL,
+    doctor_id INTEGER REFERENCES users (id) ON DELETE SET NULL,
     -- Hospital the patient picked when booking. NULL = independent clinic doctor.
     -- (Plain INTEGER on purpose: hospitals is created later in this file, and this
     -- column is added to existing databases by migration without touching rows.)
@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS consultations (
 
 CREATE TABLE IF NOT EXISTS reports (
     id SERIAL PRIMARY KEY,
-    patient_id INTEGER NOT NULL REFERENCES patients (id),
+    patient_id INTEGER REFERENCES patients (id) ON DELETE SET NULL,
     consultation_id INTEGER REFERENCES consultations (id),
     file_name TEXT NOT NULL,
     file_path TEXT NOT NULL,
@@ -91,15 +91,15 @@ CREATE TABLE IF NOT EXISTS reports (
     report_type TEXT,
     ai_analysis TEXT,
     important_values TEXT,
-    uploaded_by INTEGER REFERENCES users (id),
+    uploaded_by INTEGER REFERENCES users (id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE IF NOT EXISTS prescriptions (
     id SERIAL PRIMARY KEY,
     consultation_id INTEGER NOT NULL REFERENCES consultations (id),
-    patient_id INTEGER NOT NULL REFERENCES patients (id),
-    doctor_id INTEGER NOT NULL REFERENCES users (id),
+    patient_id INTEGER REFERENCES patients (id) ON DELETE SET NULL,
+    doctor_id INTEGER REFERENCES users (id) ON DELETE SET NULL,
     medication_name TEXT NOT NULL,
     dosage TEXT,
     frequency TEXT,
@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS prescriptions (
 
 CREATE TABLE IF NOT EXISTS prescription_logs (
     id SERIAL PRIMARY KEY,
-    patient_id INTEGER REFERENCES patients (id),
+    patient_id INTEGER REFERENCES patients (id) ON DELETE SET NULL,
     medication_name TEXT,
     dosage TEXT,
     frequency TEXT,
@@ -124,8 +124,8 @@ CREATE TABLE IF NOT EXISTS prescription_logs (
 
 CREATE TABLE IF NOT EXISTS messages (
     id SERIAL PRIMARY KEY,
-    sender_id INTEGER NOT NULL REFERENCES users (id),
-    recipient_id INTEGER REFERENCES users (id),
+    sender_id INTEGER REFERENCES users (id) ON DELETE SET NULL,
+    recipient_id INTEGER REFERENCES users (id) ON DELETE SET NULL,
     subject TEXT,
     body TEXT,
     priority TEXT DEFAULT 'normal' CHECK(priority IN ('low', 'normal', 'high', 'urgent')),
@@ -135,7 +135,7 @@ CREATE TABLE IF NOT EXISTS messages (
 
 CREATE TABLE IF NOT EXISTS audit_logs (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users (id),
+    user_id INTEGER REFERENCES users (id) ON DELETE SET NULL,
     action TEXT NOT NULL,
     table_name TEXT,
     record_id INTEGER,
@@ -146,7 +146,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 
 CREATE TABLE IF NOT EXISTS doctor_profiles (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL UNIQUE REFERENCES users (id),
+    user_id INTEGER NOT NULL UNIQUE REFERENCES users (id) ON DELETE CASCADE,
     qualification TEXT,
     registration_number TEXT,
     experience_years INTEGER,
@@ -169,8 +169,8 @@ CREATE TABLE IF NOT EXISTS doctor_profiles (
 
 CREATE TABLE IF NOT EXISTS reviews (
     id SERIAL PRIMARY KEY,
-    doctor_id INTEGER NOT NULL REFERENCES users (id),
-    patient_id INTEGER REFERENCES users (id),
+    doctor_id INTEGER REFERENCES users (id) ON DELETE SET NULL,
+    patient_id INTEGER REFERENCES users (id) ON DELETE SET NULL,
     rating INTEGER CHECK(rating BETWEEN 1 AND 5),
     comment TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -178,7 +178,7 @@ CREATE TABLE IF NOT EXISTS reviews (
 
 CREATE TABLE IF NOT EXISTS password_resets (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users (id),
+    user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     token_hash TEXT NOT NULL UNIQUE,
     expires_at TEXT NOT NULL,
     used INTEGER NOT NULL DEFAULT 0,
@@ -206,7 +206,7 @@ CREATE TABLE IF NOT EXISTS hospitals (
 CREATE TABLE IF NOT EXISTS hospital_admins (
     id SERIAL PRIMARY KEY,
     hospital_id INTEGER NOT NULL REFERENCES hospitals (id),
-    user_id INTEGER NOT NULL REFERENCES users (id),
+    user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     is_owner INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(hospital_id, user_id)
@@ -215,13 +215,13 @@ CREATE TABLE IF NOT EXISTS hospital_admins (
 CREATE TABLE IF NOT EXISTS hospital_memberships (
     id SERIAL PRIMARY KEY,
     hospital_id INTEGER NOT NULL REFERENCES hospitals (id),
-    doctor_id INTEGER NOT NULL REFERENCES users (id),
+    doctor_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected', 'suspended')),
     department TEXT,
     joined_at TIMESTAMP,
-    approved_by INTEGER REFERENCES users (id),
+    approved_by INTEGER REFERENCES users (id) ON DELETE SET NULL,
     ended_at TIMESTAMP,
-    ended_by INTEGER REFERENCES users (id),
+    ended_by INTEGER REFERENCES users (id) ON DELETE SET NULL,
     ended_reason TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(hospital_id, doctor_id)
@@ -230,16 +230,16 @@ CREATE TABLE IF NOT EXISTS hospital_memberships (
 CREATE TABLE IF NOT EXISTS hospital_join_requests (
     id SERIAL PRIMARY KEY,
     hospital_id INTEGER NOT NULL REFERENCES hospitals (id),
-    doctor_id INTEGER NOT NULL REFERENCES users (id),
+    doctor_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     message TEXT,
     status TEXT DEFAULT 'pending' CHECK(status IN ('pending', 'approved', 'rejected')),
-    reviewed_by INTEGER REFERENCES users (id),
+    reviewed_by INTEGER REFERENCES users (id) ON DELETE SET NULL,
     reviewed_at TIMESTAMP,
     rejection_reason TEXT,
     -- 'doctor_request' = doctor asked to join, 'hospital_invitation' = hospital invited the doctor
     request_type TEXT DEFAULT 'doctor_request',
     department_id INTEGER,
-    invited_by INTEGER REFERENCES users (id),
+    invited_by INTEGER REFERENCES users (id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -248,7 +248,7 @@ CREATE TABLE IF NOT EXISTS departments (
     hospital_id INTEGER NOT NULL REFERENCES hospitals (id),
     name TEXT NOT NULL,
     description TEXT,
-    head_doctor_id INTEGER REFERENCES users (id),
+    head_doctor_id INTEGER REFERENCES users (id) ON DELETE SET NULL,
     is_active INTEGER DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -256,7 +256,7 @@ CREATE TABLE IF NOT EXISTS departments (
 CREATE TABLE IF NOT EXISTS staff (
     id SERIAL PRIMARY KEY,
     hospital_id INTEGER NOT NULL REFERENCES hospitals (id),
-    user_id INTEGER REFERENCES users (id),
+    user_id INTEGER REFERENCES users (id) ON DELETE SET NULL,
     name TEXT NOT NULL,
     role TEXT NOT NULL,
     phone TEXT,
@@ -268,7 +268,7 @@ CREATE TABLE IF NOT EXISTS staff (
 
 CREATE TABLE IF NOT EXISTS notifications (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER NOT NULL REFERENCES users (id),
+    user_id INTEGER NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     title TEXT NOT NULL,
     message TEXT NOT NULL,
     type TEXT DEFAULT 'info' CHECK(type IN ('info', 'warning', 'success', 'error')),
@@ -294,7 +294,7 @@ CREATE TABLE IF NOT EXISTS medical_sources (
     indexed_at TIMESTAMP,
     status TEXT DEFAULT 'pending' CHECK(status IN ('pending','indexing','indexed','failed','deleted')),
     error_message TEXT,
-    added_by INTEGER REFERENCES users(id),
+    added_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -359,7 +359,7 @@ CREATE TABLE IF NOT EXISTS medical_index_jobs (
 
 CREATE TABLE IF NOT EXISTS medical_retrieval_logs (
     id SERIAL PRIMARY KEY,
-    user_id INTEGER REFERENCES users(id),
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
     query TEXT NOT NULL,
     intent TEXT,
     topics TEXT,

@@ -43,7 +43,13 @@ function makePool(connectionString) {
         ssl: { rejectUnauthorized: false },
         max: 10,
         idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 15000
+        // A cold connection through Supavisor regularly takes longer than 15s on
+        // the first request after the pool has been idle, and a short timeout here
+        // turns that into a 500 on an endpoint that is otherwise fine.
+        connectionTimeoutMillis: 30000,
+        // Ask the server to drop connections it considers dead, so a socket closed
+        // by the pooler is noticed before it is used.
+        keepAlive: true
     });
     p.on('error', (err) => {
         console.error('Supabase pool error:', err.message);
@@ -215,21 +221,50 @@ function normalizeArgs(sql, params, cb) {
     return { sql, params: params || [], cb: cb || (() => {}) };
 }
 
+// A pooled connection that Supavisor closed while it sat idle surfaces on the
+// next request as "Connection terminated due to connection timeout" or
+// "timeout exceeded when trying to connect". Retrying is safe for reads, so the
+// SELECT wrappers below do it once; writes are never retried, because a retry of
+// a statement that may already have reached the server is how you get duplicates.
+const CONNECTION_ERROR = /connection terminated|timeout exceeded when trying to connect|connection timeout|ECONNRESET|ETIMEDOUT|EPIPE|Client has encountered a connection error|server closed the connection/i;
+
+function isReadOnly(sql) {
+    return /^\s*(select|with)\b/i.test(sql);
+}
+
+function queryWithRetry(sql, params, onOk, onErr, allowRetry) {
+    let tried = false;
+    const attempt = () => {
+        pool.query(sql, params, (err, res) => {
+            if (!err) return onOk(res);
+            if (!tried && allowRetry && isReadOnly(sql) && CONNECTION_ERROR.test(err.message)) {
+                tried = true;
+                // The pool is already replacing the dead client, so this waits
+                // for a fresh one rather than reusing the broken socket.
+                setImmediate(attempt);
+                return;
+            }
+            onErr(err);
+        });
+    };
+    attempt();
+}
+
 const db = {
     get(sql, params, cb) {
         const a = normalizeArgs(sql, params, cb);
-        pool.query(toPostgresPlaceholders(a.sql), a.params, (err, res) => {
-            if (err) return a.cb(err);
-            a.cb(null, res.rows.length ? normalizeRow(res.rows[0]) : undefined);
-        });
+        queryWithRetry(toPostgresPlaceholders(a.sql), a.params,
+            (res) => a.cb(null, res.rows.length ? normalizeRow(res.rows[0]) : undefined),
+            (err) => a.cb(err),
+            true);
     },
 
     all(sql, params, cb) {
         const a = normalizeArgs(sql, params, cb);
-        pool.query(toPostgresPlaceholders(a.sql), a.params, (err, res) => {
-            if (err) return a.cb(err);
-            a.cb(null, res.rows.map(normalizeRow));
-        });
+        queryWithRetry(toPostgresPlaceholders(a.sql), a.params,
+            (res) => a.cb(null, res.rows.map(normalizeRow)),
+            (err) => a.cb(err),
+            true);
     },
 
     run(sql, params, cb) {
@@ -255,6 +290,75 @@ const db = {
         pool.query(sql, (err) => { if (typeof cb === 'function') cb(err); });
     }
 };
+
+// ---------------------------------------------------------------------------
+// Versioned migrations
+//
+// database/migrations/*.sql, applied in filename order, each in its own
+// transaction, each recorded in schema_migrations so it never runs twice.
+//
+// The inline `migrations` array above stays for the cheap, self-healing
+// ALTER TABLE ... IF NOT EXISTS column/index additions. This runner is for
+// changes that must happen exactly once and in a defined order - dropping and
+// re-adding constraints, changing referential actions - which is not something
+// "run it every boot and ignore errors" can express safely.
+//
+// A file deliberately uses only plain statements (no DO $$ blocks), so splitting
+// on ';' is sufficient. Adding a dollar-quoted block would silently split in the
+// middle and fail; use a plain statement plus the schema_migrations bookkeeping.
+// ---------------------------------------------------------------------------
+const MIGRATIONS_DIR = path.join(__dirname, 'migrations');
+
+function splitSqlStatements(sql) {
+    return sql
+        .split('\n')
+        .filter(line => !/^\s*--/.test(line))
+        .join('\n')
+        .split(';')
+        .map(s => s.trim())
+        .filter(Boolean);
+}
+
+async function runMigrations() {
+    let applied = 0;
+    try {
+        await pool.query(`CREATE TABLE IF NOT EXISTS schema_migrations (
+            filename    TEXT PRIMARY KEY,
+            applied_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )`);
+
+        if (!fs.existsSync(MIGRATIONS_DIR)) return 0;
+
+        const files = fs.readdirSync(MIGRATIONS_DIR).filter(f => f.endsWith('.sql')).sort();
+        for (const file of files) {
+            const done = await pool.query('SELECT 1 FROM schema_migrations WHERE filename = $1', [file]);
+            if (done.rowCount) continue;
+
+            const statements = splitSqlStatements(fs.readFileSync(path.join(MIGRATIONS_DIR, file), 'utf8'));
+            const client = await pool.connect();
+            try {
+                await client.query('BEGIN');
+                for (const sql of statements) {
+                    await client.query(sql);
+                }
+                await client.query('INSERT INTO schema_migrations (filename) VALUES ($1)', [file]);
+                await client.query('COMMIT');
+                applied++;
+                console.log('Migration applied: ' + file + ' (' + statements.length + ' statements)');
+            } catch (e) {
+                // Roll the whole file back. A half-applied constraint policy is
+                // worse than an unapplied one, so nothing is marked as done.
+                await client.query('ROLLBACK').catch(() => {});
+                console.error('Migration failed and was rolled back: ' + file + ' - ' + e.message);
+            } finally {
+                client.release();
+            }
+        }
+    } catch (e) {
+        console.error('Migration runner error: ' + e.message);
+    }
+    return applied;
+}
 
 async function initDatabase() {
     // Make sure we are actually talking to a reachable host before touching the
@@ -341,6 +445,9 @@ async function initDatabase() {
         }
     }
 
+    // 1c. Versioned migrations from database/migrations/*.sql
+    await runMigrations();
+
     // 2. Seed default admin if none exists (login: admin / admin123)
     const bcrypt = require('bcryptjs');
     const { rows } = await pool.query('SELECT id FROM users WHERE role = $1 LIMIT 1', ['admin']);
@@ -363,5 +470,6 @@ module.exports = {
     // configured host is unreachable, and a captured reference would keep pointing at
     // the pool that was just closed.
     get pool() { return pool; },
-    driverName: () => 'postgres'
+    driverName: () => 'postgres',
+    runMigrations
 };

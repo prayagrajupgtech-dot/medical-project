@@ -3732,12 +3732,36 @@ app.delete('/api/admin/profile/photo', authenticateToken, requireRole('admin'), 
 });
 
 // Audit logs
+//
+// audit_logs.user_id is ON DELETE SET NULL, so rows can outlive the account that
+// produced them. The join is a LEFT JOIN for that reason and must stay one: an
+// INNER JOIN would silently hide every entry from a deleted actor, which is the
+// opposite of what an audit trail is for.
+//
+// @typedef {Object} AuditLogRow
+// @property {number} id
+// @property {number|null} user_id  null once the actor's account has been deleted
+// @property {string} action
+// @property {string|null} table_name
+// @property {number|null} record_id
+// @property {string|null} details
+// @property {string|null} ip_address
+// @property {string|null} created_at
+// @property {string|null} admin_name  null when user_id is null
+// @property {string|null} actor_role  null when user_id is null
 app.get('/api/admin/audit-logs', authenticateToken, requireRole('admin'), (req, res) => {
     const { action, search, limit = 200 } = req.query;
     let where = 'WHERE 1=1';
     const params = [];
     if (action) { where += ' AND al.action = ?'; params.push(action); }
-    if (search) { where += ' AND (u.full_name LIKE ? OR al.action LIKE ? OR al.details LIKE ?)'; params.push(`%${search}%`, `%${search}%`, `%${search}%`); }
+    // Searching by name has to tolerate the null side of the LEFT JOIN; the
+    // "Deleted User" bucket is reachable by typing that text so an admin can
+    // still find the entries of an account they just removed.
+    if (search) {
+        where += ` AND (u.full_name LIKE ? OR al.action LIKE ? OR al.details LIKE ?
+                        OR (al.user_id IS NULL AND ? LIKE '%Deleted User%'))`;
+        params.push(`%${search}%`, `%${search}%`, `%${search}%`, search);
+    }
 
     db.all(`SELECT al.*, u.full_name as admin_name, u.role as actor_role
             FROM audit_logs al LEFT JOIN users u ON al.user_id = u.id

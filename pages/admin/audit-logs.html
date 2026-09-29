@@ -133,6 +133,15 @@
             return `<span class="status-badge ${cls}">${escapeHtml(action)}</span>`;
         }
 
+        function actorName(l) {
+            // audit_logs.user_id is ON DELETE SET NULL, so a row whose actor has
+            // been deleted arrives with no user to join. That is a normal state,
+            // not a broken record: the action, timestamp, details and IP are all
+            // still there. Only a genuinely nameless actor falls back to N/A.
+            if (l.admin_name) return escapeHtml(l.admin_name);
+            return l.user_id == null ? 'Deleted User' : 'N/A';
+        }
+
         function renderList(list) {
             const tbody = document.getElementById('logsList');
             const state = document.getElementById('logsState');
@@ -147,7 +156,7 @@
                 <tr>
                     <td>${formatDateTime(l.created_at)}</td>
                     <td>${actionBadge(l.action)}</td>
-                    <td>${escapeHtml(l.admin_name || 'N/A')}</td>
+                    <td>${actorName(l)}</td>
                     <td>${l.table_name ? escapeHtml(l.table_name) + ' #' + (l.record_id || '') : 'N/A'}</td>
                     <td style="max-width:300px;">${escapeHtml(l.details || '')}</td>
                     <td>${escapeHtml(l.ip_address || 'N/A')}</td>
