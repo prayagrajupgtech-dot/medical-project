@@ -371,8 +371,13 @@ function logAction(userId, action, tableName, recordId, details, ip) {
     );
 }
 
-// Initialize database
-initDatabase();
+// Initialize database.
+// Must be caught: an unhandled promise rejection terminates the process on
+// Node 15+, and a schema hiccup at boot was reported by the host as a failed
+// deploy with a blank page instead of a running-but-degraded app.
+initDatabase().catch((err) => {
+    console.error('[initDatabase] failed:', err && err.message ? err.message : err);
+});
 
 // ========== AUTH ROUTES ==========
 

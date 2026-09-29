@@ -405,6 +405,18 @@ CREATE INDEX IF NOT EXISTS idx_medical_retrieval_user ON medical_retrieval_logs(
 
 -- Hospital-first booking: which appointments belong to a hospital, and which
 -- slots a doctor already has booked on a given date.
+--
+-- The ALTERs come first and are required, not cosmetic. CREATE TABLE IF NOT
+-- EXISTS below never adds a column to a table that already exists, so on a
+-- database created before hospital_id was introduced the CREATE INDEX right
+-- after this block used to fail with `column "hospital_id" does not exist`.
+-- That single failure aborted the whole schema batch, so the migrations in
+-- pg-config.js (which is what adds the column) never got a chance to run.
+ALTER TABLE consultations ADD COLUMN IF NOT EXISTS hospital_id INTEGER;
+ALTER TABLE departments   ADD COLUMN IF NOT EXISTS hospital_id INTEGER;
+ALTER TABLE staff         ADD COLUMN IF NOT EXISTS hospital_id INTEGER;
+ALTER TABLE hospitals     ADD COLUMN IF NOT EXISTS hospital_id TEXT;
+
 CREATE INDEX IF NOT EXISTS idx_consultations_hospital ON consultations(hospital_id);
 CREATE INDEX IF NOT EXISTS idx_consultations_doctor_date ON consultations(doctor_id, date);
 

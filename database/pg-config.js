@@ -10,7 +10,18 @@
  */
 const fs = require('fs');
 const path = require('path');
+
+// Load .env here too, not only in config.js. Without it, requiring pg-config
+// directly (scripts, tests, `node -e`) left DATABASE_URL undefined, the pool
+// silently fell back to a local/default host and every query failed with
+// "The server does not support SSL connections".
+try { require('dotenv').config({ path: path.join(__dirname, '..', '.env') }); } catch (e) {}
+
 const { Pool } = require('pg');
+
+if (!process.env.DATABASE_URL) {
+    console.error('DATABASE_URL is not set - set it in .env or the host environment before using PostgreSQL.');
+}
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -127,9 +138,43 @@ const db = {
 };
 
 async function initDatabase() {
-    // 1. Run schema (CREATE TABLE IF NOT EXISTS — safe to re-run)
+    // 1. Run schema (CREATE TABLE IF NOT EXISTS — safe to re-run).
+    //
+    //    Executed one statement at a time on purpose. Sending the whole file as
+    //    a single batch means one bad statement — e.g. an index on a column that
+    //    an older database does not have yet — aborts every statement after it,
+    //    and the forward migrations below never run at all.
     const schema = fs.readFileSync(path.join(__dirname, 'schema.sql'), 'utf8');
-    await pool.query(schema);
+    const statements = schema
+        .split('\n')
+        .filter(line => !/^\s*--/.test(line))
+        .join('\n')
+        .split(';')
+        .map(s => s.trim())
+        .filter(Boolean);
+
+    let skipped = 0;
+    for (const sql of statements) {
+        // One retry: Supabase's direct connection occasionally drops or times
+        // out mid-boot, and skipping a CREATE TABLE because of a flaky socket
+        // would leave the app without that table until the next restart.
+        let done = false;
+        for (let attempt = 1; attempt <= 2 && !done; attempt++) {
+            try {
+                await pool.query(sql);
+                done = true;
+            } catch (e) {
+                const transient = /timeout|terminat|ECONNRESET|ETIMEDOUT|SSL connections/i.test(e.message);
+                if (attempt === 2 || !transient) {
+                    skipped++;
+                    console.warn('Schema statement skipped:', e.message, '||', sql.split('\n')[0].slice(0, 90));
+                } else {
+                    console.warn('Schema statement retrying after:', e.message);
+                }
+            }
+        }
+    }
+    if (skipped) console.warn(skipped + ' schema statement(s) skipped - see messages above');
     console.log('Connected to Supabase Postgres, schema ensured.');
 
     // 1b. Forward migrations for databases created before these columns existed.
